@@ -204,10 +204,12 @@ namespace GLTFLocal
 
 		std::unique_ptr<GLTFResourceReader> resourceReader;
 
+		auto strReader = streamReader.get();
+
 		// If the file has a '.gltf' extension then create a GLTFResourceReader
 		if (pathFileExt == MakePathExt(GLTF_EXTENSION))
 		{
-			auto gltfStream = streamReader->GetInputStream(pathFile.u8string()); // Pass a UTF-8 encoded filename to GetInputString
+			auto gltfStream = strReader->GetInputStream(pathFile.u8string()); // Pass a UTF-8 encoded filename to GetInputString
 			auto gltfResourceReader = std::make_unique<GLTFResourceReader>(std::move(streamReader));
 
 			std::stringstream manifestStream;
@@ -218,13 +220,9 @@ namespace GLTFLocal
 
 			resourceReader = std::move(gltfResourceReader);
 		}
-
-		// If the file has a '.glb' extension then create a GLBResourceReader. This class derives
-		// from GLTFResourceReader and adds support for reading manifests from a GLB container's
-		// JSON chunk and resource data from the binary chunk.
-		if (pathFileExt == MakePathExt(GLB_EXTENSION))
+		else if (pathFileExt == MakePathExt(GLB_EXTENSION))
 		{
-			auto glbStream = streamReader->GetInputStream(pathFile.u8string()); // Pass a UTF-8 encoded filename to GetInputString
+			auto glbStream = strReader->GetInputStream(pathFile.u8string()); // Pass a UTF-8 encoded filename to GetInputString
 			auto glbResourceReader = std::make_unique<GLBResourceReader>(std::move(streamReader), std::move(glbStream));
 
 			manifest = glbResourceReader->GetJson(); // Get the manifest from the JSON chunk
@@ -277,10 +275,11 @@ namespace GLTFLocal
 			};
 
 		unique_ptr<GLTFResourceReader> resourceReader;
+		auto strReader = streamReader.get();
 
 		if (pathFileExt == MakePathExt(GLTF_EXTENSION))
 		{
-			auto gltfStream = streamReader->GetInputStream(pathFile.u8string()); // Pass a UTF-8 encoded filename to GetInputString
+			auto gltfStream = strReader->GetInputStream(pathFile.u8string()); // Pass a UTF-8 encoded filename to GetInputString
 			auto gltfResourceReader = make_unique<GLTFResourceReader>(move(streamReader));
 
 			stringstream manifestStream;
@@ -290,10 +289,9 @@ namespace GLTFLocal
 
 			resourceReader = move(gltfResourceReader);
 		}
-
-		if (pathFileExt == MakePathExt(GLB_EXTENSION))
+		else if (pathFileExt == MakePathExt(GLB_EXTENSION))
 		{
-			auto glbStream = streamReader->GetInputStream(pathFile.u8string()); // Pass a UTF-8 encoded filename to GetInputString
+			auto glbStream = strReader->GetInputStream(pathFile.u8string()); // Pass a UTF-8 encoded filename to GetInputString
 			auto glbResourceReader = make_unique<GLBResourceReader>(move(streamReader), move(glbStream));
 
 			manifest = glbResourceReader->GetJson(); // Get the manifest from the JSON chunk
@@ -327,9 +325,9 @@ namespace GLTFLocal
 			for (const auto& primitive : mesh.primitives) {
 				auto meshData = std::make_unique<Engine::MeshData>();
 
-				auto indicesAccessor = document.accessors.Get(primitive.indicesAccessorId);
+				auto& indicesAccessor = document.accessors.Get(primitive.indicesAccessorId);
 				meshData->setIndices(std::make_shared<std::vector<uint32_t>>(resourceReader.get()->ReadBinaryData<uint32_t>(document, indicesAccessor)));
-				auto material = document.materials.Get(primitive.materialId);
+				auto& material = document.materials.Get(primitive.materialId);
 				for (const auto& texture : material.GetTextures()) {
 					if (texture.first.empty()) continue;
 					auto& tex = document.textures.Get(texture.first);
@@ -339,10 +337,22 @@ namespace GLTFLocal
 				}
 
 				for (const auto& attribute : primitive.attributes) {
-					auto accessor = document.accessors.Get(attribute.second);
+					auto& accessor = document.accessors.Get(attribute.second);
 					if (attribute.first == ACCESSOR_POSITION) {
 						auto data = std::make_shared<std::vector<float>>(resourceReader.get()->ReadBinaryData<float>(document, accessor));
 						meshData->setVertices(data);
+					}
+					if (attribute.first == ACCESSOR_NORMAL) {
+						auto data = std::make_shared<std::vector<float>>(resourceReader.get()->ReadBinaryData<float>(document, accessor));
+						meshData->setNormals(data);
+					}
+					if (attribute.first == ACCESSOR_TEXCOORD_0) {
+						auto data = std::make_shared<std::vector<float>>(resourceReader.get()->ReadBinaryData<float>(document, accessor));
+						meshData->setTexCoords(data);
+					}
+					if (attribute.first == ACCESSOR_TANGENT) {
+						auto data = std::make_shared<std::vector<float>>(resourceReader.get()->ReadBinaryData<float>(document, accessor));
+						meshData->setTangents(data);
 					}
 				}
 

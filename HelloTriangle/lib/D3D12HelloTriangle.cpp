@@ -2,7 +2,7 @@
 #include "D3D12HelloTriangle.h"
 #include "GLTFStreamReader.h"
 
-std::string GetErrorMessage(HRESULT hr) {
+static std::string GetErrorMessage(HRESULT hr) {
 	char* errorMsg = nullptr;
 
 	FormatMessageA(
@@ -17,13 +17,6 @@ std::string GetErrorMessage(HRESULT hr) {
 	std::string message = (errorMsg) ? errorMsg : "Unknown error";
 	LocalFree(errorMsg);
 	return message;
-}
-
-void HandleHResult(HRESULT hr) {
-	if (FAILED(hr)) {
-		std::string errorMessage = GetErrorMessage(hr);
-		throw std::runtime_error("HRESULT failed: " + errorMessage);
-	}
 }
 
 D3D12HelloTriangle::D3D12HelloTriangle(UINT width, UINT height, std::wstring name) :
@@ -171,25 +164,6 @@ void D3D12HelloTriangle::LoadPipeline()
 void D3D12HelloTriangle::LoadAssets()
 {
 	{
-		CD3DX12_DESCRIPTOR_RANGE cbvRange;
-		cbvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0); // 1 CBV at register b0
-
-		CD3DX12_ROOT_PARAMETER rootParameters[1];
-		rootParameters[0].InitAsDescriptorTable(1, &cbvRange);
-
-		CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
-		rootSignatureDesc.Init(1, rootParameters, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
-
-
-		ComPtr<ID3DBlob> signature;
-		ComPtr<ID3DBlob> error;
-		ThrowIfFailed(D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error));
-		ThrowIfFailed(m_device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_rootSignature)));
-	}
-
-	{
-		ComPtr<ID3DBlob> vertexShader;
-		ComPtr<ID3DBlob> pixelShader;
 
 #if defined(_DEBUG)
 		UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
@@ -197,9 +171,27 @@ void D3D12HelloTriangle::LoadAssets()
 		UINT compileFlags = 0;
 #endif
 
-		ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"assets\\shaders\\shaders.hlsl").c_str(), nullptr, nullptr, "VSMain", "vs_5_0", compileFlags, 0, &vertexShader, nullptr));
-		ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"assets\\shaders\\shaders.hlsl").c_str(), nullptr, nullptr, "PSMain", "ps_5_0", compileFlags, 0, &pixelShader, nullptr));
+		ThrowIfFailed(CompileShaderWithMessage(GetAssetFullPath(L"assets\\shaders\\shaders.hlsl").c_str(), "VSMain", "vs_5_0", compileFlags, &m_vertexShader));
+		ThrowIfFailed(CompileShaderWithMessage(GetAssetFullPath(L"assets\\shaders\\shaders.hlsl").c_str(), "PSMain", "ps_5_0", compileFlags, &m_pixelShader));
+	}
+	{
+		//CD3DX12_DESCRIPTOR_RANGE cbvRange;
+		//cbvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0); // 1 CBV at register b0
 
+		//CD3DX12_ROOT_PARAMETER rootParameters[1];
+		//rootParameters[0].InitAsDescriptorTable(1, &cbvRange);
+
+		//CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
+		//rootSignatureDesc.Init(1, rootParameters, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+
+
+		//ComPtr<ID3DBlob> signature;
+		//ComPtr<ID3DBlob> error;
+		//ThrowIfFailed(D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error));
+		ThrowIfFailed(m_device->CreateRootSignature(0, m_vertexShader->GetBufferPointer(), m_vertexShader->GetBufferSize(), IID_PPV_ARGS(&m_rootSignature)));
+	}
+
+	{
 		D3D12_INPUT_ELEMENT_DESC inputElementDescs[] =
 		{
 			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
@@ -207,9 +199,9 @@ void D3D12HelloTriangle::LoadAssets()
 
 		D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
 		psoDesc.InputLayout = { inputElementDescs, _countof(inputElementDescs) };
-		psoDesc.pRootSignature = m_rootSignature.Get();
-		psoDesc.VS = CD3DX12_SHADER_BYTECODE(vertexShader.Get());
-		psoDesc.PS = CD3DX12_SHADER_BYTECODE(pixelShader.Get());
+		//psoDesc.pRootSignature = m_rootSignature.Get();
+		psoDesc.VS = CD3DX12_SHADER_BYTECODE(m_vertexShader.Get());
+		psoDesc.PS = CD3DX12_SHADER_BYTECODE(m_pixelShader.Get());
 		psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
 		psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 		psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
@@ -291,7 +283,7 @@ void D3D12HelloTriangle::OnUpdate()
 
 }
 
-void setCursorToCenterOfTheWindow() {
+static void setCursorToCenterOfTheWindow() {
 	HWND hWnd = GetFocus();
 	if (!hWnd) return;
 	//set cursor to center of window if window is selected
@@ -381,8 +373,8 @@ void D3D12HelloTriangle::PopulateCommandList()
 	for (const auto& mesh : m_meshes) {
 		auto const g_mesh = mesh.get();
 		m_commandList->IASetVertexBuffers(0, 1, g_mesh->getVertexBufferView());
-		m_commandList->IASetIndexBuffer(g_mesh->getIndexBufferView());
-		m_commandList->DrawIndexedInstanced(g_mesh->getIndexBufferView()->SizeInBytes / sizeof(UINT), 1, 0, 0, 0);
+		m_commandList->IASetIndexBuffer(g_mesh->getIndicesBufferView());
+		m_commandList->DrawIndexedInstanced(g_mesh->getIndicesBufferView()->SizeInBytes / sizeof(UINT), 1, 0, 0, 0);
 	}
 
 	//m_commandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);

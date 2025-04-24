@@ -2,6 +2,8 @@
 
 #pragma once
 #include <stdexcept>
+#include <comdef.h>
+#include <iostream>
 
 using Microsoft::WRL::ComPtr;
 
@@ -27,6 +29,10 @@ inline void ThrowIfFailed(HRESULT hr)
 {
     if (FAILED(hr))
     {
+        _com_error err(hr);
+        const wchar_t* errMsg = err.ErrorMessage();
+        wprintf(L"Error: %s\n", errMsg);
+
         throw HrException(hr);
     }
 }
@@ -237,4 +243,36 @@ void ResetUniquePtrArray(T* uniquePtrArray)
     {
         i.reset();
     }
+}
+
+
+inline HRESULT CompileShaderWithMessage(const wchar_t* shaderFilePath, const char* entryPoint, const char* target, const UINT flags, ID3DBlob** shaderBlob) {
+    ID3DBlob* errorBlob = nullptr;
+
+    HRESULT hr = D3DCompileFromFile(
+        shaderFilePath,          // Path to the shader file
+        nullptr,                 // Optional macros
+        nullptr, // Include handler
+        entryPoint,              // Entry point function name
+        target,                  // Shader target (e.g., "vs_5_0" for vertex shader)
+        flags, // Compilation flags
+        0,                       // Effect flags
+        shaderBlob,             // Compiled shader blob
+        &errorBlob               // Error blob
+    );
+
+    if (FAILED(hr)) {
+        if (errorBlob) {
+            // Print the error message
+            std::cerr << "Shader compilation error: " << static_cast<const char*>(errorBlob->GetBufferPointer()) << std::endl;
+            errorBlob->Release();
+        }
+        else {
+            // Print the HRESULT error code
+            _com_error err(hr);
+            std::wcerr << L"Shader compilation failed with HRESULT: " << err.ErrorMessage() << std::endl;
+        }
+    }
+
+    return hr;
 }

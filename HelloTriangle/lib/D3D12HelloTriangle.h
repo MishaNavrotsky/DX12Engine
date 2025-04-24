@@ -49,6 +49,9 @@ private:
     ComPtr<ID3D12GraphicsCommandList> m_uploadCommandList;
     UINT m_rtvDescriptorSize;
 
+    ComPtr<ID3DBlob> m_vertexShader;
+    ComPtr<ID3DBlob> m_pixelShader;
+
     // Synchronization objects.
     UINT m_frameIndex;
     HANDLE m_fenceEvent;
