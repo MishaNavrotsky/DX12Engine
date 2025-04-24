@@ -57,7 +57,7 @@
     <OutDir>bin\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>obj\$(Platform)\$(Configuration)\</IntDir>
     <IncludePath>C:\Users\Misha\glTF-SDK\GLTFSDK\Inc;$(IncludePath)</IncludePath>
-    <LibraryPath>C:\Users\Misha\glTF-SDK\GLTFSDK\Release;$(LibraryPath)</LibraryPath>
+    <LibraryPath>C:\Users\Misha\glTF-SDK\GLTFSDK\Debug;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
@@ -71,7 +71,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <CompileAsWinRT>false</CompileAsWinRT>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -127,16 +127,19 @@
     </FxCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="Win32Application.h" />
-    <ClInclude Include="D3D12HelloTriangle.h" />
-    <ClInclude Include="DXSample.h" />
-    <ClInclude Include="DXSampleHelper.h" />
+    <ClInclude Include="lib\Camera.h" />
+    <ClInclude Include="lib\GLTFStreamReader.h" />
+    <ClInclude Include="lib\MeshData.h" />
+    <ClInclude Include="lib\Win32Application.h" />
+    <ClInclude Include="lib\D3D12HelloTriangle.h" />
+    <ClInclude Include="lib\DXSample.h" />
+    <ClInclude Include="lib\DXSampleHelper.h" />
     <ClInclude Include="stdafx.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Win32Application.cpp" />
-    <ClCompile Include="D3D12HelloTriangle.cpp" />
-    <ClCompile Include="DXSample.cpp" />
+    <ClCompile Include="lib\Win32Application.cpp" />
+    <ClCompile Include="lib\D3D12HelloTriangle.cpp" />
+    <ClCompile Include="lib\DXSample.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
@@ -144,15 +147,46 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="shaders.hlsl">
-      <FileType>Document</FileType>
+    <CopyFileToFolders Include="assets\glb\alicev2rigged.glb">
       <DeploymentContent>true</DeploymentContent>
-      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
-    </CustomBuild>
+      <FileType>Document</FileType>
+      <DestinationFolders Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)/assets/models</DestinationFolders>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="assets\glb\brick_wall.glb">
+      <DeploymentContent>true</DeploymentContent>
+      <FileType>Document</FileType>
+      <DestinationFolders Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)/assets/models</DestinationFolders>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="assets\glb\furniture_decor_sculpture_8mb.glb">
+      <DeploymentContent>true</DeploymentContent>
+      <FileType>Document</FileType>
+      <DestinationFolders Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)/assets/models</DestinationFolders>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="assets\glb\hand_low_poly.glb">
+      <DeploymentContent>true</DeploymentContent>
+      <FileType>Document</FileType>
+      <DestinationFolders Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)/assets/models</DestinationFolders>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="assets\glb\star_wars_galaxies_-_eta-2_actis_interceptor.glb">
+      <DeploymentContent>true</DeploymentContent>
+      <FileType>Document</FileType>
+      <DestinationFolders Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)/assets/models</DestinationFolders>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="assets\glb\su-33_flanker-d.glb">
+      <DeploymentContent>true</DeploymentContent>
+      <FileType>Document</FileType>
+      <DestinationFolders Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)/assets/models</DestinationFolders>
+    </CopyFileToFolders>
+    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="packages.config" />
+    <CopyFileToFolders Include="assets\shaders\shaders.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+      <FileType>Document</FileType>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DestinationFolders Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)/assets/shaders</DestinationFolders>
+    </CopyFileToFolders>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
