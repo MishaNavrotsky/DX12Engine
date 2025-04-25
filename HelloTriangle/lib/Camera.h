@@ -30,7 +30,14 @@ namespace Engine {
 		XMMATRIX getProjectionMatrix() const {
 			return m_projectionMatrix;
 		}
-
+		XMMATRIX getProjectionMatrixForReverseDepth() const {
+			return XMMatrixPerspectiveFovLH(
+				m_fov,
+				m_aspectRatio,
+				m_farPlane,
+				m_nearPlane
+			);
+		}
 		XMMATRIX getViewMatrix() const {
 			return m_viewMatrix;
 		}

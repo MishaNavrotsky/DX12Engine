@@ -49,6 +49,9 @@ private:
     ComPtr<ID3D12GraphicsCommandList> m_uploadCommandList;
     UINT m_rtvDescriptorSize;
 
+	ComPtr<ID3D12Resource> m_depthStencilBuffer;
+	ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
+
     ComPtr<ID3DBlob> m_vertexShader;
     ComPtr<ID3DBlob> m_pixelShader;
 

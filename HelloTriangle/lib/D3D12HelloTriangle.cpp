@@ -25,7 +25,7 @@ D3D12HelloTriangle::D3D12HelloTriangle(UINT width, UINT height, std::wstring nam
 	m_viewport(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height)),
 	m_scissorRect(0, 0, static_cast<LONG>(width), static_cast<LONG>(height)),
 	m_rtvDescriptorSize(0),
-	m_camera(XMConvertToRadians(30.0f), width, height, 0.1f, 100000.0f)
+	m_camera(XMConvertToRadians(60.0f), width, height, 0.1f, 100000.0f)
 {
 }
 
@@ -116,7 +116,55 @@ void D3D12HelloTriangle::LoadPipeline()
 		m_rtvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 	}
 	{
+		D3D12_CLEAR_VALUE clearValue = {};
+		clearValue.Format = DXGI_FORMAT_D32_FLOAT; // Match the depth buffer format
+		clearValue.DepthStencil.Depth = 0.0f; // Default depth clear value
+		clearValue.DepthStencil.Stencil = 0; // Default stencil clear value
 
+
+		D3D12_RESOURCE_DESC depthBufferDesc = {};
+		depthBufferDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+		depthBufferDesc.Width = GetWidth();
+		depthBufferDesc.Height = GetHeight();
+		depthBufferDesc.DepthOrArraySize = 1;
+		depthBufferDesc.MipLevels = 1;
+		depthBufferDesc.Format = DXGI_FORMAT_D32_FLOAT;
+		depthBufferDesc.SampleDesc.Count = 1;
+		depthBufferDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+
+		D3D12_HEAP_PROPERTIES heapProps = {};
+		heapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
+
+		ThrowIfFailed(m_device->CreateCommittedResource(
+			&heapProps,
+			D3D12_HEAP_FLAG_NONE,
+			&depthBufferDesc,
+			D3D12_RESOURCE_STATE_DEPTH_WRITE,
+			&clearValue,
+			IID_PPV_ARGS(&m_depthStencilBuffer)
+		));
+
+		D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
+		dsvDesc.Format = DXGI_FORMAT_D32_FLOAT;
+		dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+		dsvDesc.Flags = D3D12_DSV_FLAG_NONE;
+
+		// Create a depth stencil view
+		D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {};
+		dsvHeapDesc.NumDescriptors = 1;
+		dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+		dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+		dsvHeapDesc.NodeMask = 0;
+
+		ThrowIfFailed(m_device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&m_dsvHeap)));
+
+		m_device->CreateDepthStencilView(
+			m_depthStencilBuffer.Get(),
+			&dsvDesc,
+			m_dsvHeap->GetCPUDescriptorHandleForHeapStart()
+		);
+	}
+	{
 		auto sizeInBytesWithAlignment = (static_cast<UINT>(sizeof(XMFLOAT4X4)) + 255) & ~255;
 
 		D3D12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(sizeInBytesWithAlignment);
@@ -170,9 +218,8 @@ void D3D12HelloTriangle::LoadAssets()
 #else
 		UINT compileFlags = 0;
 #endif
-
-		ThrowIfFailed(CompileShaderWithMessage(GetAssetFullPath(L"assets\\shaders\\shaders.hlsl").c_str(), "VSMain", "vs_5_0", compileFlags, &m_vertexShader));
-		ThrowIfFailed(CompileShaderWithMessage(GetAssetFullPath(L"assets\\shaders\\shaders.hlsl").c_str(), "PSMain", "ps_5_0", compileFlags, &m_pixelShader));
+		ThrowIfFailed(CompileShaderWithMessage(GetAssetFullPath(L"assets\\shaders\\shaders.hlsl").c_str(), "VSMain", "vs_5_1", compileFlags, &m_vertexShader));
+		ThrowIfFailed(CompileShaderWithMessage(GetAssetFullPath(L"assets\\shaders\\shaders.hlsl").c_str(), "PSMain", "ps_5_1", compileFlags, &m_pixelShader));
 	}
 	{
 		//CD3DX12_DESCRIPTOR_RANGE cbvRange;
@@ -195,18 +242,28 @@ void D3D12HelloTriangle::LoadAssets()
 		D3D12_INPUT_ELEMENT_DESC inputElementDescs[] =
 		{
 			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+			{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 1, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 2, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+			{ "TANGENT", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 3, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		};
 
 		D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
 		psoDesc.InputLayout = { inputElementDescs, _countof(inputElementDescs) };
 		//psoDesc.pRootSignature = m_rootSignature.Get();
+		CD3DX12_DEPTH_STENCIL_DESC depthStencilDesc = {};
+		depthStencilDesc.DepthEnable = TRUE;
+		depthStencilDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+		depthStencilDesc.DepthFunc = D3D12_COMPARISON_FUNC_GREATER;
+		depthStencilDesc.StencilEnable = FALSE;
+
+		psoDesc.DepthStencilState = depthStencilDesc;
+		psoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
 		psoDesc.VS = CD3DX12_SHADER_BYTECODE(m_vertexShader.Get());
 		psoDesc.PS = CD3DX12_SHADER_BYTECODE(m_pixelShader.Get());
 		psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
 		psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 		psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-		psoDesc.DepthStencilState.DepthEnable = FALSE;
-		psoDesc.DepthStencilState.StencilEnable = FALSE;
+
 		psoDesc.SampleMask = UINT_MAX;
 		psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 		psoDesc.NumRenderTargets = 1;
@@ -335,7 +392,8 @@ void D3D12HelloTriangle::PopulateCommandList()
 	ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), m_pipelineState.Get()));
 
 	{
-		auto cameraProjection = m_camera.getProjectionMatrix();
+		//auto cameraProjection = m_camera.getProjectionMatrix();
+		auto cameraProjection = m_camera.getProjectionMatrixForReverseDepth();
 		auto cameraView = m_camera.getViewMatrix();
 		XMFLOAT4X4 cameraData;
 		XMStoreFloat4x4(&cameraData, XMMatrixTranspose(cameraView * cameraProjection));
@@ -364,15 +422,23 @@ void D3D12HelloTriangle::PopulateCommandList()
 	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
 
 	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart(), m_frameIndex, m_rtvDescriptorSize);
-	m_commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
+	CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_dsvHeap->GetCPUDescriptorHandleForHeapStart());
+	m_commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
 
 	const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
 	m_commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
+	m_commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 0.0f, 0, 0, nullptr);
 	m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	for (const auto& mesh : m_meshes) {
 		auto const g_mesh = mesh.get();
-		m_commandList->IASetVertexBuffers(0, 1, g_mesh->getVertexBufferView());
+
+		D3D12_VERTEX_BUFFER_VIEW* vertexBuffersView[4] = { g_mesh->getVertexBufferView(), g_mesh->getNormalsBufferView(), g_mesh->getTexCoordsBufferView(), g_mesh->getTangentsBufferView() };
+		m_commandList->IASetVertexBuffers(0, 4, *vertexBuffersView);
+		//m_commandList->IASetVertexBuffers(0, 1, g_mesh->getVertexBufferView());
+		//m_commandList->IASetVertexBuffers(1, 1, g_mesh->getNormalsBufferView());
+		//m_commandList->IASetVertexBuffers(2, 1, g_mesh->getTexCoordsBufferView());
+		//m_commandList->IASetVertexBuffers(3, 1, g_mesh->getTangentsBufferView());
 		m_commandList->IASetIndexBuffer(g_mesh->getIndicesBufferView());
 		m_commandList->DrawIndexedInstanced(g_mesh->getIndicesBufferView()->SizeInBytes / sizeof(UINT), 1, 0, 0, 0);
 	}

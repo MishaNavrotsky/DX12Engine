@@ -15,9 +15,7 @@ namespace Engine {
 		void setVertices(std::shared_ptr<std::vector<float>> v) {
 			m_vertices = v;
 		}
-		void setIndices(std::shared_ptr<std::vector<uint32_t>> v) {
-			m_indices = v;
-		}
+
 		void setNormals(std::shared_ptr<std::vector<float>> v) {
 			m_normals = v;
 		}
@@ -27,12 +25,13 @@ namespace Engine {
 		void setTangents(std::shared_ptr<std::vector<float>> v) {
 			m_tangents = v;
 		}
+		void setIndices(std::shared_ptr<std::vector<uint32_t>> v) {
+			m_indices = v;
+		}
 		std::shared_ptr<std::vector<float>> getVertices() {
 			return m_vertices;
 		}
-		std::shared_ptr<std::vector<uint32_t>> getIndices() {
-			return m_indices;
-		}
+
 		std::shared_ptr<std::vector<float>> getNormals() {
 			return m_normals;
 		}
@@ -41,6 +40,9 @@ namespace Engine {
 		}
 		std::shared_ptr<std::vector<float>> getTangents() {
 			return m_tangents;
+		}
+		std::shared_ptr<std::vector<uint32_t>> getIndices() {
+			return m_indices;
 		}
 
 		void createBuffers(ID3D12Device* device, ID3D12GraphicsCommandList* commandList) {
@@ -66,16 +68,16 @@ namespace Engine {
 	private:
 		void uploadDataToUploadBufferAndInitializeBufferViews(ID3D12Device* device) {
 			auto ver = m_vertices.get();
-			auto ind = m_indices.get();
 			auto nor = m_normals.get();
 			auto tex = m_texCoords.get();
 			auto tan = m_tangents.get();
+			auto ind = m_indices.get();
 
 			auto verSize = ver->size() * sizeof(ver->front());
-			auto indSize = ind->size() * sizeof(ind->front());
 			auto norSize = nor->size() * sizeof(nor->front());
 			auto texSize = tex->size() * sizeof(tex->front());
 			auto tanSize = tan->size() * sizeof(tan->front());
+			auto indSize = ind->size() * sizeof(ind->front());
 
 
 			size_t bufferSize = verSize + indSize + norSize + texSize + tanSize;
@@ -90,44 +92,45 @@ namespace Engine {
 			uint8_t* mappedData;
 			ThrowIfFailed(bufferUploadHeap->Map(0, nullptr, reinterpret_cast<void(**)>(&mappedData)));
 			memcpy(mappedData, ver->data(), verSize);
-			memcpy(mappedData + verSize, ind->data(), indSize);
-			memcpy(mappedData + verSize + indSize, nor->data(), norSize);
-			memcpy(mappedData + verSize + indSize + norSize, tex->data(), texSize);
-			memcpy(mappedData + verSize + indSize + norSize + texSize, tan->data(), tanSize);
+			memcpy(mappedData + verSize, nor->data(), norSize);
+			memcpy(mappedData + verSize + norSize, tex->data(), texSize);
+			memcpy(mappedData + verSize + norSize + texSize, tan->data(), tanSize);
+			memcpy(mappedData + verSize + norSize + texSize + tanSize, ind->data(), indSize);
 			bufferUploadHeap->Unmap(0, nullptr);
 
 			vertexBufferView.BufferLocation = bufferUploadHeap->GetGPUVirtualAddress();
 			vertexBufferView.StrideInBytes = sizeof(float) * 3;
 			vertexBufferView.SizeInBytes = static_cast<UINT>(verSize);
 
-			indexBufferView.BufferLocation = bufferUploadHeap->GetGPUVirtualAddress() + verSize;
-			indexBufferView.Format = DXGI_FORMAT_R32_UINT;
-			indexBufferView.SizeInBytes = static_cast<UINT>(indSize);
-
-			normalsBufferView.BufferLocation = bufferUploadHeap->GetGPUVirtualAddress() + verSize + indSize;
+			normalsBufferView.BufferLocation = bufferUploadHeap->GetGPUVirtualAddress() + verSize;
 			normalsBufferView.StrideInBytes = sizeof(float) * 3;
 			normalsBufferView.SizeInBytes = static_cast<UINT>(norSize);
 
-			texCoordsBufferView.BufferLocation = bufferUploadHeap->GetGPUVirtualAddress() + verSize + indSize + norSize;
+			texCoordsBufferView.BufferLocation = bufferUploadHeap->GetGPUVirtualAddress() + verSize + norSize;
 			texCoordsBufferView.StrideInBytes = sizeof(float) * 2;
 			texCoordsBufferView.SizeInBytes = static_cast<UINT>(texSize);
 
-			tangentsBufferView.BufferLocation = bufferUploadHeap->GetGPUVirtualAddress() + verSize + indSize + norSize + texSize;
+			tangentsBufferView.BufferLocation = bufferUploadHeap->GetGPUVirtualAddress() + verSize + norSize + texSize;
 			tangentsBufferView.StrideInBytes = sizeof(float) * 4;
 			tangentsBufferView.SizeInBytes = static_cast<UINT>(tanSize);
+
+			indexBufferView.BufferLocation = bufferUploadHeap->GetGPUVirtualAddress() + verSize + norSize + texSize + tanSize;
+			indexBufferView.Format = DXGI_FORMAT_R32_UINT;
+			indexBufferView.SizeInBytes = static_cast<UINT>(indSize);
+
 		}
 
 		std::shared_ptr<std::vector<float>> m_vertices = nullptr;
+		std::shared_ptr<std::vector<float>> m_normals = std::make_shared<std::vector<float>>(3, 0);
+		std::shared_ptr<std::vector<float>> m_texCoords = std::make_shared<std::vector<float>>(2, 0);
+		std::shared_ptr<std::vector<float>> m_tangents = std::make_shared<std::vector<float>>(4, 0);
 		std::shared_ptr<std::vector<uint32_t>> m_indices = nullptr;
-		std::shared_ptr<std::vector<float>> m_normals = std::make_shared<std::vector<float>>(2, 0);
-		std::shared_ptr<std::vector<float>> m_texCoords = std::make_shared<std::vector<float>>(1, 0);
-		std::shared_ptr<std::vector<float>> m_tangents = std::make_shared<std::vector<float>>(1, 0);
 
 		D3D12_VERTEX_BUFFER_VIEW vertexBufferView = {};
-		D3D12_INDEX_BUFFER_VIEW indexBufferView = {};
 		D3D12_VERTEX_BUFFER_VIEW normalsBufferView = {};
 		D3D12_VERTEX_BUFFER_VIEW texCoordsBufferView = {};
 		D3D12_VERTEX_BUFFER_VIEW tangentsBufferView = {};
+		D3D12_INDEX_BUFFER_VIEW indexBufferView = {};
 
 		ComPtr<ID3D12Resource> bufferUploadHeap = nullptr;
 	};
