@@ -469,6 +469,9 @@ void D3D12HelloTriangle::WaitForPreviousFrame()
 
 void D3D12HelloTriangle::OnKeyDown()
 {
+	HWND hWnd = GetFocus();
+	if (!hWnd) return;
+
 	auto cameraPos = m_camera.getPosition();
 	auto cameraLookAt = m_camera.getLookAt();
 	auto cameraSpeed = 100.0f;
@@ -476,6 +479,11 @@ void D3D12HelloTriangle::OnKeyDown()
 	if (GetAsyncKeyState(VK_SHIFT) & 0x8000) { // Shift key
 		cameraSpeed *= 10.0f;
 	}
+
+	if (GetAsyncKeyState(VK_LCONTROL) & 0x8000) { // Left Ctrl key
+		cameraSpeed *= 0.1f;
+	}
+
 
 
 	if (GetAsyncKeyState(0x57) & 0x8000) { // W key
