@@ -1,6 +1,5 @@
 #include "stdafx.h"
 #include "D3D12HelloTriangle.h"
-#include "GLTFStreamReader.h"
 
 static std::string GetErrorMessage(HRESULT hr) {
 	char* errorMsg = nullptr;
@@ -82,6 +81,13 @@ void D3D12HelloTriangle::LoadPipeline()
 	queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
 
 	ThrowIfFailed(m_device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&m_commandQueue)));
+
+	D3D12_COMMAND_QUEUE_DESC uploadQueueDesc = {};
+	uploadQueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
+	uploadQueueDesc.Type = D3D12_COMMAND_LIST_TYPE_COPY;
+
+	ThrowIfFailed(m_device->CreateCommandQueue(&uploadQueueDesc, IID_PPV_ARGS(&m_uploadCommandQueue)));
+
 
 	DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
 	swapChainDesc.BufferCount = FrameCount;
@@ -184,7 +190,7 @@ void D3D12HelloTriangle::LoadPipeline()
 		cbvHeapDesc.NumDescriptors = 1;
 		cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 		cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-		cbvHeapDesc.NodeMask = 1;
+		cbvHeapDesc.NodeMask = 0;
 
 		ThrowIfFailed(m_device->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&m_cameraDescriptorHeap)));
 
@@ -276,13 +282,21 @@ void D3D12HelloTriangle::LoadAssets()
 
 	ThrowIfFailed(m_commandList->Close());
 
+
+	ThrowIfFailed(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COPY, m_uploadCommandAllocator.Get(), m_pipelineState.Get(), IID_PPV_ARGS(&m_uploadCommandList)));
 	{
 		m_meshes = std::move(GLTFLocal::GetMeshesInfo(L"D:\\DX12En\\HelloTriangle\\bin\\x64\\Debug\\assets\\models\\alicev2rigged.glb"));
 		for (const auto& mesh : m_meshes)
 		{
-			mesh.get()->createBuffers(m_device.Get(), m_commandList.Get());
+			mesh.get()->createBuffers(m_device.Get(), m_uploadCommandList.Get());
 		}
 	}
+	ThrowIfFailed(m_uploadCommandList->Close());
+	ID3D12CommandList* commandLists[] = { m_uploadCommandList.Get()};
+	m_uploadCommandQueue->ExecuteCommandLists(_countof(commandLists), commandLists);
+
+	ThrowIfFailed(m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_uploadFence)));
+	ThrowIfFailed(m_uploadCommandQueue->Signal(m_uploadFence.Get(), ++m_uploadFenceValue));
 
 	// Create the vertex buffer.
 	{
@@ -368,6 +382,7 @@ void D3D12HelloTriangle::OnRender()
 	{
 		this->OnKeyDown();
 	}
+	m_commandQueue->Wait(m_uploadFence.Get(), m_uploadFenceValue);
 
 	PopulateCommandList();
 
@@ -432,13 +447,10 @@ void D3D12HelloTriangle::PopulateCommandList()
 
 	for (const auto& mesh : m_meshes) {
 		auto const g_mesh = mesh.get();
+		g_mesh->transitionVertexBufferAndIndexBufferToTheirStates(m_commandList.Get());
 
 		D3D12_VERTEX_BUFFER_VIEW* vertexBuffersView[4] = { g_mesh->getVertexBufferView(), g_mesh->getNormalsBufferView(), g_mesh->getTexCoordsBufferView(), g_mesh->getTangentsBufferView() };
 		m_commandList->IASetVertexBuffers(0, 4, *vertexBuffersView);
-		//m_commandList->IASetVertexBuffers(0, 1, g_mesh->getVertexBufferView());
-		//m_commandList->IASetVertexBuffers(1, 1, g_mesh->getNormalsBufferView());
-		//m_commandList->IASetVertexBuffers(2, 1, g_mesh->getTexCoordsBufferView());
-		//m_commandList->IASetVertexBuffers(3, 1, g_mesh->getTangentsBufferView());
 		m_commandList->IASetIndexBuffer(g_mesh->getIndicesBufferView());
 		m_commandList->DrawIndexedInstanced(g_mesh->getIndicesBufferView()->SizeInBytes / sizeof(UINT), 1, 0, 0, 0);
 	}

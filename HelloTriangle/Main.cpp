@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "lib/D3D12HelloTriangle.h"
 #include <iostream>
+#include "DirectXTex.h"
 
 void CreateConsole()
 {
@@ -35,6 +36,11 @@ void CreateConsole()
 _Use_decl_annotations_
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
 {
+    HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    if (FAILED(hr)) {
+        std::cerr << "Failed to initialize COM. HRESULT: " << std::hex << hr << "\n";
+        return -1;
+    };
     CreateConsole();
     D3D12HelloTriangle sample(1280, 720, L"D3D12 Hello Triangle");
     return Win32Application::Run(&sample, hInstance, nCmdShow);

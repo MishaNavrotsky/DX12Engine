@@ -3,6 +3,7 @@
 #include "DXSample.h"
 #include "MeshData.h"
 #include "Camera.h"
+#include "GLTFStreamReader.h"
 
 using namespace DirectX;
 
@@ -42,6 +43,7 @@ private:
     ComPtr<ID3D12CommandAllocator> m_commandAllocator;
     ComPtr<ID3D12CommandAllocator> m_uploadCommandAllocator;
     ComPtr<ID3D12CommandQueue> m_commandQueue;
+    ComPtr<ID3D12CommandQueue> m_uploadCommandQueue;
     ComPtr<ID3D12RootSignature> m_rootSignature;
     ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
     ComPtr<ID3D12PipelineState> m_pipelineState;
@@ -60,6 +62,10 @@ private:
     HANDLE m_fenceEvent;
     ComPtr<ID3D12Fence> m_fence;
     UINT64 m_fenceValue;
+
+    ComPtr<ID3D12Fence> m_uploadFence;
+	UINT64 m_uploadFenceValue;
+
 
     std::vector<std::unique_ptr<Engine::MeshData>> m_meshes;
 	Engine::Camera m_camera;

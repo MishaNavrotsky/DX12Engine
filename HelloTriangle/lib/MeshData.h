@@ -3,8 +3,16 @@
 #pragma once
 
 #include "DXSampleHelper.h"
+#include "DirectXMath.h"
+#include "DirectXTex.h"
 
 namespace Engine {
+	enum AlphaMode {
+		Opaque,
+		Mask,
+		Blend
+	};
+
 	using namespace Microsoft::WRL;
 	class Sampler {
 	public:
@@ -22,21 +30,88 @@ namespace Engine {
 
 	class Texture {
 	public:
-		Texture() = default;
-		Texture(const Texture&) = delete;
+		Texture() {
+			textureDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+			textureDesc.Width = 1;
+			textureDesc.Height = 1;
+			textureDesc.DepthOrArraySize = 1;
+			textureDesc.MipLevels = 1;
+			textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+			textureDesc.SampleDesc.Count = 1;
+			textureDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+			textureDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+			textureDesc.Alignment = 0;
+		};
+		Texture(const Texture& other) {
+			textureDesc = other.textureDesc;
+			m_scratchImage = other.m_scratchImage;
+			isDefaultScratchImage = other.isDefaultScratchImage;
+		}
 		Texture& operator=(const Texture&) = delete;
 
 		D3D12_RESOURCE_DESC textureDesc = {};
-		ComPtr<ID3D12Resource> getTextureResource() {
-			return m_texture;
+		void setScratchImage(std::shared_ptr<DirectX::ScratchImage> bitmapData) {
+			isDefaultScratchImage = false;
+			m_scratchImage = bitmapData;
+			auto& metadata = bitmapData->GetMetadata();
+			textureDesc.Width = static_cast<UINT64>(metadata.width);
+			textureDesc.Height = static_cast<UINT>(metadata.height);
+			textureDesc.MipLevels = static_cast<UINT16>(metadata.mipLevels);
+			textureDesc.Format = metadata.format;
+			textureDesc.DepthOrArraySize = static_cast<UINT16>(metadata.arraySize);
+			textureDesc.Dimension = metadata.dimension == DirectX::TEX_DIMENSION::TEX_DIMENSION_TEXTURE2D ? D3D12_RESOURCE_DIMENSION_TEXTURE2D : D3D12_RESOURCE_DIMENSION_TEXTURE3D;
+			textureDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+			textureDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+			textureDesc.Alignment = 0;
 		}
-		void setBitmapData(std::shared_ptr<std::vector<uint8_t>> bitmapData) {
-			m_bitmapData = bitmapData;
+		std::shared_ptr<DirectX::ScratchImage> getScratchImage() {
+			return m_scratchImage;
+		}
+		bool getIsDefaultScratchImage() const {
+			return isDefaultScratchImage;
 		}
 	private:
-		ComPtr<ID3D12Resource> m_texture = nullptr;
-		std::shared_ptr<std::vector<uint8_t>> m_bitmapData = std::make_shared<std::vector<uint8_t>>(1, 0);
+		std::shared_ptr<DirectX::ScratchImage> m_scratchImage = std::make_shared<DirectX::ScratchImage>();
+		DirectX::TexMetadata m_metadata = {};
+		bool isDefaultScratchImage = true;
 	};
+
+	class EmissiveTexture : public Texture {
+	public:
+		EmissiveTexture() = default;
+		EmissiveTexture(const Texture& other) : Texture(other) {};
+		DirectX::XMFLOAT3 emissiveFactor = { 0.f, 0.f, 0.f };
+	};
+
+	class DiffuseTexture : public Texture {
+	public:
+		DiffuseTexture() = default;
+		DiffuseTexture(const Texture& other) : Texture(other) {};
+		DirectX::XMFLOAT4 baseColorFactor = { 1.f, 1.f, 1.f, 1.f };
+	};
+
+	class NormalTexture : public Texture {
+	public:
+		NormalTexture() = default;
+		NormalTexture(const Texture& other) : Texture(other) {};
+		float scale = 1.f;
+	};
+
+	class OcclusionTexture : public Texture {
+	public:
+		OcclusionTexture() = default;
+		OcclusionTexture(const Texture& other) : Texture(other) {};
+		float strength = 1.f;
+	};
+
+	class MetallicRoughnessTexture : public Texture {
+	public:
+		MetallicRoughnessTexture() = default;
+		MetallicRoughnessTexture(const Texture& other) : Texture(other) {};
+		float metallicFactor = 1.f;
+		float roughnessFactor = 1.f;
+	};
+
 
 	class MeshDataTextures {
 	public:
@@ -44,19 +119,19 @@ namespace Engine {
 		MeshDataTextures(const MeshDataTextures&) = delete;
 		MeshDataTextures& operator=(const MeshDataTextures&) = delete;
 
-		void setDiffuseTexture(std::shared_ptr<Texture> texture) {
+		void setDiffuseTexture(std::shared_ptr<DiffuseTexture> texture) {
 			m_diffuseTexture = texture;
 		}
-		void setNormalTexture(std::shared_ptr<Texture> texture) {
+		void setNormalTexture(std::shared_ptr<NormalTexture> texture) {
 			m_normalTexture = texture;
 		}
-		void setOcclusionTexture(std::shared_ptr<Texture> texture) {
+		void setOcclusionTexture(std::shared_ptr<OcclusionTexture> texture) {
 			m_occlusionTexture = texture;
 		}
-		void setEmissiveTexture(std::shared_ptr<Texture> texture) {
+		void setEmissiveTexture(std::shared_ptr<EmissiveTexture> texture) {
 			m_emissiveTexture = texture;
 		}
-		void setMetallicRoughnessTexture(std::shared_ptr<Texture> texture) {
+		void setMetallicRoughnessTexture(std::shared_ptr<MetallicRoughnessTexture> texture) {
 			m_metallicRoughnessTexture = texture;
 		}
 		void setDiffuseSampler(std::shared_ptr<Sampler> sampler) {
@@ -75,19 +150,27 @@ namespace Engine {
 			m_metallicRoughnessSampler = sampler;
 		}
 
-		ComPtr<ID3D12DescriptorHeap> getSRVHeap() {
-			return m_srvHeap;
+		ComPtr<ID3D12DescriptorHeap> getSRVDescriptorHeap() {
+			return m_srvDescriptorHeap;
 		}
-		ComPtr<ID3D12DescriptorHeap> getSamplerHeap() {
-			return m_samplerHeap;
+		ComPtr<ID3D12DescriptorHeap> getSamplerDescriptorHeap() {
+			return m_samplerDescriptorHeap;
 		}
 
+		void createBuffers(ID3D12Device* device, ID3D12GraphicsCommandList* commandList) {
+			uploadDataToUploadBufferAndInitializeTextureResources(device, commandList);
+		}
 	private:
-		std::shared_ptr<Texture> m_diffuseTexture = std::make_shared<Texture>();
-		std::shared_ptr<Texture> m_normalTexture = std::make_shared<Texture>();
-		std::shared_ptr<Texture> m_occlusionTexture = std::make_shared<Texture>();
-		std::shared_ptr<Texture> m_emissiveTexture = std::make_shared<Texture>();
-		std::shared_ptr<Texture> m_metallicRoughnessTexture = std::make_shared<Texture>();
+		void uploadDataToUploadBufferAndInitializeTextureResources(ID3D12Device* device, ID3D12GraphicsCommandList* commandList) {
+			const size_t textureCount = 5;
+			std::shared_ptr<Texture> textures[textureCount] = { m_diffuseTexture, m_normalTexture, m_occlusionTexture, m_emissiveTexture, m_metallicRoughnessTexture };
+
+		}
+		std::shared_ptr<DiffuseTexture> m_diffuseTexture = std::make_shared<DiffuseTexture>();
+		std::shared_ptr<NormalTexture> m_normalTexture = std::make_shared<NormalTexture>();
+		std::shared_ptr<OcclusionTexture> m_occlusionTexture = std::make_shared<OcclusionTexture>();
+		std::shared_ptr<EmissiveTexture> m_emissiveTexture = std::make_shared<EmissiveTexture>();
+		std::shared_ptr<MetallicRoughnessTexture> m_metallicRoughnessTexture = std::make_shared<MetallicRoughnessTexture>();
 
 		std::shared_ptr<Sampler> m_diffuseSampler = std::make_shared<Sampler>();
 		std::shared_ptr<Sampler> m_normalSampler = std::make_shared<Sampler>();
@@ -95,10 +178,11 @@ namespace Engine {
 		std::shared_ptr<Sampler> m_emissiveSampler = std::make_shared<Sampler>();
 		std::shared_ptr<Sampler> m_metallicRoughnessSampler = std::make_shared<Sampler>();
 
-		ComPtr<ID3D12DescriptorHeap> m_srvHeap = nullptr;
-		ComPtr<ID3D12DescriptorHeap> m_samplerHeap = nullptr;
+		ComPtr<ID3D12DescriptorHeap> m_srvDescriptorHeap = nullptr;
+		ComPtr<ID3D12DescriptorHeap> m_samplerDescriptorHeap = nullptr;
 
 		ComPtr<ID3D12Resource> m_srvUploadHeap = nullptr;
+		ComPtr<ID3D12Resource> m_srvDefaultHeap = nullptr;
 
 	};
 
@@ -144,7 +228,8 @@ namespace Engine {
 		}
 
 		void createBuffers(ID3D12Device* device, ID3D12GraphicsCommandList* commandList) {
-			uploadDataToUploadBufferAndInitializeBufferViews(device);
+			uploadDataToGPUUploadHeapAndInitializeBufferViews(device, commandList);
+			textures.createBuffers(device, commandList);
 		}
 
 		D3D12_VERTEX_BUFFER_VIEW* getVertexBufferView() {
@@ -163,8 +248,18 @@ namespace Engine {
 			return &m_tangentsBufferView;
 		}
 
+		void transitionVertexBufferAndIndexBufferToTheirStates(ID3D12GraphicsCommandList* commandList) {
+			if (m_isVertexAndIndexBufferTransitioned) return;
+			commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_vertexBuffersDefaultHeap.Get(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER));
+			commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_indexBuffersDefaultHeap.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_INDEX_BUFFER));
+			m_isVertexAndIndexBufferTransitioned = true;
+		}
+
+		AlphaMode alphaMode = AlphaMode::Opaque;
+		D3D12_CULL_MODE cullMode = D3D12_CULL_MODE_BACK;
+		float alphaCutoff = 0.5f;
 	private:
-		void uploadDataToUploadBufferAndInitializeBufferViews(ID3D12Device* device) {
+		void uploadDataToGPUUploadHeapAndInitializeBufferViews(ID3D12Device* device, ID3D12GraphicsCommandList* commandList) {
 			auto ver = m_vertices.get();
 			auto nor = m_normals.get();
 			auto tex = m_texCoords.get();
@@ -178,44 +273,97 @@ namespace Engine {
 			auto indSize = ind->size() * sizeof(ind->front());
 
 
-			size_t bufferSize = verSize + indSize + norSize + texSize + tanSize;
-			device->CreateCommittedResource(
-				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-				D3D12_HEAP_FLAG_NONE,
-				&CD3DX12_RESOURCE_DESC::Buffer(bufferSize),
-				D3D12_RESOURCE_STATE_GENERIC_READ,
-				nullptr,
-				IID_PPV_ARGS(&m_bufferUploadHeap));
+			{
+				size_t bufferSize = verSize + norSize + texSize + tanSize;
 
-			uint8_t* mappedData;
-			ThrowIfFailed(m_bufferUploadHeap->Map(0, nullptr, reinterpret_cast<void(**)>(&mappedData)));
-			memcpy(mappedData, ver->data(), verSize);
-			memcpy(mappedData + verSize, nor->data(), norSize);
-			memcpy(mappedData + verSize + norSize, tex->data(), texSize);
-			memcpy(mappedData + verSize + norSize + texSize, tan->data(), tanSize);
-			memcpy(mappedData + verSize + norSize + texSize + tanSize, ind->data(), indSize);
-			m_bufferUploadHeap->Unmap(0, nullptr);
+				auto heapProps = CD3DX12_RESOURCE_DESC::Buffer(bufferSize);
 
-			m_vertexBufferView.BufferLocation = m_bufferUploadHeap->GetGPUVirtualAddress();
-			m_vertexBufferView.StrideInBytes = sizeof(float) * 3;
-			m_vertexBufferView.SizeInBytes = static_cast<UINT>(verSize);
+				device->CreateCommittedResource(
+					&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_GPU_UPLOAD),
+					D3D12_HEAP_FLAG_NONE,
+					&CD3DX12_RESOURCE_DESC::Buffer(bufferSize),
+					D3D12_RESOURCE_STATE_COMMON,
+					nullptr,
+					IID_PPV_ARGS(&m_vertexBuffersGPUUploadHeap));
 
-			m_normalsBufferView.BufferLocation = m_bufferUploadHeap->GetGPUVirtualAddress() + verSize;
-			m_normalsBufferView.StrideInBytes = sizeof(float) * 3;
-			m_normalsBufferView.SizeInBytes = static_cast<UINT>(norSize);
+				uint8_t* mappedData;
+				ThrowIfFailed(m_vertexBuffersGPUUploadHeap->Map(0, nullptr, reinterpret_cast<void**>(&mappedData)));
+				memcpy(mappedData, ver->data(), verSize);
+				memcpy(mappedData + verSize, nor->data(), norSize);
+				memcpy(mappedData + verSize + norSize, tex->data(), texSize);
+				memcpy(mappedData + verSize + norSize + texSize, tan->data(), tanSize);
+				m_vertexBuffersGPUUploadHeap->Unmap(0, nullptr);
 
-			m_texCoordsBufferView.BufferLocation = m_bufferUploadHeap->GetGPUVirtualAddress() + verSize + norSize;
-			m_texCoordsBufferView.StrideInBytes = sizeof(float) * 2;
-			m_texCoordsBufferView.SizeInBytes = static_cast<UINT>(texSize);
 
-			m_tangentsBufferView.BufferLocation = m_bufferUploadHeap->GetGPUVirtualAddress() + verSize + norSize + texSize;
-			m_tangentsBufferView.StrideInBytes = sizeof(float) * 4;
-			m_tangentsBufferView.SizeInBytes = static_cast<UINT>(tanSize);
+				ThrowIfFailed(device->CreateCommittedResource(
+					&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+					D3D12_HEAP_FLAG_NONE,
+					&CD3DX12_RESOURCE_DESC::Buffer(bufferSize),
+					D3D12_RESOURCE_STATE_COMMON,
+					nullptr,
+					IID_PPV_ARGS(&m_vertexBuffersDefaultHeap)));
 
-			m_indexBufferView.BufferLocation = m_bufferUploadHeap->GetGPUVirtualAddress() + verSize + norSize + texSize + tanSize;
-			m_indexBufferView.Format = DXGI_FORMAT_R32_UINT;
-			m_indexBufferView.SizeInBytes = static_cast<UINT>(indSize);
+				// copy the bufferUploadHeap to the bufferDefaultHeap
+				commandList->CopyBufferRegion(
+					m_vertexBuffersDefaultHeap.Get(),
+					0,
+					m_vertexBuffersGPUUploadHeap.Get(),
+					0,
+					bufferSize
+				);
+				m_vertexBufferView.BufferLocation = m_vertexBuffersDefaultHeap->GetGPUVirtualAddress();
+				m_vertexBufferView.StrideInBytes = sizeof(float) * 3;
+				m_vertexBufferView.SizeInBytes = static_cast<UINT>(verSize);
 
+				m_normalsBufferView.BufferLocation = m_vertexBuffersDefaultHeap->GetGPUVirtualAddress() + verSize;
+				m_normalsBufferView.StrideInBytes = sizeof(float) * 3;
+				m_normalsBufferView.SizeInBytes = static_cast<UINT>(norSize);
+
+				m_texCoordsBufferView.BufferLocation = m_vertexBuffersDefaultHeap->GetGPUVirtualAddress() + verSize + norSize;
+				m_texCoordsBufferView.StrideInBytes = sizeof(float) * 2;
+				m_texCoordsBufferView.SizeInBytes = static_cast<UINT>(texSize);
+
+				m_tangentsBufferView.BufferLocation = m_vertexBuffersDefaultHeap->GetGPUVirtualAddress() + verSize + norSize + texSize;
+				m_tangentsBufferView.StrideInBytes = sizeof(float) * 4;
+				m_tangentsBufferView.SizeInBytes = static_cast<UINT>(tanSize);
+			}
+
+			{
+				device->CreateCommittedResource(
+					&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+					D3D12_HEAP_FLAG_NONE,
+					&CD3DX12_RESOURCE_DESC::Buffer(indSize),
+					D3D12_RESOURCE_STATE_GENERIC_READ,
+					nullptr,
+					IID_PPV_ARGS(&m_indexBufferUploadHeap));
+
+				uint8_t* mappedData;
+				ThrowIfFailed(m_indexBufferUploadHeap->Map(0, nullptr, reinterpret_cast<void**>(&mappedData)));
+				memcpy(mappedData, ind->data(), indSize);
+				m_indexBufferUploadHeap->Unmap(0, nullptr);
+
+
+				ThrowIfFailed(device->CreateCommittedResource(
+					&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+					D3D12_HEAP_FLAG_NONE,
+					&CD3DX12_RESOURCE_DESC::Buffer(indSize),
+					D3D12_RESOURCE_STATE_COMMON,
+					nullptr,
+					IID_PPV_ARGS(&m_indexBuffersDefaultHeap)));
+
+				// copy the bufferUploadHeap to the bufferDefaultHeap
+				commandList->CopyBufferRegion(
+					m_indexBuffersDefaultHeap.Get(),
+					0,
+					m_indexBufferUploadHeap.Get(),
+					0,
+					indSize
+				);
+
+				m_indexBufferView.BufferLocation = m_indexBuffersDefaultHeap->GetGPUVirtualAddress();
+				m_indexBufferView.Format = DXGI_FORMAT_R32_UINT;
+				m_indexBufferView.SizeInBytes = static_cast<UINT>(indSize);
+			}
 		}
 
 		std::shared_ptr<std::vector<float>> m_vertices = nullptr;
@@ -230,6 +378,11 @@ namespace Engine {
 		D3D12_VERTEX_BUFFER_VIEW m_tangentsBufferView = {};
 		D3D12_INDEX_BUFFER_VIEW m_indexBufferView = {};
 
-		ComPtr<ID3D12Resource> m_bufferUploadHeap = nullptr;
+		ComPtr<ID3D12Resource> m_vertexBuffersGPUUploadHeap = nullptr;
+		ComPtr<ID3D12Resource> m_vertexBuffersDefaultHeap = nullptr;
+		ComPtr<ID3D12Resource> m_indexBufferUploadHeap = nullptr;
+		ComPtr<ID3D12Resource> m_indexBuffersDefaultHeap = nullptr;
+
+		bool m_isVertexAndIndexBufferTransitioned = false;
 	};
 }

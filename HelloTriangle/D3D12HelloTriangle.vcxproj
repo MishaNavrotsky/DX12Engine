@@ -56,8 +56,8 @@
     <LinkIncremental>true</LinkIncremental>
     <OutDir>bin\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>obj\$(Platform)\$(Configuration)\</IntDir>
-    <IncludePath>C:\Users\Misha\glTF-SDK\GLTFSDK\Inc;$(IncludePath)</IncludePath>
-    <LibraryPath>C:\Users\Misha\glTF-SDK\GLTFSDK\Debug;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(IncludePath);</IncludePath>
+    <LibraryPath>D:\DX12En\HelloTriangle;C:\Users\Misha\glTF-SDK\GLTFSDK\Debug;C:\Users\Misha\DirectXTex\build\lib\Debug;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
@@ -71,7 +71,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories);C:\Users\Misha\glTF-SDK\GLTFSDK\Inc;C:\Users\Misha\stb;C:\Users\Misha\DirectXTex\DirectXTex;</AdditionalIncludeDirectories>
       <CompileAsWinRT>false</CompileAsWinRT>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -79,7 +79,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;d3dcompiler.lib;GLTFSDK.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d3d12.lib;dxgi.lib;d3dcompiler.lib;GLTFSDK.lib;%(AdditionalDependencies);DirectXTex.lib;</AdditionalDependencies>
       <DelayLoadDLLs>d3d12.dll</DelayLoadDLLs>
     </Link>
     <CustomBuildStep>
@@ -127,6 +127,7 @@
     </FxCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="external\BS_thread_pool.hpp" />
     <ClInclude Include="lib\Camera.h" />
     <ClInclude Include="lib\GLTFStreamReader.h" />
     <ClInclude Include="lib\MeshData.h" />
@@ -137,10 +138,15 @@
     <ClInclude Include="stdafx.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="lib\GLTFStreamReader.cpp" />
     <ClCompile Include="lib\Win32Application.cpp" />
     <ClCompile Include="lib\D3D12HelloTriangle.cpp" />
     <ClCompile Include="lib\DXSample.cpp" />
     <ClCompile Include="Main.cpp" />
+    <ClCompile Include="external\stb_image.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</DeploymentContent>
+    </ClCompile>
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
