@@ -224,8 +224,17 @@ void D3D12HelloTriangle::LoadAssets()
 #else
 		UINT compileFlags = 0;
 #endif
-		ThrowIfFailed(CompileShaderWithMessage(GetAssetFullPath(L"assets\\shaders\\shaders.hlsl").c_str(), "VSMain", "vs_5_1", compileFlags, &m_vertexShader));
-		ThrowIfFailed(CompileShaderWithMessage(GetAssetFullPath(L"assets\\shaders\\shaders.hlsl").c_str(), "PSMain", "ps_5_1", compileFlags, &m_pixelShader));
+		ComPtr<IDxcCompiler3> compiler = nullptr;
+		ComPtr<IDxcLibrary> library = nullptr;
+		ThrowIfFailed(DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&compiler)));
+		ThrowIfFailed(DxcCreateInstance(CLSID_DxcLibrary, IID_PPV_ARGS(&library)));
+
+		m_vertexShader = CompileShaderFromFile(compiler.Get(), library.Get(), GetAssetFullPath(L"assets\\shaders\\shaders.hlsl").c_str(), L"VSMain", L"vs_6_6");
+		m_pixelShader = CompileShaderFromFile(compiler.Get(), library.Get(), GetAssetFullPath(L"assets\\shaders\\shaders.hlsl").c_str(), L"PSMain", L"ps_6_6");
+
+
+		//ThrowIfFailed(CompileShaderWithMessage(GetAssetFullPath(L"assets\\shaders\\shaders.hlsl").c_str(), "VSMain", "vs_6_6", compileFlags, &m_vertexShader));
+		//ThrowIfFailed(CompileShaderWithMessage(GetAssetFullPath(L"assets\\shaders\\shaders.hlsl").c_str(), "PSMain", "ps_6_6", compileFlags, &m_pixelShader));
 	}
 	{
 		//CD3DX12_DESCRIPTOR_RANGE cbvRange;
@@ -264,8 +273,8 @@ void D3D12HelloTriangle::LoadAssets()
 
 		psoDesc.DepthStencilState = depthStencilDesc;
 		psoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
-		psoDesc.VS = CD3DX12_SHADER_BYTECODE(m_vertexShader.Get());
-		psoDesc.PS = CD3DX12_SHADER_BYTECODE(m_pixelShader.Get());
+		psoDesc.VS = CD3DX12_SHADER_BYTECODE(m_vertexShader->GetBufferPointer(), m_vertexShader->GetBufferSize());
+		psoDesc.PS = CD3DX12_SHADER_BYTECODE(m_pixelShader->GetBufferPointer(), m_pixelShader->GetBufferSize());
 		psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
 		psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 		psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
@@ -314,10 +323,12 @@ void D3D12HelloTriangle::LoadAssets()
 		// recommended. Every time the GPU needs it, the upload heap will be marshalled 
 		// over. Please read up on Default Heap usage. An upload heap is used here for 
 		// code simplicity and because there are very few verts to actually transfer.
+		auto heapUploadProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+		auto heapUploadDesc = CD3DX12_RESOURCE_DESC::Buffer(vertexBufferSize);
 		ThrowIfFailed(m_device->CreateCommittedResource(
-			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+			&heapUploadProps,
 			D3D12_HEAP_FLAG_NONE,
-			&CD3DX12_RESOURCE_DESC::Buffer(vertexBufferSize),
+			&heapUploadDesc,
 			D3D12_RESOURCE_STATE_GENERIC_READ,
 			nullptr,
 			IID_PPV_ARGS(&m_vertexBuffer)));
@@ -427,14 +438,15 @@ void D3D12HelloTriangle::PopulateCommandList()
 
 
 	m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
-	ID3D12DescriptorHeap* heaps[] = { m_cameraDescriptorHeap.Get() };
+	ID3D12DescriptorHeap* heaps[1] = { m_cameraDescriptorHeap.Get() };
 	m_commandList->SetDescriptorHeaps(1, heaps);
 	m_commandList->SetGraphicsRootDescriptorTable(0, m_cameraDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 
 	m_commandList->RSSetViewports(1, &m_viewport);
 	m_commandList->RSSetScissorRects(1, &m_scissorRect);
 
-	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
+	auto renderTargetBarrierToRT = CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
+	m_commandList->ResourceBarrier(1, &renderTargetBarrierToRT);
 
 	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart(), m_frameIndex, m_rtvDescriptorSize);
 	CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_dsvHeap->GetCPUDescriptorHandleForHeapStart());
@@ -448,6 +460,7 @@ void D3D12HelloTriangle::PopulateCommandList()
 	for (const auto& mesh : m_meshes) {
 		auto const g_mesh = mesh.get();
 		g_mesh->transitionVertexBufferAndIndexBufferToTheirStates(m_commandList.Get());
+		g_mesh->textures.prepareBuffers(m_commandList.Get());
 
 		D3D12_VERTEX_BUFFER_VIEW* vertexBuffersView[4] = { g_mesh->getVertexBufferView(), g_mesh->getNormalsBufferView(), g_mesh->getTexCoordsBufferView(), g_mesh->getTangentsBufferView() };
 		m_commandList->IASetVertexBuffers(0, 4, *vertexBuffersView);
@@ -457,8 +470,8 @@ void D3D12HelloTriangle::PopulateCommandList()
 
 	//m_commandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);
 	//m_commandList->DrawInstanced(3, 1, 0, 0);
-
-	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
+	auto renderTargetBarrierToSP = CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+	m_commandList->ResourceBarrier(1, &renderTargetBarrierToSP);
 
 	ThrowIfFailed(m_commandList->Close());
 }

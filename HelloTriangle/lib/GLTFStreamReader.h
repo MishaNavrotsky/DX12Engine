@@ -18,6 +18,8 @@
 
 #include "stb_image.h"
 #include "DirectXTex.h"
+#include <future>
+#include <atomic>
 #include "../external/BS_thread_pool.hpp"
 
 namespace GLTFLocal
@@ -39,4 +41,5 @@ namespace GLTFLocal
 
 	std::vector<std::unique_ptr<Engine::MeshData>> GetMeshesInfo(const fs::path& path);
 	extern BS::thread_pool<> m_threadPool;
+	extern BS::thread_pool<> m_texturesThreadPool;
 }

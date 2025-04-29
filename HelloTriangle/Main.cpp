@@ -3,7 +3,7 @@
 #include <iostream>
 #include "DirectXTex.h"
 
-void CreateConsole()
+static void CreateConsole()
 {
     if (!AllocConsole()) {
         // Add some error handling here.
@@ -36,7 +36,7 @@ void CreateConsole()
 _Use_decl_annotations_
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
 {
-    HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
     if (FAILED(hr)) {
         std::cerr << "Failed to initialize COM. HRESULT: " << std::hex << hr << "\n";
         return -1;

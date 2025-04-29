@@ -1,5 +1,6 @@
 #define RS "RootFlags( ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), " \
-              "DescriptorTable( CBV(b0))"
+              "DescriptorTable(CBV(b0))," \
+              "DescriptorTable(SRV(t0, numDescriptors = 5))"
 
 struct PSInput
 {
