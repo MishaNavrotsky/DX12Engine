@@ -460,7 +460,7 @@ void D3D12HelloTriangle::PopulateCommandList()
 	for (const auto& mesh : m_meshes) {
 		auto const g_mesh = mesh.get();
 		g_mesh->transitionVertexBufferAndIndexBufferToTheirStates(m_commandList.Get());
-		g_mesh->textures.prepareBuffers(m_commandList.Get());
+		g_mesh->material->textures.prepareBuffers(m_commandList.Get());
 
 		D3D12_VERTEX_BUFFER_VIEW* vertexBuffersView[4] = { g_mesh->getVertexBufferView(), g_mesh->getNormalsBufferView(), g_mesh->getTexCoordsBufferView(), g_mesh->getTangentsBufferView() };
 		m_commandList->IASetVertexBuffers(0, 4, *vertexBuffersView);

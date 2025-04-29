@@ -7,6 +7,8 @@
 #include "DirectXTex.h"
 
 namespace Engine {
+	using namespace Microsoft::WRL;
+
 	inline size_t CalculateBufferSize(const DirectX::ScratchImage& scratchImage) {
 		size_t totalSize = 0;
 		const size_t imageCount = scratchImage.GetImageCount();
@@ -26,7 +28,6 @@ namespace Engine {
 		Blend
 	};
 
-	using namespace Microsoft::WRL;
 	class Sampler {
 	public:
 		Sampler() = default;
@@ -123,6 +124,7 @@ namespace Engine {
 	};
 
 
+
 	class MeshDataTextures {
 	public:
 		MeshDataTextures() = default;
@@ -169,7 +171,7 @@ namespace Engine {
 			const size_t textureCount = 5;
 			ID3D12Resource* textureResources[textureCount] = { m_diffuseTexture->getTextureResource().Get(), m_normalTexture->getTextureResource().Get(), m_occlusionTexture->getTextureResource().Get(), m_emissiveTexture->getTextureResource().Get(), m_metallicRoughnessTexture->getTextureResource().Get() };
 			D3D12_RESOURCE_BARRIER barriers[textureCount];
-			
+
 			for (uint32_t i = 0; i < textureCount; i++) {
 				barriers[i] = CD3DX12_RESOURCE_BARRIER::Transition(
 					textureResources[i],
@@ -242,13 +244,24 @@ namespace Engine {
 		bool isBuffersPrepared = false;
 	};
 
+	class MeshMaterial {
+	public:
+		MeshMaterial(std::string id) : m_id(id) {};
+		std::string getId() {
+			return m_id;
+		}
+		MeshDataTextures textures;
+	private:
+		std::string m_id;
+	};
+
 	class MeshData {
 	public:
 		MeshData() = default;
 		MeshData(const MeshData&) = delete;
 		MeshData& operator=(const MeshData&) = delete;
 
-		MeshDataTextures textures;
+		std::unique_ptr<MeshMaterial> material;
 
 		void setVertices(std::shared_ptr<std::vector<float>> v) {
 			m_vertices = v;
@@ -285,7 +298,7 @@ namespace Engine {
 
 		void createBuffers(ID3D12Device* device, ID3D12GraphicsCommandList* commandList) {
 			uploadDataToGPUUploadHeapAndInitializeBufferViews(device, commandList);
-			textures.createBuffers(device, commandList);
+			material->textures.createBuffers(device, commandList);
 		}
 
 		D3D12_VERTEX_BUFFER_VIEW* getVertexBufferView() {

@@ -109,12 +109,13 @@ std::vector<std::unique_ptr<Engine::MeshData>> GLTFLocal::GetMeshesInfo(const fs
 			auto& mesh = documentMeshes[i];
 			for (const auto& primitive : mesh.primitives) {
 				auto meshData = std::make_unique<Engine::MeshData>();
-
+				auto& material = document.materials.Get(primitive.materialId);
+				auto meshMaterial = std::make_unique<Engine::MeshMaterial>(material.id);
+				meshData->material = std::move(meshMaterial);
 				auto& indicesAccessor = document.accessors.Get(primitive.indicesAccessorId);
 				streamMutex.lock();
 				meshData->setIndices(std::make_shared<std::vector<uint32_t>>(resourceReader.get()->ReadBinaryData<uint32_t>(document, indicesAccessor)));
 				streamMutex.unlock();
-				auto& material = document.materials.Get(primitive.materialId);
 				meshData->alphaCutoff = material.alphaCutoff;
 				auto alphaMode = material.alphaMode;
 				if (alphaMode == ALPHA_UNKNOWN || alphaMode == ALPHA_OPAQUE) {
@@ -220,22 +221,22 @@ std::vector<std::unique_ptr<Engine::MeshData>> GLTFLocal::GetMeshesInfo(const fs
 							diffuseTexture->baseColorFactor.z = material.metallicRoughness.baseColorFactor.b;
 							diffuseTexture->baseColorFactor.w = material.metallicRoughness.baseColorFactor.a;
 
-							meshData->textures.setDiffuseTexture(diffuseTexture);
-							meshData->textures.setDiffuseSampler(engineSampler);
+							meshData->material->textures.setDiffuseTexture(diffuseTexture);
+							meshData->material->textures.setDiffuseSampler(engineSampler);
 						}
 						else if (texture.second == TextureType::Normal) {
 							auto normalTexture = std::make_shared<Engine::NormalTexture>(engineTexture);
 							normalTexture->scale = material.normalTexture.scale;
 
-							meshData->textures.setNormalTexture(normalTexture);
-							meshData->textures.setNormalSampler(engineSampler);
+							meshData->material->textures.setNormalTexture(normalTexture);
+							meshData->material->textures.setNormalSampler(engineSampler);
 						}
 						else if (texture.second == TextureType::Occlusion) {
 							auto occlusionTexture = std::make_shared<Engine::OcclusionTexture>(engineTexture);
 							occlusionTexture->strength = material.occlusionTexture.strength;
 
-							meshData->textures.setOcclusionTexture(occlusionTexture);
-							meshData->textures.setOcclusionSampler(engineSampler);
+							meshData->material->textures.setOcclusionTexture(occlusionTexture);
+							meshData->material->textures.setOcclusionSampler(engineSampler);
 						}
 						else if (texture.second == TextureType::Emissive) {
 							auto emissiveTexture = std::make_shared<Engine::EmissiveTexture>(engineTexture);
@@ -243,16 +244,16 @@ std::vector<std::unique_ptr<Engine::MeshData>> GLTFLocal::GetMeshesInfo(const fs
 							emissiveTexture->emissiveFactor.y = material.emissiveFactor.g;
 							emissiveTexture->emissiveFactor.z = material.emissiveFactor.b;
 
-							meshData->textures.setEmissiveTexture(emissiveTexture);
-							meshData->textures.setEmissiveSampler(engineSampler);
+							meshData->material->textures.setEmissiveTexture(emissiveTexture);
+							meshData->material->textures.setEmissiveSampler(engineSampler);
 						}
 						else if (texture.second == TextureType::MetallicRoughness) {
 							auto metallicRoughnessTexture = std::make_shared<Engine::MetallicRoughnessTexture>(engineTexture);
 							metallicRoughnessTexture->metallicFactor = material.metallicRoughness.metallicFactor;
 							metallicRoughnessTexture->roughnessFactor = material.metallicRoughness.roughnessFactor;
 
-							meshData->textures.setMetallicRoughnessTexture(metallicRoughnessTexture);
-							meshData->textures.setMetallicRoughnessSampler(engineSampler);
+							meshData->material->textures.setMetallicRoughnessTexture(metallicRoughnessTexture);
+							meshData->material ->textures.setMetallicRoughnessSampler(engineSampler);
 						}
 						};
 					futuresAddMutex.lock();

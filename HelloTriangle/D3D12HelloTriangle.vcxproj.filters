@@ -59,7 +59,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="lib\GLTFStreamReader.cpp" />
-    <ClCompile Include="external\stb_image.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

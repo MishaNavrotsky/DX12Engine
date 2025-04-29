@@ -49,12 +49,12 @@ void DXSample::GetHardwareAdapter(
 
     ComPtr<IDXGIAdapter1> adapter;
 
-    ComPtr<IDXGIFactory6> factory6;
-    if (SUCCEEDED(pFactory->QueryInterface(IID_PPV_ARGS(&factory6))))
+    ComPtr<IDXGIFactory7> factory7;
+    if (SUCCEEDED(pFactory->QueryInterface(IID_PPV_ARGS(&factory7))))
     {
         for (
             UINT adapterIndex = 0;
-            SUCCEEDED(factory6->EnumAdapterByGpuPreference(
+            SUCCEEDED(factory7->EnumAdapterByGpuPreference(
                 adapterIndex,
                 requestHighPerformanceAdapter == true ? DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE : DXGI_GPU_PREFERENCE_UNSPECIFIED,
                 IID_PPV_ARGS(&adapter)));
