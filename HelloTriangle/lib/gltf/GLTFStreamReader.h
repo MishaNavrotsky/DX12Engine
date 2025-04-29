@@ -12,15 +12,15 @@
 #include <iostream>
 #include <cstdlib>
 
-#include "DXSampleHelper.h"
+#include "../DXSampleHelper.h"
 
-#include "MeshData.h"
+#include "../mesh/Mesh.h"
 
 #include "stb_image.h"
 #include "DirectXTex.h"
 #include <future>
 #include <atomic>
-#include "../external/BS_thread_pool.hpp"
+#include "../../external/BS_thread_pool.hpp"
 
 namespace GLTFLocal
 {
@@ -39,7 +39,7 @@ namespace GLTFLocal
 		fs::path m_pathBase;
 	};
 
-	std::vector<std::unique_ptr<Engine::MeshData>> GetMeshesInfo(const fs::path& path);
-	extern BS::thread_pool<> m_threadPool;
-	extern BS::thread_pool<> m_texturesThreadPool;
+	std::vector<std::unique_ptr<Engine::Mesh>> GetMeshesInfo(const fs::path& path);
+	BS::thread_pool<> m_threadPool;
+	BS::thread_pool<> m_texturesThreadPool;
 }

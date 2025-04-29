@@ -3,9 +3,6 @@
 
 #define DEBUG_MESHES_LOAD
 
-BS::thread_pool<> GLTFLocal::m_threadPool;
-BS::thread_pool<> GLTFLocal::m_texturesThreadPool;
-
 inline GLTFLocal::GLTFStreamReader::GLTFStreamReader(fs::path pathBase) : m_pathBase(std::move(pathBase))
 {
 	WCHAR assetsPath[512];
@@ -28,14 +25,14 @@ inline std::shared_ptr<std::istream> GLTFLocal::GLTFStreamReader::GetInputStream
 	return stream;
 }
 
-std::vector<std::unique_ptr<Engine::MeshData>> GLTFLocal::GetMeshesInfo(const fs::path& path) {
+std::vector<std::unique_ptr<Engine::Mesh>> GLTFLocal::GetMeshesInfo(const fs::path& path) {
 	using namespace std;
 	//start loading time
 #ifdef DEBUG_MESHES_LOAD
 	auto startTime = std::chrono::high_resolution_clock::now();
 #endif // DEBUG_MESHES_LOAD
 
-	std::vector<std::unique_ptr<Engine::MeshData>> meshDataList;
+	std::vector<std::unique_ptr<Engine::Mesh>> meshDataList;
 
 	auto streamReader = make_unique<GLTFStreamReader>(path.parent_path());
 
@@ -108,9 +105,9 @@ std::vector<std::unique_ptr<Engine::MeshData>> GLTFLocal::GetMeshesInfo(const fs
 		auto meshLambda = [&, i] {
 			auto& mesh = documentMeshes[i];
 			for (const auto& primitive : mesh.primitives) {
-				auto meshData = std::make_unique<Engine::MeshData>();
+				auto meshData = std::make_unique<Engine::Mesh>();
 				auto& material = document.materials.Get(primitive.materialId);
-				auto meshMaterial = std::make_unique<Engine::MeshMaterial>(material.id);
+				auto meshMaterial = std::make_unique<Engine::Material>(material.id);
 				meshData->material = std::move(meshMaterial);
 				auto& indicesAccessor = document.accessors.Get(primitive.indicesAccessorId);
 				streamMutex.lock();

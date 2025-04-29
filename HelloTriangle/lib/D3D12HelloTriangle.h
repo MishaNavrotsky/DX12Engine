@@ -1,7 +1,7 @@
 #pragma once
 
 #include "DXSample.h"
-#include "MeshData.h"
+#include "mesh/Mesh.h"
 #include "Camera.h"
 #include "GLTFStreamReader.h"
 
@@ -67,7 +67,7 @@ private:
 	UINT64 m_uploadFenceValue;
 
 
-    std::vector<std::unique_ptr<Engine::MeshData>> m_meshes;
+    std::vector<std::unique_ptr<Engine::Mesh>> m_meshes;
 	Engine::Camera m_camera;
 
     // Camera buffers
