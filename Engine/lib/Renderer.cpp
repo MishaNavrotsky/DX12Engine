@@ -282,7 +282,7 @@ void Renderer::LoadAssets()
 
 	ThrowIfFailed(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COPY, m_uploadCommandAllocator.Get(), m_pipelineState.Get(), IID_PPV_ARGS(&m_uploadCommandList)));
 	{
-		m_scene.addObject(std::make_unique<Engine::GLTFSceneObject>(L"D:\\DX12En\\HelloTriangle\\bin\\x64\\Debug\\assets\\models\\alicev2rigged.glb"));
+		m_scene.addObject(std::make_unique<Engine::GLTFSceneObject>(L"assets\\models\\alicev2rigged.glb"));
 		m_scene.loadAll();
 		m_scene.prepareGPUData(m_device.Get(), m_uploadCommandList.Get());
 		//for (const auto& mesh : *m_meshes) 
