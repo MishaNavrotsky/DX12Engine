@@ -2,21 +2,17 @@
 
 #pragma once
 
+#include "helpers.h"
+
 namespace Engine {
 	using namespace Microsoft::WRL;
 
-	class Sampler {
+	class Sampler: public IID {
 	public:
 		Sampler() = default;
 		Sampler(const Sampler&) = delete;
 		Sampler& operator=(const Sampler&) = delete;
 
 		D3D12_SAMPLER_DESC samplerDesc = {};
-		ComPtr<ID3D12Resource> getSamplerResource() {
-			return m_sampler;
-		}
-	private:
-		ComPtr<ID3D12Resource> m_sampler = nullptr;
 	};
 }
-

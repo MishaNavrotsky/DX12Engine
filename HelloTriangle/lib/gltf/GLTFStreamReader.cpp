@@ -3,6 +3,11 @@
 
 #define DEBUG_MESHES_LOAD
 
+namespace GLTFLocal {
+	BS::thread_pool<> m_threadPool;
+	BS::thread_pool<> m_texturesThreadPool;
+}
+
 inline GLTFLocal::GLTFStreamReader::GLTFStreamReader(fs::path pathBase) : m_pathBase(std::move(pathBase))
 {
 	WCHAR assetsPath[512];
@@ -25,14 +30,14 @@ inline std::shared_ptr<std::istream> GLTFLocal::GLTFStreamReader::GetInputStream
 	return stream;
 }
 
-std::vector<std::unique_ptr<Engine::Mesh>> GLTFLocal::GetMeshesInfo(const fs::path& path) {
+std::unique_ptr<std::vector<GUID>> GLTFLocal::GetMeshesInfo(const fs::path& path) {
 	using namespace std;
 	//start loading time
 #ifdef DEBUG_MESHES_LOAD
 	auto startTime = std::chrono::high_resolution_clock::now();
 #endif // DEBUG_MESHES_LOAD
 
-	std::vector<std::unique_ptr<Engine::Mesh>> meshDataList;
+	std::unique_ptr<std::vector<GUID>> meshDataList = std::make_unique<std::vector<GUID>>();
 
 	auto streamReader = make_unique<GLTFStreamReader>(path.parent_path());
 
@@ -97,21 +102,22 @@ std::vector<std::unique_ptr<Engine::Mesh>> GLTFLocal::GetMeshesInfo(const fs::pa
 	auto streamMutex = std::mutex();
 	auto vectorAddMutex = std::mutex();
 #ifdef DEBUG_MESHES_LOAD
-	std::atomic<uint32_t> textureLoadTime(0);
-	std::atomic<uint32_t> mipMapCreatingTime(0);
-	std::atomic<uint32_t> decodeTextureTime(0);
+	std::atomic<uint64_t> textureLoadTime(0);
+	std::atomic<uint64_t> mipMapCreatingTime(0);
+	std::atomic<uint64_t> decodeTextureTime(0);
 #endif
 	for (uint32_t i = 0; i < documentMeshes.size(); i++) {
 		auto meshLambda = [&, i] {
 			auto& mesh = documentMeshes[i];
 			for (const auto& primitive : mesh.primitives) {
-				auto meshData = std::make_unique<Engine::Mesh>();
+				auto meshData = std::make_unique<Engine::CPUMesh>();
 				auto& material = document.materials.Get(primitive.materialId);
-				auto meshMaterial = std::make_unique<Engine::Material>(material.id);
-				meshData->material = std::move(meshMaterial);
+				auto globalMaterialId = path.string() + "_" + primitive.materialId;
+				auto meshMaterial = std::make_unique<Engine::CPUMaterial>();
+
 				auto& indicesAccessor = document.accessors.Get(primitive.indicesAccessorId);
 				streamMutex.lock();
-				meshData->setIndices(std::make_shared<std::vector<uint32_t>>(resourceReader.get()->ReadBinaryData<uint32_t>(document, indicesAccessor)));
+				meshData->setIndices(std::move(resourceReader.get()->ReadBinaryData<uint32_t>(document, indicesAccessor)));
 				streamMutex.unlock();
 				meshData->alphaCutoff = material.alphaCutoff;
 				auto alphaMode = material.alphaMode;
@@ -128,6 +134,10 @@ std::vector<std::unique_ptr<Engine::Mesh>> GLTFLocal::GetMeshesInfo(const fs::pa
 				auto materialTextures = material.GetTextures();
 				auto futures = std::vector<std::future<void>>();
 				auto futuresAddMutex = std::mutex();
+				auto textureIdsAddMutex = std::mutex();
+				std::vector<GUID> textureIds;
+				std::vector<GUID> samplerIds;
+
 #ifdef DEBUG_MESHES_LOAD
 				auto startTime = std::chrono::high_resolution_clock::now();
 #endif
@@ -144,7 +154,7 @@ std::vector<std::unique_ptr<Engine::Mesh>> GLTFLocal::GetMeshesInfo(const fs::pa
 
 
 						int desiredChannels = 4;
-						auto engineTexture = Engine::Texture();
+						auto engineTexture = Engine::CPUTexture();
 
 						DirectX::ScratchImage scratchImage;
 #ifdef DEBUG_MESHES_LOAD
@@ -157,7 +167,7 @@ std::vector<std::unique_ptr<Engine::Mesh>> GLTFLocal::GetMeshesInfo(const fs::pa
 #endif
 						auto images = scratchImage.GetImages();
 
-						auto mipMapedScratchImage = std::make_shared<DirectX::ScratchImage>();
+						auto mipMapedScratchImage = std::make_unique<DirectX::ScratchImage>();
 
 #ifdef DEBUG_MESHES_LOAD
 						auto startTime1 = std::chrono::high_resolution_clock::now();
@@ -168,9 +178,9 @@ std::vector<std::unique_ptr<Engine::Mesh>> GLTFLocal::GetMeshesInfo(const fs::pa
 						mipMapCreatingTime += std::chrono::duration_cast<std::chrono::milliseconds>(endTime1 - startTime1).count();
 #endif
 
-						engineTexture.setScratchImage(mipMapedScratchImage);
+						engineTexture.setScratchImage(std::move(mipMapedScratchImage));
 
-						auto engineSampler = std::make_shared<Engine::Sampler>();
+						auto engineSampler = std::make_unique<Engine::Sampler>();
 						auto magFilter = sampler.magFilter.Get();
 						auto minFilter = sampler.minFilter.Get();
 						auto wrapS = sampler.wrapS;
@@ -211,47 +221,57 @@ std::vector<std::unique_ptr<Engine::Mesh>> GLTFLocal::GetMeshesInfo(const fs::pa
 							engineSampler->samplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
 						}
 
+						GUID addedTextureID = GUID_NULL;
+						GUID addedSamplerID = GUID_NULL;
+						auto& texManager = Engine::CPUTextureManager::getInstance();
+						auto& samManager = Engine::SamplerManager::getInstance();
+
 						if (texture.second == TextureType::BaseColor) {
-							auto diffuseTexture = std::make_shared<Engine::DiffuseTexture>(engineTexture);
+							auto diffuseTexture = std::make_unique<Engine::CPUDiffuseTexture>(std::move(engineTexture));
 							diffuseTexture->baseColorFactor.x = material.metallicRoughness.baseColorFactor.r;
 							diffuseTexture->baseColorFactor.y = material.metallicRoughness.baseColorFactor.g;
 							diffuseTexture->baseColorFactor.z = material.metallicRoughness.baseColorFactor.b;
 							diffuseTexture->baseColorFactor.w = material.metallicRoughness.baseColorFactor.a;
 
-							meshData->material->textures.setDiffuseTexture(diffuseTexture);
-							meshData->material->textures.setDiffuseSampler(engineSampler);
+
+							addedTextureID = texManager.add(std::move(diffuseTexture));
+							addedSamplerID = samManager.add(std::move(engineSampler));
 						}
 						else if (texture.second == TextureType::Normal) {
-							auto normalTexture = std::make_shared<Engine::NormalTexture>(engineTexture);
+							auto normalTexture = std::make_unique<Engine::CPUNormalTexture>(std::move(engineTexture));
 							normalTexture->scale = material.normalTexture.scale;
 
-							meshData->material->textures.setNormalTexture(normalTexture);
-							meshData->material->textures.setNormalSampler(engineSampler);
+							addedTextureID = texManager.add(std::move(normalTexture));
+							addedSamplerID = samManager.add(std::move(engineSampler));
 						}
 						else if (texture.second == TextureType::Occlusion) {
-							auto occlusionTexture = std::make_shared<Engine::OcclusionTexture>(engineTexture);
+							auto occlusionTexture = std::make_unique<Engine::CPUOcclusionTexture>(std::move(engineTexture));
 							occlusionTexture->strength = material.occlusionTexture.strength;
 
-							meshData->material->textures.setOcclusionTexture(occlusionTexture);
-							meshData->material->textures.setOcclusionSampler(engineSampler);
+							addedTextureID = texManager.add(std::move(occlusionTexture));
+							addedSamplerID = samManager.add(std::move(engineSampler));
 						}
 						else if (texture.second == TextureType::Emissive) {
-							auto emissiveTexture = std::make_shared<Engine::EmissiveTexture>(engineTexture);
+							auto emissiveTexture = std::make_unique<Engine::CPUEmissiveTexture>(std::move(engineTexture));
 							emissiveTexture->emissiveFactor.x = material.emissiveFactor.r;
 							emissiveTexture->emissiveFactor.y = material.emissiveFactor.g;
 							emissiveTexture->emissiveFactor.z = material.emissiveFactor.b;
 
-							meshData->material->textures.setEmissiveTexture(emissiveTexture);
-							meshData->material->textures.setEmissiveSampler(engineSampler);
+							addedTextureID = texManager.add(std::move(emissiveTexture));
+							addedSamplerID = samManager.add(std::move(engineSampler));
 						}
 						else if (texture.second == TextureType::MetallicRoughness) {
-							auto metallicRoughnessTexture = std::make_shared<Engine::MetallicRoughnessTexture>(engineTexture);
+							auto metallicRoughnessTexture = std::make_unique<Engine::CPUMetallicRoughnessTexture>(std::move(engineTexture));
 							metallicRoughnessTexture->metallicFactor = material.metallicRoughness.metallicFactor;
 							metallicRoughnessTexture->roughnessFactor = material.metallicRoughness.roughnessFactor;
 
-							meshData->material->textures.setMetallicRoughnessTexture(metallicRoughnessTexture);
-							meshData->material ->textures.setMetallicRoughnessSampler(engineSampler);
+							addedTextureID = texManager.add(std::move(metallicRoughnessTexture));
+							addedSamplerID = samManager.add(std::move(engineSampler));
 						}
+						textureIdsAddMutex.lock();
+						textureIds.push_back(addedTextureID);
+						samplerIds.push_back(addedSamplerID);
+						textureIdsAddMutex.unlock();
 						};
 					futuresAddMutex.lock();
 					futures.push_back(m_texturesThreadPool.submit_task(lambda));
@@ -264,37 +284,42 @@ std::vector<std::unique_ptr<Engine::Mesh>> GLTFLocal::GetMeshesInfo(const fs::pa
 				auto endTime = std::chrono::high_resolution_clock::now();
 				textureLoadTime += std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
 #endif
+				meshMaterial->setTextureIds(std::move(textureIds));
+				meshMaterial->setSamplerIds(std::move(samplerIds));
+				auto& matManager = Engine::CPUMaterialManager::getInstance();
+				meshData->setMaterialId(matManager.add(std::move(meshMaterial)));
 
 				for (const auto& attribute : primitive.attributes) {
 					auto& accessor = document.accessors.Get(attribute.second);
 					if (attribute.first == ACCESSOR_POSITION) {
 						streamMutex.lock();
-						auto data = std::make_shared<std::vector<float>>(resourceReader.get()->ReadBinaryData<float>(document, accessor));
+						auto data = resourceReader.get()->ReadBinaryData<float>(document, accessor);
 						streamMutex.unlock();
-						meshData->setVertices(data);
+						meshData->setVertices(std::move(data));
 					}
 					if (attribute.first == ACCESSOR_NORMAL) {
 						streamMutex.lock();
-						auto data = std::make_shared<std::vector<float>>(resourceReader.get()->ReadBinaryData<float>(document, accessor));
+						auto data = resourceReader.get()->ReadBinaryData<float>(document, accessor);
 						streamMutex.unlock();
-						meshData->setNormals(data);
+						meshData->setNormals(std::move(data));
 					}
 					if (attribute.first == ACCESSOR_TEXCOORD_0) {
 						streamMutex.lock();
-						auto data = std::make_shared<std::vector<float>>(resourceReader.get()->ReadBinaryData<float>(document, accessor));
+						auto data = resourceReader.get()->ReadBinaryData<float>(document, accessor);
 						streamMutex.unlock();
-						meshData->setTexCoords(data);
+						meshData->setTexCoords(std::move(data));
 					}
 					if (attribute.first == ACCESSOR_TANGENT) {
 						streamMutex.lock();
-						auto data = std::make_shared<std::vector<float>>(resourceReader.get()->ReadBinaryData<float>(document, accessor));
+						auto data = resourceReader.get()->ReadBinaryData<float>(document, accessor);
 						streamMutex.unlock();
-						meshData->setTangents(data);
+						meshData->setTangents(std::move(data));
 					}
 				}
 
+				auto& meshManager = Engine::CPUMeshManager::getInstance();
 				vectorAddMutex.lock();
-				meshDataList.push_back(std::move(meshData));
+				meshDataList->push_back(meshManager.add(std::move(meshData)));
 				vectorAddMutex.unlock();
 			}
 			};

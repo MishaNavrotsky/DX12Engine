@@ -1,5 +1,5 @@
 #define RS "RootFlags( ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), " \
-              "DescriptorTable(CBV(b0))," \
+              "CBV(b0)," \
               "DescriptorTable(SRV(t0, numDescriptors = 5))"
 
 struct PSInput
@@ -12,7 +12,11 @@ struct PSInput
 
 cbuffer CameraBuffer : register(b0)
 {
-    float4x4 projViewMatrix; // Camera's View-Projection Matrix
+    float4x4 projectionMatrix;
+    float4x4 projectionReverseDepthMatrix;
+    float4x4 viewMatrix;
+    float4x4 viewProjectionReverseDepthMatrix;
+    float4 position;
 };
 
 
@@ -28,7 +32,7 @@ struct VertexShaderInput
 PSInput VSMain(VertexShaderInput input)
 {
     PSInput result;
-    result.position = mul(float4(input.position, 1.0), projViewMatrix);
+    result.position = mul(float4(input.position, 1.0), viewProjectionReverseDepthMatrix);
     result.normal = input.normal;
     result.tangent = input.tangent;
     result.texcoords = input.texcoords;

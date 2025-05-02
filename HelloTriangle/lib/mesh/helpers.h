@@ -3,6 +3,7 @@
 #pragma once
 
 #include "DirectXTex.h"
+#include <guiddef.h>
 
 namespace Engine {
 	using namespace Microsoft::WRL;
@@ -24,5 +25,30 @@ namespace Engine {
 		Opaque,
 		Mask,
 		Blend
+	};
+
+	enum TextureType {
+		DEFAULT,
+		DIFFUSE,
+		NORMAL,
+		OCCLUSION,
+		EMISSIVE,
+		METALLIC_ROUGHNESS,
+	};
+
+	class IID {
+	protected:
+		GUID m_id = GUID_NULL;
+
+	public:
+		IID() = default;
+
+		void setID(const GUID& id) {
+			m_id = id;
+		}
+
+		GUID getID() const {
+			return m_id;
+		}
 	};
 }

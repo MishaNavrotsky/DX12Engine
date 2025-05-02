@@ -1,9 +1,11 @@
 #pragma once
 
 #include "DXSample.h"
-#include "mesh/Mesh.h"
-#include "Camera.h"
-#include "GLTFStreamReader.h"
+#include "./camera/Camera.h"
+#include "gltf/GLTFStreamReader.h"
+#include "gltf/GLTFSceneObject.h"
+#include "scene/Scene.h"
+
 
 using namespace DirectX;
 
@@ -14,10 +16,10 @@ using namespace DirectX;
 // An example of this can be found in the class method: OnDestroy().
 using Microsoft::WRL::ComPtr;
 
-class D3D12HelloTriangle : public DXSample
+class Renderer : public DXSample
 {
 public:
-    D3D12HelloTriangle(UINT width, UINT height, std::wstring name);
+    Renderer(UINT width, UINT height, std::wstring name);
 
     virtual void OnInit();
     virtual void OnUpdate();
@@ -67,12 +69,11 @@ private:
 	UINT64 m_uploadFenceValue;
 
 
-    std::vector<std::unique_ptr<Engine::Mesh>> m_meshes;
 	Engine::Camera m_camera;
+    Engine::Scene m_scene;
 
     // Camera buffers
 	ComPtr<ID3D12Resource> m_cameraBuffer;
-	ComPtr<ID3D12DescriptorHeap> m_cameraDescriptorHeap;
 
     // App resources.
     ComPtr<ID3D12Resource> m_vertexBuffer;

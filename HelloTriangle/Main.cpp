@@ -1,5 +1,5 @@
 #include "stdafx.h"
-#include "lib/D3D12HelloTriangle.h"
+#include "lib/Renderer.h"
 #include <iostream>
 #include "DirectXTex.h"
 
@@ -42,6 +42,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
         return -1;
     };
     CreateConsole();
-    D3D12HelloTriangle sample(1280, 720, L"D3D12 Hello Triangle");
+    Renderer sample(1280, 720, L"Title");
     return Win32Application::Run(&sample, hInstance, nCmdShow);
 }

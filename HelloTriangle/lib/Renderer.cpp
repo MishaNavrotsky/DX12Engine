@@ -1,24 +1,25 @@
 #include "stdafx.h"
-#include "D3D12HelloTriangle.h"
+#include "Renderer.h"
 
-static std::string GetErrorMessage(HRESULT hr) {
-	char* errorMsg = nullptr;
+struct CBVCameraData {
+	XMFLOAT4X4 projectionMatrix;
+	XMFLOAT4X4 projectionReverseDepthMatrix;
+	XMFLOAT4X4 viewMatrix;
+	XMFLOAT4X4 viewProjectionReverseDepthMatrix;
+	XMFLOAT4 position;
+};
 
-	FormatMessageA(
-		FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-		nullptr,
-		hr,
-		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-		reinterpret_cast<char*>(&errorMsg),
-		0,
-		nullptr);
+struct CBVMeshData {
+	XMFLOAT4X4 modelMatrix;
 
-	std::string message = (errorMsg) ? errorMsg : "Unknown error";
-	LocalFree(errorMsg);
-	return message;
-}
+	XMUINT4 diffuseNormalOcclusionEmisiveTexturesIds;
+	XMUINT4 MRTextureIds;
 
-D3D12HelloTriangle::D3D12HelloTriangle(UINT width, UINT height, std::wstring name) :
+	XMUINT4 diffuseNormalOcclusionEmisiveSamplersIds;
+	XMUINT4 MRSamplersIds;
+};
+
+Renderer::Renderer(UINT width, UINT height, std::wstring name) :
 	DXSample(width, height, name),
 	m_frameIndex(0),
 	m_viewport(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height)),
@@ -28,13 +29,13 @@ D3D12HelloTriangle::D3D12HelloTriangle(UINT width, UINT height, std::wstring nam
 {
 }
 
-void D3D12HelloTriangle::OnInit()
+void Renderer::OnInit()
 {
 	LoadPipeline();
 	LoadAssets();
 }
 
-void D3D12HelloTriangle::LoadPipeline()
+void Renderer::LoadPipeline()
 {
 	UINT dxgiFactoryFlags = 0;
 
@@ -60,7 +61,7 @@ void D3D12HelloTriangle::LoadPipeline()
 
 		ThrowIfFailed(D3D12CreateDevice(
 			warpAdapter.Get(),
-			D3D_FEATURE_LEVEL_11_0,
+			D3D_FEATURE_LEVEL_12_2,
 			IID_PPV_ARGS(&m_device)
 		));
 	}
@@ -71,7 +72,7 @@ void D3D12HelloTriangle::LoadPipeline()
 
 		ThrowIfFailed(D3D12CreateDevice(
 			hardwareAdapter.Get(),
-			D3D_FEATURE_LEVEL_11_0,
+			D3D_FEATURE_LEVEL_12_2,
 			IID_PPV_ARGS(&m_device)
 		));
 	}
@@ -171,7 +172,7 @@ void D3D12HelloTriangle::LoadPipeline()
 		);
 	}
 	{
-		auto sizeInBytesWithAlignment = (static_cast<UINT>(sizeof(XMFLOAT4X4)) + 255) & ~255;
+		auto sizeInBytesWithAlignment = (static_cast<UINT>(sizeof(CBVCameraData)) + 255) & ~255;
 
 		D3D12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(sizeInBytesWithAlignment);
 		bufferDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
@@ -185,19 +186,6 @@ void D3D12HelloTriangle::LoadPipeline()
 			nullptr,
 			IID_PPV_ARGS(&m_cameraBuffer)));
 		m_cameraBuffer->SetName(L"Camera Buffer");
-
-		D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc = {};
-		cbvHeapDesc.NumDescriptors = 1;
-		cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-		cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-		cbvHeapDesc.NodeMask = 0;
-
-		ThrowIfFailed(m_device->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&m_cameraDescriptorHeap)));
-
-		D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
-		cbvDesc.BufferLocation = m_cameraBuffer->GetGPUVirtualAddress();
-		cbvDesc.SizeInBytes = sizeInBytesWithAlignment;
-		m_device->CreateConstantBufferView(&cbvDesc, m_cameraDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 	}
 
 	{
@@ -215,7 +203,7 @@ void D3D12HelloTriangle::LoadPipeline()
 	ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COPY, IID_PPV_ARGS(&m_uploadCommandAllocator)));
 }
 
-void D3D12HelloTriangle::LoadAssets()
+void Renderer::LoadAssets()
 {
 	{
 
@@ -294,11 +282,13 @@ void D3D12HelloTriangle::LoadAssets()
 
 	ThrowIfFailed(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COPY, m_uploadCommandAllocator.Get(), m_pipelineState.Get(), IID_PPV_ARGS(&m_uploadCommandList)));
 	{
-		m_meshes = std::move(GLTFLocal::GetMeshesInfo(L"D:\\DX12En\\HelloTriangle\\bin\\x64\\Debug\\assets\\models\\alicev2rigged.glb"));
-		for (const auto& mesh : m_meshes)
-		{
-			mesh.get()->createBuffers(m_device.Get(), m_uploadCommandList.Get());
-		}
+		m_scene.addObject(std::make_unique<Engine::GLTFSceneObject>(L"D:\\DX12En\\HelloTriangle\\bin\\x64\\Debug\\assets\\models\\alicev2rigged.glb"));
+		m_scene.loadAll();
+		m_scene.prepareGPUData(m_device.Get(), m_uploadCommandList.Get());
+		//for (const auto& mesh : *m_meshes) 
+		//{
+		//	mesh.get()->createBuffers(m_device.Get(), m_uploadCommandList.Get());
+		//}
 	}
 	ThrowIfFailed(m_uploadCommandList->Close());
 	ID3D12CommandList* commandLists[] = { m_uploadCommandList.Get()};
@@ -306,6 +296,21 @@ void D3D12HelloTriangle::LoadAssets()
 
 	ThrowIfFailed(m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_uploadFence)));
 	ThrowIfFailed(m_uploadCommandQueue->Signal(m_uploadFence.Get(), ++m_uploadFenceValue));
+
+	if (m_uploadFence->GetCompletedValue() < m_uploadFenceValue) {
+		HANDLE fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+		ThrowIfFailed(m_uploadFence->SetEventOnCompletion(m_uploadFenceValue, fenceEvent));
+		WaitForSingleObject(fenceEvent, INFINITE); // Block until GPU is done
+		CloseHandle(fenceEvent);
+	}
+	ThrowIfFailed(m_uploadCommandAllocator->Reset());
+	ThrowIfFailed(m_uploadCommandList->Reset(m_uploadCommandAllocator.Get(), nullptr));
+	m_scene.releaseUnusedHeaps();
+	//for (const auto& mesh : *m_meshes)
+	//{
+	//	mesh.get()->releaseUploadHeaps();
+	//}
+
 
 	// Create the vertex buffer.
 	{
@@ -360,7 +365,7 @@ void D3D12HelloTriangle::LoadAssets()
 	}
 }
 
-void D3D12HelloTriangle::OnUpdate()
+void Renderer::OnUpdate()
 {
 
 }
@@ -384,7 +389,7 @@ static void setCursorToCenterOfTheWindow() {
 
 
 
-void D3D12HelloTriangle::OnRender()
+void Renderer::OnRender()
 {
 	{
 		this->OnMouseMove();
@@ -405,30 +410,33 @@ void D3D12HelloTriangle::OnRender()
 	WaitForPreviousFrame();
 }
 
-void D3D12HelloTriangle::OnDestroy()
+void Renderer::OnDestroy()
 {
 	WaitForPreviousFrame();
 
 	CloseHandle(m_fenceEvent);
 }
 
-void D3D12HelloTriangle::PopulateCommandList()
+void Renderer::PopulateCommandList()
 {
 	ThrowIfFailed(m_commandAllocator->Reset());
 	ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), m_pipelineState.Get()));
 
 	{
-		//auto cameraProjection = m_camera.getProjectionMatrix();
-		auto cameraProjection = m_camera.getProjectionMatrixForReverseDepth();
+		CBVCameraData cbvData;
+		auto cameraProjection = m_camera.getProjectionMatrix();
+		auto cameraProjectionReverseDepth = m_camera.getProjectionMatrixForReverseDepth();
 		auto cameraView = m_camera.getViewMatrix();
-		XMFLOAT4X4 cameraData;
-		XMStoreFloat4x4(&cameraData, XMMatrixTranspose(cameraView * cameraProjection));
+		XMStoreFloat4x4(&cbvData.projectionMatrix, cameraProjection);
+		XMStoreFloat4x4(&cbvData.projectionReverseDepthMatrix, cameraProjectionReverseDepth);
+		XMStoreFloat4x4(&cbvData.viewMatrix, cameraView);
+		XMStoreFloat4x4(&cbvData.viewProjectionReverseDepthMatrix, XMMatrixTranspose(cameraView * cameraProjectionReverseDepth));
+		XMStoreFloat4(&cbvData.position, m_camera.getPosition());
 
 		void* mappedData = nullptr;
-		D3D12_RANGE readRange = {};  // Don't need to read from this resource
-		m_cameraBuffer->Map(0, &readRange, &mappedData);
+		m_cameraBuffer->Map(0, nullptr, &mappedData);
 
-		memcpy(mappedData, &cameraData, sizeof(XMFLOAT4X4));
+		memcpy(mappedData, &cbvData, sizeof(CBVCameraData));
 
 		m_cameraBuffer->Unmap(0, nullptr);
 	}
@@ -438,9 +446,8 @@ void D3D12HelloTriangle::PopulateCommandList()
 
 
 	m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
-	ID3D12DescriptorHeap* heaps[1] = { m_cameraDescriptorHeap.Get() };
-	m_commandList->SetDescriptorHeaps(1, heaps);
-	m_commandList->SetGraphicsRootDescriptorTable(0, m_cameraDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+	m_commandList->SetGraphicsRootConstantBufferView(0, m_cameraBuffer->GetGPUVirtualAddress());
+
 
 	m_commandList->RSSetViewports(1, &m_viewport);
 	m_commandList->RSSetScissorRects(1, &m_scissorRect);
@@ -457,16 +464,7 @@ void D3D12HelloTriangle::PopulateCommandList()
 	m_commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 0.0f, 0, 0, nullptr);
 	m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-	for (const auto& mesh : m_meshes) {
-		auto const g_mesh = mesh.get();
-		g_mesh->transitionVertexBufferAndIndexBufferToTheirStates(m_commandList.Get());
-		g_mesh->material->textures.prepareBuffers(m_commandList.Get());
-
-		D3D12_VERTEX_BUFFER_VIEW* vertexBuffersView[4] = { g_mesh->getVertexBufferView(), g_mesh->getNormalsBufferView(), g_mesh->getTexCoordsBufferView(), g_mesh->getTangentsBufferView() };
-		m_commandList->IASetVertexBuffers(0, 4, *vertexBuffersView);
-		m_commandList->IASetIndexBuffer(g_mesh->getIndicesBufferView());
-		m_commandList->DrawIndexedInstanced(g_mesh->getIndicesBufferView()->SizeInBytes / sizeof(UINT), 1, 0, 0, 0);
-	}
+	m_scene.render(m_commandList.Get());
 
 	//m_commandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);
 	//m_commandList->DrawInstanced(3, 1, 0, 0);
@@ -476,7 +474,7 @@ void D3D12HelloTriangle::PopulateCommandList()
 	ThrowIfFailed(m_commandList->Close());
 }
 
-void D3D12HelloTriangle::WaitForPreviousFrame()
+void Renderer::WaitForPreviousFrame()
 {
 
 	const UINT64 fence = m_fenceValue;
@@ -492,7 +490,7 @@ void D3D12HelloTriangle::WaitForPreviousFrame()
 	m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
 }
 
-void D3D12HelloTriangle::OnKeyDown()
+void Renderer::OnKeyDown()
 {
 	HWND hWnd = GetFocus();
 	if (!hWnd) return;
@@ -527,7 +525,7 @@ void D3D12HelloTriangle::OnKeyDown()
 	m_camera.setPosition(cameraPos);
 }
 
-void D3D12HelloTriangle::OnMouseMove()
+void Renderer::OnMouseMove()
 {
 	HWND hWnd = GetFocus();
 	if (!hWnd) return;

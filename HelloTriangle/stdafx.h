@@ -14,6 +14,7 @@
 #include <DirectXMath.h>
 #include "include/d3dx12/d3dx12.h"
 #include <dxcapi.h>
+#include <objbase.h>
 
 #include <string>
 #include <wrl.h>

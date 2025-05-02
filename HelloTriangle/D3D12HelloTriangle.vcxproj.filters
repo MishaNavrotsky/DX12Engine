@@ -27,20 +27,36 @@
     <ClInclude Include="lib\DXSampleHelper.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="lib\D3D12HelloTriangle.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="lib\Win32Application.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="lib\MeshData.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="lib\GLTFStreamReader.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="lib\Camera.h" />
+    <ClInclude Include="lib\camera\Camera.h" />
     <ClInclude Include="external\BS_thread_pool.hpp" />
+    <ClInclude Include="lib\gltf\GLTFStreamReader.h" />
+    <ClInclude Include="lib\mesh\helpers.h" />
+    <ClInclude Include="lib\mesh\CPUMaterial.h" />
+    <ClInclude Include="lib\mesh\CPUTexture.h" />
+    <ClInclude Include="lib\Renderer.h" />
+    <ClInclude Include="lib\mesh\Sampler.h" />
+    <ClInclude Include="lib\geometry\ModelMatrix.h" />
+    <ClInclude Include="lib\scene\Scene.h" />
+    <ClInclude Include="lib\scene\ISceneObject.h" />
+    <ClInclude Include="lib\scene\ISceneRenderable.h" />
+    <ClInclude Include="lib\gltf\GLTFSceneObject.h" />
+    <ClInclude Include="lib\mesh\CPUMesh.h" />
+    <ClInclude Include="lib\queues\GPUUploadQueue.h" />
+    <ClInclude Include="lib\mesh\GPUMesh.h" />
+    <ClInclude Include="lib\mesh\GPUMaterial.h" />
+    <ClInclude Include="lib\mesh\GPUTexture.h" />
+    <ClInclude Include="lib\managers\CPUTextureManager.h" />
+    <ClInclude Include="lib\managers\GPUTextureManager.h" />
+    <ClInclude Include="lib\managers\CPUMaterialManager.h" />
+    <ClInclude Include="lib\managers\GPUMaterialManager.h" />
+    <ClInclude Include="lib\managers\CPUMeshManager.h" />
+    <ClInclude Include="lib\managers\GPUMeshManager.h" />
+    <ClInclude Include="lib\managers\SamplerManager.h" />
+    <ClInclude Include="lib\managers\helpers.h" />
+    <ClInclude Include="lib\managers\CPUGPUBimap.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -52,13 +68,12 @@
     <ClCompile Include="lib\DXSample.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="lib\D3D12HelloTriangle.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="lib\Win32Application.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="lib\GLTFStreamReader.cpp" />
+    <ClCompile Include="lib\gltf\GLTFStreamReader.cpp" />
+    <ClCompile Include="lib\Renderer.cpp" />
+    <ClCompile Include="lib\gltf\GLTFSceneObject.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

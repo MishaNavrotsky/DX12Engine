@@ -14,13 +14,23 @@
 
 #include "../DXSampleHelper.h"
 
-#include "../mesh/Mesh.h"
+#include "../mesh/CPUMesh.h"
+#include "../mesh/CPUTexture.h"
+#include "../mesh/CPUMaterial.h"
+#include "../mesh/Sampler.h"
+
 
 #include "stb_image.h"
 #include "DirectXTex.h"
 #include <future>
 #include <atomic>
 #include "../../external/BS_thread_pool.hpp"
+
+#include "../managers/CPUMaterialManager.h"
+#include "../managers/CPUMeshManager.h"
+#include "../managers/CPUTextureManager.h"
+#include "../managers/SamplerManager.h"
+
 
 namespace GLTFLocal
 {
@@ -39,7 +49,7 @@ namespace GLTFLocal
 		fs::path m_pathBase;
 	};
 
-	std::vector<std::unique_ptr<Engine::Mesh>> GetMeshesInfo(const fs::path& path);
-	BS::thread_pool<> m_threadPool;
-	BS::thread_pool<> m_texturesThreadPool;
+	std::unique_ptr<std::vector<GUID>> GetMeshesInfo(const fs::path& path);
+	extern BS::thread_pool<> m_threadPool;
+	extern BS::thread_pool<> m_texturesThreadPool;
 }
