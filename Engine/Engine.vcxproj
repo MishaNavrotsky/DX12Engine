@@ -132,6 +132,8 @@
     <ClInclude Include="lib\geometry\ModelMatrix.h" />
     <ClInclude Include="lib\gltf\GLTFSceneObject.h" />
     <ClInclude Include="lib\gltf\GLTFStreamReader.h" />
+    <ClInclude Include="lib\loaders\ModelGPULoader.h" />
+    <ClInclude Include="lib\loaders\ModelLoader.h" />
     <ClInclude Include="lib\managers\CPUGPUBimap.h" />
     <ClInclude Include="lib\managers\CPUMaterialManager.h" />
     <ClInclude Include="lib\managers\CPUMeshManager.h" />
@@ -140,7 +142,10 @@
     <ClInclude Include="lib\managers\GPUMeshManager.h" />
     <ClInclude Include="lib\managers\GPUTextureManager.h" />
     <ClInclude Include="lib\managers\helpers.h" />
+    <ClInclude Include="lib\managers\IManager.h" />
+    <ClInclude Include="lib\managers\ModelManager.h" />
     <ClInclude Include="lib\managers\SamplerManager.h" />
+    <ClInclude Include="lib\managers\ModelHeapsManager.h" />
     <ClInclude Include="lib\mesh\GPUMaterial.h" />
     <ClInclude Include="lib\mesh\GPUMesh.h" />
     <ClInclude Include="lib\mesh\GPUTexture.h" />
@@ -148,7 +153,10 @@
     <ClInclude Include="lib\mesh\CPUMaterial.h" />
     <ClInclude Include="lib\mesh\CPUMesh.h" />
     <ClInclude Include="lib\mesh\CPUTexture.h" />
+    <ClInclude Include="lib\mesh\ModelHeaps.h" />
+    <ClInclude Include="lib\mesh\Model.h" />
     <ClInclude Include="lib\queues\GPUUploadQueue.h" />
+    <ClInclude Include="lib\renderable\MeshRenderable.h" />
     <ClInclude Include="lib\scene\ISceneRenderable.h" />
     <ClInclude Include="lib\scene\Scene.h" />
     <ClInclude Include="lib\scene\ISceneObject.h" />
@@ -162,6 +170,7 @@
   <ItemGroup>
     <ClCompile Include="lib\gltf\GLTFSceneObject.cpp" />
     <ClCompile Include="lib\gltf\GLTFStreamReader.cpp" />
+    <ClCompile Include="lib\renderable\MeshRenderable.cpp" />
     <ClCompile Include="lib\Win32Application.cpp" />
     <ClCompile Include="lib\Renderer.cpp" />
     <ClCompile Include="lib\DXSample.cpp" />

@@ -11,6 +11,7 @@ namespace Engine {
 
 	class CPUTexture: public IID {
 	public:
+		virtual ~CPUTexture() = default;
 
 		CPUTexture() {
 			m_scratchImage->Initialize2D(DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, 1, 1, 1, 0);
@@ -37,10 +38,12 @@ namespace Engine {
 		bool getIsDefaultScratchImage() const {
 			return m_isDefaultScratchImage;
 		}
-	private:
+		virtual TextureType getType() const {
+			return TextureType::DEFAULT;
+		}
+	protected:
 		std::unique_ptr<DirectX::ScratchImage> m_scratchImage = std::make_unique<DirectX::ScratchImage>();
 		bool m_isDefaultScratchImage = true;
-		TextureType m_type = TextureType::DEFAULT;
 	};
 
 	class CPUEmissiveTexture : public CPUTexture {
@@ -48,8 +51,8 @@ namespace Engine {
 		CPUEmissiveTexture() = default;
 		CPUEmissiveTexture(CPUTexture&& other) noexcept : CPUTexture(std::move(other)) {};
 		DirectX::XMFLOAT3 emissiveFactor = { 0.f, 0.f, 0.f };
-	private:
-		TextureType m_type = TextureType::EMISSIVE;
+
+		TextureType getType() const override { return TextureType::EMISSIVE; }
 	};
 
 	class CPUDiffuseTexture : public CPUTexture {
@@ -57,8 +60,8 @@ namespace Engine {
 		CPUDiffuseTexture() = default;
 		CPUDiffuseTexture(CPUTexture&& other) noexcept : CPUTexture(std::move(other)) {};
 		DirectX::XMFLOAT4 baseColorFactor = { 1.f, 1.f, 1.f, 1.f };
-	private:
-		TextureType m_type = TextureType::DIFFUSE;
+
+		TextureType getType() const override { return TextureType::DIFFUSE; }
 	};
 
 	class CPUNormalTexture : public CPUTexture {
@@ -66,8 +69,8 @@ namespace Engine {
 		CPUNormalTexture() = default;
 		CPUNormalTexture(CPUTexture&& other) noexcept : CPUTexture(std::move(other)) {};
 		float scale = 1.f;
-	private:
-		TextureType m_type = TextureType::NORMAL;
+
+		TextureType getType() const override { return TextureType::NORMAL; }
 	};
 
 	class CPUOcclusionTexture : public CPUTexture {
@@ -75,8 +78,8 @@ namespace Engine {
 		CPUOcclusionTexture() = default;
 		CPUOcclusionTexture(CPUTexture&& other) noexcept : CPUTexture(std::move(other)) {};
 		float strength = 1.f;
-	private:
-		TextureType m_type = TextureType::OCCLUSION;
+
+		TextureType getType() const override { return TextureType::OCCLUSION; }
 	};
 
 	class CPUMetallicRoughnessTexture : public CPUTexture {
@@ -85,7 +88,7 @@ namespace Engine {
 		CPUMetallicRoughnessTexture(CPUTexture&& other) noexcept : CPUTexture(std::move(other)) {};
 		float metallicFactor = 1.f;
 		float roughnessFactor = 1.f;
-	private:
-		TextureType m_type = TextureType::METALLIC_ROUGHNESS;
+
+		TextureType getType() const override { return TextureType::METALLIC_ROUGHNESS; }
 	};
 }

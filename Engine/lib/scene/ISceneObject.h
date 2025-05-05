@@ -9,17 +9,9 @@ namespace Engine {
 	public:
 		Engine::ModelMatrix modelMatrix;
 
-		virtual void prepareCPUData() = 0;
-		virtual void prepareGPUData() = 0;
+		virtual bool isLoadComplete() const = 0;
 
-		virtual bool isCPULoadComplete() const = 0;
-		virtual bool isGPULoadComplete() const = 0;
-
-		std::vector<std::unique_ptr<ISceneRenderable>>& getRenderables() {
-			return m_renderables;
-		}
-		virtual ~ISceneObject() {}
-	protected:
-		std::vector<std::unique_ptr<ISceneRenderable>> m_renderables;
+		virtual std::vector<std::unique_ptr<ISceneRenderable>>& getRenderables() = 0;
+		virtual ~ISceneObject() = default;
 	};
 }

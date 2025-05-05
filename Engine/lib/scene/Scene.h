@@ -14,27 +14,11 @@ namespace Engine {
 
 		void render(ID3D12GraphicsCommandList* commandList) const {
 			for (auto& sceneObj : m_scene) {
-				if (!sceneObj->isCPULoadComplete() || !sceneObj->isGPULoadComplete()) continue;
+				if (!sceneObj->isLoadComplete()) continue;
 				auto& renderables = sceneObj->getRenderables();
 				for (auto& renderable : renderables) {
 					renderable->render(commandList);
 				}
-			}
-		}
-
-		void prepareGPUData(ID3D12Device* device, ID3D12GraphicsCommandList* commandList) {
-			for (auto& sceneObj : m_scene) {
-				sceneObj->prepareGPUData();
-			}
-		}
-
-		void releaseUnusedHeaps() {
-
-		}
-
-		void loadAll() {
-			for (auto& sceneObj : m_scene) {
-				sceneObj->prepareCPUData();
 			}
 		}
 

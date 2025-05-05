@@ -5,6 +5,9 @@
 #include "gltf/GLTFStreamReader.h"
 #include "gltf/GLTFSceneObject.h"
 #include "scene/Scene.h"
+#include "queues/GPUUploadQueue.h"
+#include "loaders/ModelLoader.h"
+
 
 
 using namespace DirectX;
@@ -43,16 +46,12 @@ private:
     ComPtr<ID3D12Device> m_device;
     ComPtr<ID3D12Resource> m_renderTargets[FrameCount];
     ComPtr<ID3D12CommandAllocator> m_commandAllocator;
-    ComPtr<ID3D12CommandAllocator> m_uploadCommandAllocator;
     ComPtr<ID3D12CommandQueue> m_commandQueue;
-    ComPtr<ID3D12CommandQueue> m_uploadCommandQueue;
     ComPtr<ID3D12RootSignature> m_rootSignature;
     ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
     ComPtr<ID3D12PipelineState> m_pipelineState;
     ComPtr<ID3D12GraphicsCommandList> m_commandList;
-    ComPtr<ID3D12GraphicsCommandList> m_uploadCommandList;
     UINT m_rtvDescriptorSize;
-
 	ComPtr<ID3D12Resource> m_depthStencilBuffer;
 	ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
 
@@ -65,12 +64,11 @@ private:
     ComPtr<ID3D12Fence> m_fence;
     UINT64 m_fenceValue;
 
-    ComPtr<ID3D12Fence> m_uploadFence;
-	UINT64 m_uploadFenceValue;
-
-
 	Engine::Camera m_camera;
     Engine::Scene m_scene;
+    Engine::GPUUploadQueue& m_uploadQueue = Engine::GPUUploadQueue::getInstance();
+    Engine::ModelLoader& m_modelLoader = Engine::ModelLoader::getInstance();
+
 
     // Camera buffers
 	ComPtr<ID3D12Resource> m_cameraBuffer;

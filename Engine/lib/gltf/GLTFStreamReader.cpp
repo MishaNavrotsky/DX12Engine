@@ -6,6 +6,7 @@
 namespace GLTFLocal {
 	BS::thread_pool<> m_threadPool;
 	BS::thread_pool<> m_texturesThreadPool;
+	std::mutex m_consoleMutex;
 }
 
 inline GLTFLocal::GLTFStreamReader::GLTFStreamReader(fs::path pathBase) : m_pathBase(std::move(pathBase))
@@ -30,14 +31,14 @@ inline std::shared_ptr<std::istream> GLTFLocal::GLTFStreamReader::GetInputStream
 	return stream;
 }
 
-std::unique_ptr<std::vector<GUID>> GLTFLocal::GetMeshesInfo(const fs::path& path) {
+std::vector<GUID> GLTFLocal::GetMeshesInfo(const fs::path& path) {
 	using namespace std;
 	//start loading time
 #ifdef DEBUG_MESHES_LOAD
 	auto startTime = std::chrono::high_resolution_clock::now();
 #endif // DEBUG_MESHES_LOAD
 
-	std::unique_ptr<std::vector<GUID>> meshDataList = std::make_unique<std::vector<GUID>>();
+	std::vector<GUID> meshDataList = std::vector<GUID>();
 
 	auto streamReader = make_unique<GLTFStreamReader>(path.parent_path());
 
@@ -221,10 +222,9 @@ std::unique_ptr<std::vector<GUID>> GLTFLocal::GetMeshesInfo(const fs::path& path
 							engineSampler->samplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
 						}
 
-						GUID addedTextureID = GUID_NULL;
-						GUID addedSamplerID = GUID_NULL;
 						auto& texManager = Engine::CPUTextureManager::getInstance();
 						auto& samManager = Engine::SamplerManager::getInstance();
+						GUID addedTextureID = GUID_NULL;
 
 						if (texture.second == TextureType::BaseColor) {
 							auto diffuseTexture = std::make_unique<Engine::CPUDiffuseTexture>(std::move(engineTexture));
@@ -235,21 +235,18 @@ std::unique_ptr<std::vector<GUID>> GLTFLocal::GetMeshesInfo(const fs::path& path
 
 
 							addedTextureID = texManager.add(std::move(diffuseTexture));
-							addedSamplerID = samManager.add(std::move(engineSampler));
 						}
 						else if (texture.second == TextureType::Normal) {
 							auto normalTexture = std::make_unique<Engine::CPUNormalTexture>(std::move(engineTexture));
 							normalTexture->scale = material.normalTexture.scale;
 
 							addedTextureID = texManager.add(std::move(normalTexture));
-							addedSamplerID = samManager.add(std::move(engineSampler));
 						}
 						else if (texture.second == TextureType::Occlusion) {
 							auto occlusionTexture = std::make_unique<Engine::CPUOcclusionTexture>(std::move(engineTexture));
 							occlusionTexture->strength = material.occlusionTexture.strength;
 
 							addedTextureID = texManager.add(std::move(occlusionTexture));
-							addedSamplerID = samManager.add(std::move(engineSampler));
 						}
 						else if (texture.second == TextureType::Emissive) {
 							auto emissiveTexture = std::make_unique<Engine::CPUEmissiveTexture>(std::move(engineTexture));
@@ -258,7 +255,6 @@ std::unique_ptr<std::vector<GUID>> GLTFLocal::GetMeshesInfo(const fs::path& path
 							emissiveTexture->emissiveFactor.z = material.emissiveFactor.b;
 
 							addedTextureID = texManager.add(std::move(emissiveTexture));
-							addedSamplerID = samManager.add(std::move(engineSampler));
 						}
 						else if (texture.second == TextureType::MetallicRoughness) {
 							auto metallicRoughnessTexture = std::make_unique<Engine::CPUMetallicRoughnessTexture>(std::move(engineTexture));
@@ -266,11 +262,12 @@ std::unique_ptr<std::vector<GUID>> GLTFLocal::GetMeshesInfo(const fs::path& path
 							metallicRoughnessTexture->roughnessFactor = material.metallicRoughness.roughnessFactor;
 
 							addedTextureID = texManager.add(std::move(metallicRoughnessTexture));
-							addedSamplerID = samManager.add(std::move(engineSampler));
 						}
 						textureIdsAddMutex.lock();
-						textureIds.push_back(addedTextureID);
-						samplerIds.push_back(addedSamplerID);
+						if (addedTextureID != GUID_NULL) {
+							textureIds.push_back(addedTextureID);
+							samplerIds.push_back(samManager.add(std::move(engineSampler)));
+						}
 						textureIdsAddMutex.unlock();
 						};
 					futuresAddMutex.lock();
@@ -319,7 +316,7 @@ std::unique_ptr<std::vector<GUID>> GLTFLocal::GetMeshesInfo(const fs::path& path
 
 				auto& meshManager = Engine::CPUMeshManager::getInstance();
 				vectorAddMutex.lock();
-				meshDataList->push_back(meshManager.add(std::move(meshData)));
+				meshDataList.push_back(meshManager.add(std::move(meshData)));
 				vectorAddMutex.unlock();
 			}
 			};
@@ -328,12 +325,14 @@ std::unique_ptr<std::vector<GUID>> GLTFLocal::GetMeshesInfo(const fs::path& path
 	m_threadPool.wait();
 
 #ifdef DEBUG_MESHES_LOAD
+	m_consoleMutex.lock();
 	auto endTime = std::chrono::high_resolution_clock::now();
 	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
 	std::cout << pathFile << " loading time: " << duration << "ms" << std::endl;
 	std::cout << pathFile << " mipmap creating time: " << mipMapCreatingTime << "ms" << std::endl;
 	std::cout << pathFile << " decode texture time: " << decodeTextureTime << "ms" << std::endl;
 	std::cout << pathFile << " textures loading time: " << textureLoadTime << "ms" << std::endl;
+	m_consoleMutex.unlock();
 #endif // DEBUG_MESHES_LOAD
 
 	return meshDataList;

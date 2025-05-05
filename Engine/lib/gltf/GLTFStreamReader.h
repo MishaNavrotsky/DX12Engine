@@ -24,7 +24,6 @@
 #include "DirectXTex.h"
 #include <future>
 #include <atomic>
-#include "../../external/BS_thread_pool.hpp"
 
 #include "../managers/CPUMaterialManager.h"
 #include "../managers/CPUMeshManager.h"
@@ -49,7 +48,7 @@ namespace GLTFLocal
 		fs::path m_pathBase;
 	};
 
-	std::unique_ptr<std::vector<GUID>> GetMeshesInfo(const fs::path& path);
+	std::vector<GUID> GetMeshesInfo(const fs::path& path);
 	extern BS::thread_pool<> m_threadPool;
 	extern BS::thread_pool<> m_texturesThreadPool;
 }

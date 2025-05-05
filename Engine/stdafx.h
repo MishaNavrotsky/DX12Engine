@@ -15,6 +15,14 @@
 #include "include/d3dx12/d3dx12.h"
 #include <dxcapi.h>
 #include <objbase.h>
+#include <vector>
+#include "external/BS_thread_pool.hpp"
+#include <functional>
+#include <thread>
+#include <mutex>
+#include <atomic>
+#include <future>
+#include <iostream>
 
 #include <string>
 #include <wrl.h>

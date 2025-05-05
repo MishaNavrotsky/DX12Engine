@@ -77,18 +77,14 @@ void Renderer::LoadPipeline()
 		));
 	}
 
+	Engine::GPUUploadQueue::getInstance().registerDevice(m_device);
+
+
 	D3D12_COMMAND_QUEUE_DESC queueDesc = {};
 	queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
 	queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
 
 	ThrowIfFailed(m_device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&m_commandQueue)));
-
-	D3D12_COMMAND_QUEUE_DESC uploadQueueDesc = {};
-	uploadQueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
-	uploadQueueDesc.Type = D3D12_COMMAND_LIST_TYPE_COPY;
-
-	ThrowIfFailed(m_device->CreateCommandQueue(&uploadQueueDesc, IID_PPV_ARGS(&m_uploadCommandQueue)));
-
 
 	DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
 	swapChainDesc.BufferCount = FrameCount;
@@ -200,7 +196,6 @@ void Renderer::LoadPipeline()
 	}
 
 	ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_commandAllocator)));
-	ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COPY, IID_PPV_ARGS(&m_uploadCommandAllocator)));
 }
 
 void Renderer::LoadAssets()
@@ -219,25 +214,8 @@ void Renderer::LoadAssets()
 
 		m_vertexShader = CompileShaderFromFile(compiler.Get(), library.Get(), GetAssetFullPath(L"assets\\shaders\\shaders.hlsl").c_str(), L"VSMain", L"vs_6_6");
 		m_pixelShader = CompileShaderFromFile(compiler.Get(), library.Get(), GetAssetFullPath(L"assets\\shaders\\shaders.hlsl").c_str(), L"PSMain", L"ps_6_6");
-
-
-		//ThrowIfFailed(CompileShaderWithMessage(GetAssetFullPath(L"assets\\shaders\\shaders.hlsl").c_str(), "VSMain", "vs_6_6", compileFlags, &m_vertexShader));
-		//ThrowIfFailed(CompileShaderWithMessage(GetAssetFullPath(L"assets\\shaders\\shaders.hlsl").c_str(), "PSMain", "ps_6_6", compileFlags, &m_pixelShader));
 	}
 	{
-		//CD3DX12_DESCRIPTOR_RANGE cbvRange;
-		//cbvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0); // 1 CBV at register b0
-
-		//CD3DX12_ROOT_PARAMETER rootParameters[1];
-		//rootParameters[0].InitAsDescriptorTable(1, &cbvRange);
-
-		//CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
-		//rootSignatureDesc.Init(1, rootParameters, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
-
-
-		//ComPtr<ID3DBlob> signature;
-		//ComPtr<ID3DBlob> error;
-		//ThrowIfFailed(D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error));
 		ThrowIfFailed(m_device->CreateRootSignature(0, m_vertexShader->GetBufferPointer(), m_vertexShader->GetBufferSize(), IID_PPV_ARGS(&m_rootSignature)));
 	}
 
@@ -280,36 +258,11 @@ void Renderer::LoadAssets()
 	ThrowIfFailed(m_commandList->Close());
 
 
-	ThrowIfFailed(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COPY, m_uploadCommandAllocator.Get(), m_pipelineState.Get(), IID_PPV_ARGS(&m_uploadCommandList)));
 	{
 		m_scene.addObject(std::make_unique<Engine::GLTFSceneObject>(L"assets\\models\\alicev2rigged.glb"));
-		m_scene.loadAll();
-		m_scene.prepareGPUData(m_device.Get(), m_uploadCommandList.Get());
-		//for (const auto& mesh : *m_meshes) 
-		//{
-		//	mesh.get()->createBuffers(m_device.Get(), m_uploadCommandList.Get());
-		//}
+		m_modelLoader.waitForQueueEmpty();
+		m_uploadQueue.execute().get();
 	}
-	ThrowIfFailed(m_uploadCommandList->Close());
-	ID3D12CommandList* commandLists[] = { m_uploadCommandList.Get()};
-	m_uploadCommandQueue->ExecuteCommandLists(_countof(commandLists), commandLists);
-
-	ThrowIfFailed(m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_uploadFence)));
-	ThrowIfFailed(m_uploadCommandQueue->Signal(m_uploadFence.Get(), ++m_uploadFenceValue));
-
-	if (m_uploadFence->GetCompletedValue() < m_uploadFenceValue) {
-		HANDLE fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-		ThrowIfFailed(m_uploadFence->SetEventOnCompletion(m_uploadFenceValue, fenceEvent));
-		WaitForSingleObject(fenceEvent, INFINITE); // Block until GPU is done
-		CloseHandle(fenceEvent);
-	}
-	ThrowIfFailed(m_uploadCommandAllocator->Reset());
-	ThrowIfFailed(m_uploadCommandList->Reset(m_uploadCommandAllocator.Get(), nullptr));
-	m_scene.releaseUnusedHeaps();
-	//for (const auto& mesh : *m_meshes)
-	//{
-	//	mesh.get()->releaseUploadHeaps();
-	//}
 
 
 	// Create the vertex buffer.
@@ -398,8 +351,6 @@ void Renderer::OnRender()
 	{
 		this->OnKeyDown();
 	}
-	m_commandQueue->Wait(m_uploadFence.Get(), m_uploadFenceValue);
-
 	PopulateCommandList();
 
 	ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
@@ -497,7 +448,7 @@ void Renderer::OnKeyDown()
 
 	auto cameraPos = m_camera.getPosition();
 	auto cameraLookAt = m_camera.getLookAt();
-	auto cameraSpeed = 100.0f;
+	auto cameraSpeed = 10.0f;
 
 	if (GetAsyncKeyState(VK_SHIFT) & 0x8000) { // Shift key
 		cameraSpeed *= 10.0f;
