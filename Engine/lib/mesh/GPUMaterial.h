@@ -9,20 +9,27 @@ namespace Engine {
 
 	class GPUMaterial : public IID {
 	public:
-		GPUMaterial(std::vector<GUID> textureResourceIds, std::vector<GUID> samplerIds)
-			: m_textureResourceIds(std::move(textureResourceIds)),
-			m_samplerIds(std::move(samplerIds)) {
-		}
+		GPUMaterial() = default;
 
-		std::vector<GUID>& getTextureResourceIds() {
-			return m_textureResourceIds;
+		std::vector<GUID>& getTextureIds() {
+			return m_textureIds;
 		}
-		std::vector<GUID>& getSamplerDescIds() {
+		std::vector<GUID>& getSamplerIds() {
 			return m_samplerIds;
 		}
+		void setTextureIds(std::vector<GUID>&& v) {
+			m_textureIds = std::move(v);
+		}
+		void setSamplerIds(std::vector<GUID>&& v) {
+			m_samplerIds = std::move(v);
+		}
 
+		ID3D12Resource* getCBVResource() const {
+			return m_cbv.Get();
+		}
 	private:
-		std::vector<GUID> m_textureResourceIds;
+		std::vector<GUID> m_textureIds;
 		std::vector<GUID> m_samplerIds;
+		ComPtr<ID3D12Resource> m_cbv;
 	};
 }

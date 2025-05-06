@@ -294,3 +294,143 @@ inline ComPtr<IDxcBlob> CompileShaderFromFile(IDxcCompiler3* compiler, IDxcLibra
 
 	return shaderBlob;
 }
+
+
+struct DefaultPBRTextures {
+	ComPtr<ID3D12Resource> baseColor;
+	ComPtr<ID3D12Resource> metallicRoughness;
+	ComPtr<ID3D12Resource> normal;
+	ComPtr<ID3D12Resource> emissive;
+	ComPtr<ID3D12Resource> occlusion;
+};
+
+inline ComPtr<ID3D12Resource> CreateAndUpload1x1Texture(
+	ID3D12Device* device,
+	ID3D12GraphicsCommandList* cmdList,
+	const void* pixelData,
+	UINT pixelSize,
+	DXGI_FORMAT format,
+	ComPtr<ID3D12Resource>& uploadBufferOut)
+{
+	// --- Create default heap texture (GPU)
+	D3D12_RESOURCE_DESC texDesc = {};
+	texDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	texDesc.Width = 1;
+	texDesc.Height = 1;
+	texDesc.DepthOrArraySize = 1;
+	texDesc.MipLevels = 1;
+	texDesc.Format = format;
+	texDesc.SampleDesc.Count = 1;
+	texDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	texDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+	D3D12_HEAP_PROPERTIES defaultHeapProps = {};
+	defaultHeapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
+
+	ComPtr<ID3D12Resource> texture;
+	ThrowIfFailed(device->CreateCommittedResource(
+		&defaultHeapProps,
+		D3D12_HEAP_FLAG_NONE,
+		&texDesc,
+		D3D12_RESOURCE_STATE_COPY_DEST,
+		nullptr,
+		IID_PPV_ARGS(&texture)));
+
+	// --- Create upload buffer
+	UINT64 uploadSize = 0;
+	device->GetCopyableFootprints(&texDesc, 0, 1, 0, nullptr, nullptr, nullptr, &uploadSize);
+
+	D3D12_HEAP_PROPERTIES uploadHeapProps = {};
+	uploadHeapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
+
+	auto uploadDesc = CD3DX12_RESOURCE_DESC::Buffer(uploadSize);
+	ThrowIfFailed(device->CreateCommittedResource(
+		&uploadHeapProps,
+		D3D12_HEAP_FLAG_NONE,
+		&uploadDesc,
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&uploadBufferOut))); // Pass the upload buffer to the caller
+
+	// --- Copy data to upload buffer
+	uint8_t* mappedData = nullptr;
+	ThrowIfFailed(uploadBufferOut->Map(0, nullptr, reinterpret_cast<void**>(&mappedData)));
+	memcpy(mappedData, pixelData, pixelSize);
+	uploadBufferOut->Unmap(0, nullptr);
+
+	// --- Upload to GPU texture
+	D3D12_SUBRESOURCE_DATA subresource = {};
+	subresource.pData = pixelData;
+	subresource.RowPitch = pixelSize;
+	subresource.SlicePitch = pixelSize;
+
+	UpdateSubresources(cmdList, texture.Get(), uploadBufferOut.Get(), 0, 0, 1, &subresource);
+
+	// --- Transition texture to shader resource state
+	auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+		texture.Get(),
+		D3D12_RESOURCE_STATE_COPY_DEST,
+		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	cmdList->ResourceBarrier(1, &barrier);
+
+	return texture;
+}
+
+inline DefaultPBRTextures CreateDefaultPBRTextures(ID3D12Device* m_device)
+{
+	// Create command objects
+	ComPtr<ID3D12CommandAllocator> cmdAllocator;
+	ComPtr<ID3D12GraphicsCommandList> cmdList;
+	ComPtr<ID3D12CommandQueue> queue;
+
+	ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&cmdAllocator)));
+	ThrowIfFailed(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, cmdAllocator.Get(), nullptr, IID_PPV_ARGS(&cmdList)));
+
+	D3D12_COMMAND_QUEUE_DESC qDesc = {};
+	qDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+	ThrowIfFailed(m_device->CreateCommandQueue(&qDesc, IID_PPV_ARGS(&queue)));
+
+	// Pixel data
+	const uint8_t baseColor[4] = { 255, 255, 255, 255 };
+	const uint8_t mrPixel[4] = { 255, 128, 0, 255 };
+	const uint8_t normalPixel[4] = { 128, 128, 255, 255 };
+	const uint8_t emissivePixel[4] = { 0, 0, 0, 255 };
+	const uint8_t occlusionPixel[1] = { 255 };
+
+	// Define a struct to hold the upload buffer
+	ComPtr<ID3D12Resource> uploadBuffer0;
+	ComPtr<ID3D12Resource> uploadBuffer1;
+	ComPtr<ID3D12Resource> uploadBuffer2;
+	ComPtr<ID3D12Resource> uploadBuffer3;
+	ComPtr<ID3D12Resource> uploadBuffer4;
+
+
+	// Initialize textures using the upload buffer
+	DefaultPBRTextures textures;
+	textures.baseColor = CreateAndUpload1x1Texture(m_device, cmdList.Get(), baseColor, sizeof(baseColor), DXGI_FORMAT_R8G8B8A8_UNORM, uploadBuffer0);
+	textures.metallicRoughness = CreateAndUpload1x1Texture(m_device, cmdList.Get(), mrPixel, sizeof(mrPixel), DXGI_FORMAT_R8G8B8A8_UNORM, uploadBuffer1);
+	textures.normal = CreateAndUpload1x1Texture(m_device, cmdList.Get(), normalPixel, sizeof(normalPixel), DXGI_FORMAT_R8G8B8A8_UNORM, uploadBuffer2);
+	textures.emissive = CreateAndUpload1x1Texture(m_device, cmdList.Get(), emissivePixel, sizeof(emissivePixel), DXGI_FORMAT_R8G8B8A8_UNORM, uploadBuffer3);
+	textures.occlusion = CreateAndUpload1x1Texture(m_device, cmdList.Get(), occlusionPixel, sizeof(occlusionPixel), DXGI_FORMAT_R8_UNORM, uploadBuffer4);
+
+	// Finish and execute
+	ThrowIfFailed(cmdList->Close());
+	ID3D12CommandList* lists[] = { cmdList.Get() };
+	queue->ExecuteCommandLists(1, lists);
+
+	// Wait for GPU to finish
+	ComPtr<ID3D12Fence> fence;
+	ThrowIfFailed(m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence)));
+	HANDLE fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+	UINT64 fenceValue = 1;
+
+	ThrowIfFailed(queue->Signal(fence.Get(), fenceValue));
+	if (fence->GetCompletedValue() < fenceValue)
+	{
+		ThrowIfFailed(fence->SetEventOnCompletion(fenceValue, fenceEvent));
+		WaitForSingleObject(fenceEvent, INFINITE);
+	}
+	CloseHandle(fenceEvent);
+
+	return textures;
+}

@@ -21,20 +21,22 @@ namespace Engine {
 	using Microsoft::WRL::ComPtr;
 	using namespace DirectX;
 
+	inline uint64_t Align(uint64_t size, uint64_t alignment) {
+		return (size + alignment - 1) & ~(alignment - 1);
+	}
+
+	struct GUIDComparator {
+		bool operator()(const GUID& lhs, const GUID& rhs) const {
+			return memcmp(&lhs, &rhs, sizeof(GUID)) < 0; // Binary ordering
+		}
+	};
+
 	class ModelGPULoader {
 	public:
 		ModelGPULoader(ID3D12Device* device, ID3D12GraphicsCommandList* commandList, GUID modelId) : m_device(device), m_commandList(commandList), m_modelId(modelId) {
 			auto& model = m_modelManager.get(m_modelId);
 			auto meshes = m_cpuMeshManager.getMany(model.getCPUMeshIds());
 			auto modelHeaps = std::make_unique<ModelHeaps>();
-
-
-			//{
-			//	{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-			//	{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 1, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-			//	{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 2, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-			//	{ "TANGENT", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 3, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-			//};
 
 			uint64_t sizeOfAllGeometry = 0;
 			for (auto& mesh : meshes) {
@@ -167,7 +169,7 @@ namespace Engine {
 				IID_PPV_ARGS(&indicesDefaultHeap)
 			));
 
-			commandList->CopyBufferRegion(
+			m_commandList->CopyBufferRegion(
 				indicesDefaultHeap.Get(),
 				0,
 				indicesUploadHeap.Get(),
@@ -229,6 +231,85 @@ namespace Engine {
 			}
 			model.setGPUMeshIds(std::move(gpuMeshIds));
 
+
+			std::set<GUID, GUIDComparator> materialIds;
+			for (auto& mesh : meshes) {
+				auto& materialId = mesh.get().getMaterialId();
+				if (!IsEqualGUID(materialId, GUID_NULL)) {
+					materialIds.insert(materialId);
+				}
+			}
+
+			auto materials = m_cpuMaterialManager.getMany(std::vector(materialIds.begin(), materialIds.end()));
+			std::vector<GUID> gpuTextureIds;
+			std::vector<GUID> gpuMaterialIds;
+			std::vector<std::vector<D3D12_SUBRESOURCE_DATA>> textureSubResources;
+			uint64_t totalTextureUploadBufferSize = 0;
+
+			for (auto& material : materials) {
+				auto textures = m_cpuTextureManager.getMany(material.get().getTextureIds());
+				auto gpuMaterial = std::make_unique<GPUMaterial>();
+				auto& samplerIds = material.get().getSamplerIds();
+				gpuMaterial->setSamplerIds(std::vector<GUID>(samplerIds));
+
+				for (auto& texture : textures) {
+					auto& tex = texture.get();
+					auto& image = tex.getScratchImage();
+
+					auto gpuTexture = std::make_unique<GPUTexture>();
+					ThrowIfFailed(CreateTexture(m_device, image.GetMetadata(), gpuTexture->getResource().GetAddressOf()));
+
+					std::vector<D3D12_SUBRESOURCE_DATA> subresources;
+					ThrowIfFailed(PrepareUpload(m_device, image.GetImages(), image.GetImageCount(), image.GetMetadata(), subresources));
+
+					totalTextureUploadBufferSize += Align(
+						GetRequiredIntermediateSize(gpuTexture->getResource().Get(), 0, static_cast<UINT>(subresources.size())),
+						D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
+
+					auto gpuTextureId = m_gpuTextureManager.add(std::move(gpuTexture));
+					gpuTextureIds.push_back(gpuTextureId);
+					gpuMaterial.get()->getTextureIds().push_back(gpuTextureId);
+					textureSubResources.push_back(std::move(subresources));
+				}
+
+				gpuMaterialIds.push_back(m_gpuMaterialManager.add(std::move(gpuMaterial)));
+			}
+
+			D3D12_HEAP_PROPERTIES texUploadHeapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+			D3D12_RESOURCE_DESC texUploadHeapDesc = CD3DX12_RESOURCE_DESC::Buffer(totalTextureUploadBufferSize);
+			auto& texUploadHeap = modelHeaps.get()->getTexturesUploadHeap();
+			ThrowIfFailed(m_device->CreateCommittedResource(
+				&texUploadHeapProps,
+				D3D12_HEAP_FLAG_NONE,
+				&texUploadHeapDesc,
+				D3D12_RESOURCE_STATE_GENERIC_READ,
+				nullptr,
+				IID_PPV_ARGS(&texUploadHeap)));
+
+			uint64_t currentOffset = 0;
+			auto gpuTextures = m_gpuTextureManager.getMany(gpuTextureIds);
+			for (size_t i = 0; i < gpuTextures.size(); ++i) {
+				auto& texture = gpuTextures[i].get();
+				auto& subresources = textureSubResources[i];
+
+				UpdateSubresources(
+					m_commandList,
+					texture.getResource().Get(),
+					texUploadHeap.Get(),
+					currentOffset,
+					0,
+					static_cast<UINT>(subresources.size()),
+					subresources.data()
+				);
+
+				uint64_t requiredSize = Align(
+					GetRequiredIntermediateSize(texture.getResource().Get(), 0, static_cast<UINT>(subresources.size())),
+					D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
+
+				currentOffset += requiredSize;
+			}
+
+
 			m_uploadHeapManager.add(m_modelId, std::move(modelHeaps));
 		};
 	private:
@@ -244,6 +325,10 @@ namespace Engine {
 		ModelHeapsManager& m_uploadHeapManager = ModelHeapsManager::getInstance();
 
 		GPUMeshManager& m_gpuMeshManager = GPUMeshManager::getInstance();
+		GPUTextureManager& m_gpuTextureManager = GPUTextureManager::getInstance();
+		GPUMaterialManager& m_gpuMaterialManager = GPUMaterialManager::getInstance();
+
+
 
 		CPUGPUBimap& m_cpugpuBimap = CPUGPUBimap::getInstance();
 	};

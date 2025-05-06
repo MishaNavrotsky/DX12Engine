@@ -7,6 +7,7 @@
 #include "scene/Scene.h"
 #include "queues/GPUUploadQueue.h"
 #include "loaders/ModelLoader.h"
+#include "descriptors/BindlessHeapDescriptor.h"
 
 
 
@@ -68,6 +69,7 @@ private:
     Engine::Scene m_scene;
     Engine::GPUUploadQueue& m_uploadQueue = Engine::GPUUploadQueue::getInstance();
     Engine::ModelLoader& m_modelLoader = Engine::ModelLoader::getInstance();
+    Engine::BindlessHeapDescriptor& m_bindlessHeapDescriptor = Engine::BindlessHeapDescriptor::getInstance();
 
 
     // Camera buffers

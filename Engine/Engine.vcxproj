@@ -129,6 +129,7 @@
   <ItemGroup>
     <ClInclude Include="external\BS_thread_pool.hpp" />
     <ClInclude Include="lib\camera\Camera.h" />
+    <ClInclude Include="lib\descriptors\BindlessHeapDescriptor.h" />
     <ClInclude Include="lib\geometry\ModelMatrix.h" />
     <ClInclude Include="lib\gltf\GLTFSceneObject.h" />
     <ClInclude Include="lib\gltf\GLTFStreamReader.h" />

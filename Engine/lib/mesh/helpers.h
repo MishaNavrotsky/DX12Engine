@@ -21,19 +21,35 @@ namespace Engine {
 		return totalSize;
 	}
 
-	enum AlphaMode {
+	enum class AlphaMode {
 		Opaque,
 		Mask,
 		Blend
 	};
 
-	enum TextureType {
+	enum class TextureType {
 		DEFAULT,
-		DIFFUSE,
+		BASE_COLOR,
 		NORMAL,
 		OCCLUSION,
 		EMISSIVE,
 		METALLIC_ROUGHNESS,
+	};
+
+	enum class DefaultTexturesSlot {
+		BASE_COLOR = 0,
+		EMISSIVE = 1,
+		METALLIC_ROUGHNESS = 2,
+		NORMAL = 3,
+		OCCLUSION = 4,
+	};
+
+	enum class DefaultSamplersSlot {
+		BASE_COLOR = 0,
+		EMISSIVE = 1,
+		METALLIC_ROUGHNESS = 2,
+		NORMAL = 3,
+		OCCLUSION = 4,
 	};
 
 	class IID {

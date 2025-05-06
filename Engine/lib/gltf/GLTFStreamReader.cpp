@@ -233,6 +233,7 @@ std::vector<GUID> GLTFLocal::GetMeshesInfo(const fs::path& path) {
 							diffuseTexture->baseColorFactor.z = material.metallicRoughness.baseColorFactor.b;
 							diffuseTexture->baseColorFactor.w = material.metallicRoughness.baseColorFactor.a;
 
+							meshMaterial.get()->getCBVData().baseColorFactor = diffuseTexture->baseColorFactor;
 
 							addedTextureID = texManager.add(std::move(diffuseTexture));
 						}
@@ -240,11 +241,15 @@ std::vector<GUID> GLTFLocal::GetMeshesInfo(const fs::path& path) {
 							auto normalTexture = std::make_unique<Engine::CPUNormalTexture>(std::move(engineTexture));
 							normalTexture->scale = material.normalTexture.scale;
 
+							meshMaterial.get()->getCBVData().normalScaleOcclusionStrengthMRFactors.x = normalTexture->scale;
+
 							addedTextureID = texManager.add(std::move(normalTexture));
 						}
 						else if (texture.second == TextureType::Occlusion) {
 							auto occlusionTexture = std::make_unique<Engine::CPUOcclusionTexture>(std::move(engineTexture));
 							occlusionTexture->strength = material.occlusionTexture.strength;
+
+							meshMaterial.get()->getCBVData().normalScaleOcclusionStrengthMRFactors.y = occlusionTexture->strength;
 
 							addedTextureID = texManager.add(std::move(occlusionTexture));
 						}
@@ -254,12 +259,17 @@ std::vector<GUID> GLTFLocal::GetMeshesInfo(const fs::path& path) {
 							emissiveTexture->emissiveFactor.y = material.emissiveFactor.g;
 							emissiveTexture->emissiveFactor.z = material.emissiveFactor.b;
 
+							meshMaterial.get()->getCBVData().emissiveFactor = emissiveTexture->emissiveFactor;
+
 							addedTextureID = texManager.add(std::move(emissiveTexture));
 						}
 						else if (texture.second == TextureType::MetallicRoughness) {
 							auto metallicRoughnessTexture = std::make_unique<Engine::CPUMetallicRoughnessTexture>(std::move(engineTexture));
 							metallicRoughnessTexture->metallicFactor = material.metallicRoughness.metallicFactor;
 							metallicRoughnessTexture->roughnessFactor = material.metallicRoughness.roughnessFactor;
+
+							meshMaterial.get()->getCBVData().normalScaleOcclusionStrengthMRFactors.z = metallicRoughnessTexture->metallicFactor;
+							meshMaterial.get()->getCBVData().normalScaleOcclusionStrengthMRFactors.w = metallicRoughnessTexture->roughnessFactor;
 
 							addedTextureID = texManager.add(std::move(metallicRoughnessTexture));
 						}

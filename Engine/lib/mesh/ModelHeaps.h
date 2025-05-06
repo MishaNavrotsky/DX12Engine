@@ -11,12 +11,6 @@ namespace Engine {
 	public:
 		ModelHeaps() = default;
 
-		void setGeometryUploadHeap(ComPtr<ID3D12Resource>&& resource) { geometryUploadHeap = std::move(resource); }
-		void setIndexUploadHeap(ComPtr<ID3D12Resource>&& resource) { indexUploadHeap = std::move(resource); }
-		void setGeometryDefaultHeap(ComPtr<ID3D12Resource>&& resource) { geometryDefaultHeap = std::move(resource); }
-		void setIndexDefaultHeap(ComPtr<ID3D12Resource>&& resource) { indexDefaultHeap = std::move(resource); }
-		void setTexturesUploadHeap(ComPtr<ID3D12Resource>&& resource) { texturesUploadHeap = std::move(resource); }
-
 		ComPtr<ID3D12Resource>& getGeometryUploadHeap() { return geometryUploadHeap; }
 		ComPtr<ID3D12Resource>& getIndexUploadHeap() { return indexUploadHeap; }
 		ComPtr<ID3D12Resource>& getGeometryDefaultHeap() { return geometryDefaultHeap; }
@@ -28,7 +22,6 @@ namespace Engine {
 			indexUploadHeap = nullptr;
 			texturesUploadHeap = nullptr;
 		}
-
 	private:
 		ComPtr<ID3D12Resource> geometryUploadHeap;
 		ComPtr<ID3D12Resource> indexUploadHeap;

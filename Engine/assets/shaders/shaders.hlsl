@@ -43,5 +43,5 @@ PSInput VSMain(VertexShaderInput input)
 [RootSignature(RS)]
 float4 PSMain(PSInput input) : SV_TARGET
 {
-    return float4(input.normal.xyz, 1.0);
+    return float4(input.tangent.xyz, 1.0);
 }

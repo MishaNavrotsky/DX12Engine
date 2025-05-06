@@ -42,6 +42,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
         return -1;
     };
     CreateConsole();
-    Renderer sample(1280, 720, L"Title");
+    Renderer sample(static_cast<UINT>(1280*1.2), static_cast<UINT>(720*1.2), L"Title");
     return Win32Application::Run(&sample, hInstance, nCmdShow);
 }

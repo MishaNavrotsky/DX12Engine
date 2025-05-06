@@ -77,7 +77,8 @@ void Renderer::LoadPipeline()
 		));
 	}
 
-	Engine::GPUUploadQueue::getInstance().registerDevice(m_device);
+	m_uploadQueue.registerDevice(m_device);
+	m_bindlessHeapDescriptor.registerDevice(m_device);
 
 
 	D3D12_COMMAND_QUEUE_DESC queueDesc = {};

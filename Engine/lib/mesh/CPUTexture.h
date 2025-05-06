@@ -61,7 +61,7 @@ namespace Engine {
 		CPUDiffuseTexture(CPUTexture&& other) noexcept : CPUTexture(std::move(other)) {};
 		DirectX::XMFLOAT4 baseColorFactor = { 1.f, 1.f, 1.f, 1.f };
 
-		TextureType getType() const override { return TextureType::DIFFUSE; }
+		TextureType getType() const override { return TextureType::BASE_COLOR; }
 	};
 
 	class CPUNormalTexture : public CPUTexture {
