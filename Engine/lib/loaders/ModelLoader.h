@@ -15,7 +15,7 @@
 namespace Engine {
 	class ModelLoader {
 	public:
-		static ModelLoader& getInstance() {
+		static ModelLoader& GetInstance() {
 			static ModelLoader instance;
 			return instance;
 		}
@@ -31,12 +31,12 @@ namespace Engine {
 			m_threadPool.wait();
 		}
 	private:
-		ModelManager& m_modelManager = ModelManager::getInstance();
-		CPUMaterialManager& m_cpuMaterialManager = CPUMaterialManager::getInstance();
-		CPUMeshManager& m_cpuMeshManager = CPUMeshManager::getInstance();
-		CPUTextureManager& m_cpuTextureManager = CPUTextureManager::getInstance();
-		SamplerManager& m_samplerManager = SamplerManager::getInstance();
-		GPUUploadQueue& m_gpuUploadQueue = GPUUploadQueue::getInstance();
+		ModelManager& m_modelManager = ModelManager::GetInstance();
+		CPUMaterialManager& m_cpuMaterialManager = CPUMaterialManager::GetInstance();
+		CPUMeshManager& m_cpuMeshManager = CPUMeshManager::GetInstance();
+		CPUTextureManager& m_cpuTextureManager = CPUTextureManager::GetInstance();
+		SamplerManager& m_samplerManager = SamplerManager::GetInstance();
+		GPUUploadQueue& m_gpuUploadQueue = GPUUploadQueue::GetInstance();
 
 
 		BS::thread_pool<> m_threadPool;

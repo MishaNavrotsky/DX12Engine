@@ -269,6 +269,8 @@ inline ComPtr<IDxcBlob> CompileShaderFromFile(IDxcCompiler3* compiler, IDxcLibra
 		L"-E", entryPoint,
 		L"-T", targetProfile,
 		L"-Zi",
+		L"-Fd", L"shader.pdb",
+		L"-Qembed_debug"// Specify PDB output file name
 	};
 
 	ComPtr<IDxcResult> result;
@@ -370,7 +372,7 @@ inline ComPtr<ID3D12Resource> CreateAndUpload1x1Texture(
 	auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
 		texture.Get(),
 		D3D12_RESOURCE_STATE_COPY_DEST,
-		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	cmdList->ResourceBarrier(1, &barrier);
 
 	return texture;

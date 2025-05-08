@@ -18,16 +18,11 @@ namespace Engine {
 		bool isDirty = false;
 		ComPtr<ID3D12CommandAllocator> commandAllocator;
 		ComPtr<ID3D12GraphicsCommandList> commandList;
-
-		~GPUUploadQueueTask()
-		{
-			std::cout << "shouldn't happen" << '\n';
-		}
 	};
 
 	class GPUUploadQueue {
 	public:
-		static GPUUploadQueue& getInstance() {
+		static GPUUploadQueue& GetInstance() {
 			static GPUUploadQueue instance;
 			return instance;
 		}
@@ -138,8 +133,8 @@ namespace Engine {
 	private:
 		ComPtr<ID3D12CommandQueue> m_uploadCommandQueue;
 		ComPtr<ID3D12Device> m_device;
-		ModelHeapsManager& m_modelHeapsManager = ModelHeapsManager::getInstance();
-		ModelManager& m_modelManager = ModelManager::getInstance();
+		ModelHeapsManager& m_modelHeapsManager = ModelHeapsManager::GetInstance();
+		ModelManager& m_modelManager = ModelManager::GetInstance();
 
 
 		std::unique_ptr<GPUUploadQueueTask> m_tasks[8];

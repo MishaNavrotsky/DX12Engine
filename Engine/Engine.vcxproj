@@ -130,12 +130,12 @@
     <ClInclude Include="external\BS_thread_pool.hpp" />
     <ClInclude Include="lib\camera\Camera.h" />
     <ClInclude Include="lib\descriptors\BindlessHeapDescriptor.h" />
+    <ClInclude Include="lib\Device.h" />
     <ClInclude Include="lib\geometry\ModelMatrix.h" />
     <ClInclude Include="lib\gltf\GLTFSceneObject.h" />
     <ClInclude Include="lib\gltf\GLTFStreamReader.h" />
     <ClInclude Include="lib\loaders\ModelGPULoader.h" />
     <ClInclude Include="lib\loaders\ModelLoader.h" />
-    <ClInclude Include="lib\managers\CPUGPUBimap.h" />
     <ClInclude Include="lib\managers\CPUMaterialManager.h" />
     <ClInclude Include="lib\managers\CPUMeshManager.h" />
     <ClInclude Include="lib\managers\CPUTextureManager.h" />
@@ -158,7 +158,6 @@
     <ClInclude Include="lib\mesh\Model.h" />
     <ClInclude Include="lib\queues\GPUUploadQueue.h" />
     <ClInclude Include="lib\renderable\MeshRenderable.h" />
-    <ClInclude Include="lib\scene\ISceneRenderable.h" />
     <ClInclude Include="lib\scene\Scene.h" />
     <ClInclude Include="lib\scene\ISceneObject.h" />
     <ClInclude Include="lib\Win32Application.h" />
@@ -169,6 +168,7 @@
     <ClInclude Include="stdafx.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="lib\Device.cpp" />
     <ClCompile Include="lib\gltf\GLTFSceneObject.cpp" />
     <ClCompile Include="lib\gltf\GLTFStreamReader.cpp" />
     <ClCompile Include="lib\renderable\MeshRenderable.cpp" />
@@ -209,6 +209,16 @@
     </CopyFileToFolders>
     <CopyFileToFolders Include="assets\glb\su-33_flanker-d.glb">
       <DeploymentContent>true</DeploymentContent>
+      <FileType>Document</FileType>
+      <DestinationFolders Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)/assets/models</DestinationFolders>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="assets\glb\cute_anime_girl_mage.glb">
+      <DeploymentContent>true</DeploymentContent>
+      <FileType>Document</FileType>
+      <DestinationFolders Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)/assets/models</DestinationFolders>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="assets\glb\alicev2rigged_c.glb">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
       <FileType>Document</FileType>
       <DestinationFolders Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)/assets/models</DestinationFolders>
     </CopyFileToFolders>

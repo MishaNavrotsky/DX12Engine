@@ -1,11 +1,13 @@
 #include "stdafx.h"
 #pragma once
 #include "ISceneObject.h"
+#include "../Device.h"
 
 
 namespace Engine {
 	class Scene {
 	public:
+		void initialize() {}
 		uint64_t addObject(std::unique_ptr<ISceneObject>&& sceneObject) noexcept {
 			std::shared_ptr<ISceneObject> obj = std::move(sceneObject);
 			m_scene.push_back(obj);
@@ -15,10 +17,7 @@ namespace Engine {
 		void render(ID3D12GraphicsCommandList* commandList) const {
 			for (auto& sceneObj : m_scene) {
 				if (!sceneObj->isLoadComplete()) continue;
-				auto& renderables = sceneObj->getRenderables();
-				for (auto& renderable : renderables) {
-					renderable->render(commandList);
-				}
+				sceneObj->render(commandList);
 			}
 		}
 

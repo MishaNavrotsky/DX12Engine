@@ -16,11 +16,13 @@ namespace Engine {
 		ComPtr<ID3D12Resource>& getGeometryDefaultHeap() { return geometryDefaultHeap; }
 		ComPtr<ID3D12Resource>& getIndexDefaultHeap() { return indexDefaultHeap; }
 		ComPtr<ID3D12Resource>& getTexturesUploadHeap() { return texturesUploadHeap; }
+		ComPtr<ID3D12Resource>& getCBVsUploadHeap() { return cbvsUploadHeap; }
 
 		void releaseUploadHeaps() {
 			geometryUploadHeap = nullptr;
 			indexUploadHeap = nullptr;
 			texturesUploadHeap = nullptr;
+			cbvsUploadHeap = nullptr;
 		}
 	private:
 		ComPtr<ID3D12Resource> geometryUploadHeap;
@@ -30,5 +32,6 @@ namespace Engine {
 		ComPtr<ID3D12Resource> indexDefaultHeap;
 
 		ComPtr<ID3D12Resource> texturesUploadHeap;
+		ComPtr<ID3D12Resource> cbvsUploadHeap;
 	};
 }

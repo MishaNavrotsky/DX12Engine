@@ -9,16 +9,6 @@ struct CBVCameraData {
 	XMFLOAT4 position;
 };
 
-struct CBVMeshData {
-	XMFLOAT4X4 modelMatrix;
-
-	XMUINT4 diffuseNormalOcclusionEmisiveTexturesIds;
-	XMUINT4 MRTextureIds;
-
-	XMUINT4 diffuseNormalOcclusionEmisiveSamplersIds;
-	XMUINT4 MRSamplersIds;
-};
-
 Renderer::Renderer(UINT width, UINT height, std::wstring name) :
 	DXSample(width, height, name),
 	m_frameIndex(0),
@@ -79,6 +69,8 @@ void Renderer::LoadPipeline()
 
 	m_uploadQueue.registerDevice(m_device);
 	m_bindlessHeapDescriptor.registerDevice(m_device);
+	Engine::Device::SetDevice(m_device);
+	m_scene.initialize();
 
 
 	D3D12_COMMAND_QUEUE_DESC queueDesc = {};
@@ -260,7 +252,7 @@ void Renderer::LoadAssets()
 
 
 	{
-		m_scene.addObject(std::make_unique<Engine::GLTFSceneObject>(L"assets\\models\\alicev2rigged.glb"));
+		m_scene.addObject(std::make_unique<Engine::GLTFSceneObject>(L"assets\\models\\alicev2rigged_c.glb"));
 		m_modelLoader.waitForQueueEmpty();
 		m_uploadQueue.execute().get();
 	}
@@ -400,6 +392,15 @@ void Renderer::PopulateCommandList()
 	m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
 	m_commandList->SetGraphicsRootConstantBufferView(0, m_cameraBuffer->GetGPUVirtualAddress());
 
+	ID3D12DescriptorHeap* heaps[] = { m_bindlessHeapDescriptor.getSrvDescriptorHeap(), m_bindlessHeapDescriptor.getSamplerDescriptorHeap() };
+	m_commandList->SetDescriptorHeaps(_countof(heaps), heaps);
+	//D3D12_GPU_DESCRIPTOR_HANDLE srvHeapStart = m_bindlessHeapDescriptor.getSrvDescriptorHeap()->GetGPUDescriptorHandleForHeapStart();
+	//D3D12_GPU_DESCRIPTOR_HANDLE samplerHeapStart = m_bindlessHeapDescriptor.getSamplerDescriptorHeap()->GetGPUDescriptorHandleForHeapStart();
+	//D3D12_GPU_DESCRIPTOR_HANDLE cbvHandle = {};
+	//cbvHandle.ptr = srvHeapStart.ptr + m_bindlessHeapDescriptor.getCBVsOffset();
+	//m_commandList->SetGraphicsRootDescriptorTable(1, srvHeapStart); // SRV t0
+	//m_commandList->SetGraphicsRootDescriptorTable(2, cbvHandle); // CBV b1
+	//m_commandList->SetGraphicsRootDescriptorTable(3, samplerHeapStart); // Sampler s0
 
 	m_commandList->RSSetViewports(1, &m_viewport);
 	m_commandList->RSSetScissorRects(1, &m_scissorRect);

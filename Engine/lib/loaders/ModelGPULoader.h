@@ -8,7 +8,6 @@
 #include "../managers/CPUTextureManager.h"
 #include "../managers/SamplerManager.h"
 #include "../managers/ModelHeapsManager.h"
-#include "../managers/CPUGPUBimap.h"
 
 #include "../managers/GPUMaterialManager.h"
 #include "../managers/GPUMeshManager.h"
@@ -16,6 +15,9 @@
 
 #include "../mesh/Model.h"
 #include "../mesh/ModelHeaps.h"
+
+#include "../descriptors/BindlessHeapDescriptor.h"
+#include "../managers/helpers.h"
 
 namespace Engine {
 	using Microsoft::WRL::ComPtr;
@@ -231,12 +233,13 @@ namespace Engine {
 			}
 			model.setGPUMeshIds(std::move(gpuMeshIds));
 
-
 			std::set<GUID, GUIDComparator> materialIds;
-			for (auto& mesh : meshes) {
-				auto& materialId = mesh.get().getMaterialId();
+			std::unordered_map<GUID, GUID, GUIDHash, GUIDEqual> cpuMaterialToGpuMeshId;
+			for (uint32_t i = 0; i < meshes.size(); i++) {
+				auto& materialId = meshes[i].get().getMaterialId();
 				if (!IsEqualGUID(materialId, GUID_NULL)) {
 					materialIds.insert(materialId);
+					cpuMaterialToGpuMeshId.insert(std::pair<GUID, GUID>(materialId, model.getGPUMeshIds()[i]));
 				}
 			}
 
@@ -251,6 +254,8 @@ namespace Engine {
 				auto gpuMaterial = std::make_unique<GPUMaterial>();
 				auto& samplerIds = material.get().getSamplerIds();
 				gpuMaterial->setSamplerIds(std::vector<GUID>(samplerIds));
+
+				auto& gpuMesh = m_gpuMeshManager.get(cpuMaterialToGpuMeshId.at(material.get().getID()));
 
 				for (auto& texture : textures) {
 					auto& tex = texture.get();
@@ -272,7 +277,9 @@ namespace Engine {
 					textureSubResources.push_back(std::move(subresources));
 				}
 
-				gpuMaterialIds.push_back(m_gpuMaterialManager.add(std::move(gpuMaterial)));
+				auto gpuMaterialId = m_gpuMaterialManager.add(std::move(gpuMaterial));
+				gpuMesh.setGPUMaterialId(gpuMaterialId);
+				gpuMaterialIds.push_back(gpuMaterialId);
 			}
 
 			D3D12_HEAP_PROPERTIES texUploadHeapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
@@ -309,6 +316,115 @@ namespace Engine {
 				currentOffset += requiredSize;
 			}
 
+			auto gpuMeshes = m_gpuMeshManager.getMany(model.getGPUMeshIds());
+			std::vector<std::pair<std::pair<GUID, GUID>, CPUMaterialCBVData>> matCBVsData;
+			uint64_t cbvsUploadBufferSize = 0;
+
+			for (uint32_t i = 0; i < meshes.size(); i++) {
+				auto& m = meshes[i].get();
+				auto& gm = gpuMeshes[i].get();
+
+				auto& mat = m_cpuMaterialManager.get(m.getMaterialId());
+				auto& gmat = m_gpuMaterialManager.get(gm.getGPUMaterialId());
+
+				auto& matCBV = mat.getCBVData();
+
+				auto& cpuTextureIds = mat.getTextureIds();
+				auto& gpuTextureIds = gmat.getTextureIds();
+				auto& samplerIds = gmat.getSamplerIds();
+
+				for (uint32_t j = 0; j < gpuTextureIds.size(); j++) {
+					auto& gpuTexture = m_gpuTextureManager.get(gpuTextureIds[j]);
+					auto& cpuTexture = m_cpuTextureManager.get(cpuTextureIds[j]);
+
+					auto& sampler = m_samplerManager.get(samplerIds[j]);
+
+					auto slotTex = m_bindlessHeapDescriptor.addTexture(gpuTexture.getResource());
+					auto slotSam = m_bindlessHeapDescriptor.addSampler(sampler.samplerDesc);
+
+					if (cpuTexture.getType() == TextureType::BASE_COLOR) {
+						matCBV.diffuseEmissiveNormalOcclusionTexSlots.x = slotTex;
+						matCBV.diffuseEmissiveNormalOcclusionSamSlots.x = slotSam;
+					}
+					else if (cpuTexture.getType() == TextureType::EMISSIVE) {
+						matCBV.diffuseEmissiveNormalOcclusionTexSlots.y = slotTex;
+						matCBV.diffuseEmissiveNormalOcclusionSamSlots.y = slotSam;
+					}
+					else if (cpuTexture.getType() == TextureType::METALLIC_ROUGHNESS) {
+						matCBV.MrTexSlots.x = slotTex;
+						matCBV.MrSamSlots.x = slotSam;
+					}
+					else if (cpuTexture.getType() == TextureType::NORMAL) {
+						matCBV.diffuseEmissiveNormalOcclusionTexSlots.z = slotTex;
+						matCBV.diffuseEmissiveNormalOcclusionSamSlots.z = slotSam;
+					}
+					else if (cpuTexture.getType() == TextureType::OCCLUSION) {
+						matCBV.diffuseEmissiveNormalOcclusionTexSlots.w = slotTex;
+						matCBV.diffuseEmissiveNormalOcclusionSamSlots.w = slotSam;
+					}
+				}
+
+				cbvsUploadBufferSize += Align(sizeof(CPUMaterialCBVData), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+				matCBVsData.push_back(std::pair<std::pair<GUID, GUID>, CPUMaterialCBVData>(std::pair<GUID, GUID>(mat.getID(), gmat.getID()), matCBV));
+			}
+
+			D3D12_HEAP_PROPERTIES cbvsUploadBufferProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+			D3D12_RESOURCE_DESC cbvsUploadBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(cbvsUploadBufferSize);
+
+			auto& cbvsUploadBuffer = modelHeaps.get()->getCBVsUploadHeap();
+			ThrowIfFailed(m_device->CreateCommittedResource(
+				&cbvsUploadBufferProps,
+				D3D12_HEAP_FLAG_NONE,
+				&cbvsUploadBufferDesc,
+				D3D12_RESOURCE_STATE_GENERIC_READ,
+				nullptr,
+				IID_PPV_ARGS(&cbvsUploadBuffer)));
+
+			UINT8* cbvsMappedData = nullptr;
+			ThrowIfFailed(cbvsUploadBuffer->Map(0, nullptr, reinterpret_cast<void**>(&cbvsMappedData)));
+
+			size_t cbvsOffset = 0;
+			const size_t alignment = D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT;
+
+			for (const auto& [_, cbvData] : matCBVsData)
+			{
+				cbvsOffset = (cbvsOffset + alignment - 1) & ~(alignment - 1);
+				memcpy(cbvsMappedData + cbvsOffset, &cbvData, sizeof(CPUMaterialCBVData));
+				cbvsOffset += sizeof(CPUMaterialCBVData);
+			}
+			cbvsUploadBuffer->Unmap(0, nullptr);
+
+
+			const uint64_t cbSize = Align(sizeof(CPUMaterialCBVData), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+			uint64_t copyCBVsOffset = 0;
+
+			for (const auto& [guids, _] : matCBVsData) {
+				auto& mat = m_cpuMaterialManager.get(guids.first);
+				auto& gmat = m_gpuMaterialManager.get(guids.second);
+
+				auto& cbvRes = gmat.getCBVResource();
+				D3D12_HEAP_PROPERTIES cbvResProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+				D3D12_RESOURCE_DESC cbvResrDesc = CD3DX12_RESOURCE_DESC::Buffer(cbSize);
+				ThrowIfFailed(m_device->CreateCommittedResource(
+					&cbvResProps,
+					D3D12_HEAP_FLAG_NONE,
+					&cbvResrDesc,
+					D3D12_RESOURCE_STATE_COMMON,
+					nullptr,
+					IID_PPV_ARGS(&cbvRes)
+				));
+
+				commandList->CopyBufferRegion(
+					cbvRes.Get(),         // Destination
+					0,                    // Destination offset
+					cbvsUploadBuffer.Get(), // Source
+					copyCBVsOffset,           // Source offset in upload buffer
+					cbSize                // Aligned CBV size
+				);
+
+				copyCBVsOffset += cbSize;
+				mat.setCBVDataBindlessHeapSlot(m_bindlessHeapDescriptor.addCBV(cbvRes, cbSize));
+			}
 
 			m_uploadHeapManager.add(m_modelId, std::move(modelHeaps));
 		};
@@ -317,19 +433,17 @@ namespace Engine {
 		ID3D12GraphicsCommandList* m_commandList;
 		GUID m_modelId;
 
-		ModelManager& m_modelManager = ModelManager::getInstance();
-		CPUMaterialManager& m_cpuMaterialManager = CPUMaterialManager::getInstance();
-		CPUMeshManager& m_cpuMeshManager = CPUMeshManager::getInstance();
-		CPUTextureManager& m_cpuTextureManager = CPUTextureManager::getInstance();
-		SamplerManager& m_samplerManager = SamplerManager::getInstance();
-		ModelHeapsManager& m_uploadHeapManager = ModelHeapsManager::getInstance();
+		ModelManager& m_modelManager = ModelManager::GetInstance();
+		CPUMaterialManager& m_cpuMaterialManager = CPUMaterialManager::GetInstance();
+		CPUMeshManager& m_cpuMeshManager = CPUMeshManager::GetInstance();
+		CPUTextureManager& m_cpuTextureManager = CPUTextureManager::GetInstance();
+		SamplerManager& m_samplerManager = SamplerManager::GetInstance();
+		ModelHeapsManager& m_uploadHeapManager = ModelHeapsManager::GetInstance();
 
-		GPUMeshManager& m_gpuMeshManager = GPUMeshManager::getInstance();
-		GPUTextureManager& m_gpuTextureManager = GPUTextureManager::getInstance();
-		GPUMaterialManager& m_gpuMaterialManager = GPUMaterialManager::getInstance();
+		GPUMeshManager& m_gpuMeshManager = GPUMeshManager::GetInstance();
+		GPUTextureManager& m_gpuTextureManager = GPUTextureManager::GetInstance();
+		GPUMaterialManager& m_gpuMaterialManager = GPUMaterialManager::GetInstance();
 
-
-
-		CPUGPUBimap& m_cpugpuBimap = CPUGPUBimap::getInstance();
+		BindlessHeapDescriptor& m_bindlessHeapDescriptor = BindlessHeapDescriptor::GetInstance();
 	};
 }

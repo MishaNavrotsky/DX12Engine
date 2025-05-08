@@ -24,8 +24,8 @@ namespace Engine {
 			m_samplerIds = std::move(v);
 		}
 
-		ID3D12Resource* getCBVResource() const {
-			return m_cbv.Get();
+		ComPtr<ID3D12Resource>& getCBVResource() {
+			return m_cbv;
 		}
 	private:
 		std::vector<GUID> m_textureIds;

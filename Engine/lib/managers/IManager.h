@@ -12,7 +12,7 @@ namespace Engine {
 	template<typename V, typename D>
 	class IManager {
 	public:
-		static D& getInstance() {
+		static D& GetInstance() {
 			static D instance;
 			return instance;
 		}

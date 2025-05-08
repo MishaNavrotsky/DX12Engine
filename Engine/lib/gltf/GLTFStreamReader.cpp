@@ -4,9 +4,36 @@
 #define DEBUG_MESHES_LOAD
 
 namespace GLTFLocal {
-	BS::thread_pool<> m_threadPool;
-	BS::thread_pool<> m_texturesThreadPool;
+	BS::thread_pool<> m_threadPool(1);
+	BS::thread_pool<> m_texturesThreadPool(1);
 	std::mutex m_consoleMutex;
+
+	static D3D12_FILTER ConvertToD3D12Filter(MagFilterMode magFilter, MinFilterMode minFilter)
+	{
+		switch (minFilter)
+		{
+		case MinFilter_NEAREST:
+			return (magFilter == MagFilter_NEAREST) ? D3D12_FILTER_MIN_MAG_MIP_POINT : D3D12_FILTER_MIN_POINT_MAG_LINEAR_MIP_POINT;
+
+		case MinFilter_LINEAR:
+			return (magFilter == MagFilter_NEAREST) ? D3D12_FILTER_MIN_LINEAR_MAG_MIP_POINT : D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+
+		case MinFilter_NEAREST_MIPMAP_NEAREST:
+			return (magFilter == MagFilter_NEAREST) ? D3D12_FILTER_MIN_MAG_MIP_POINT : D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT;
+
+		case MinFilter_LINEAR_MIPMAP_NEAREST:
+			return (magFilter == MagFilter_NEAREST) ? D3D12_FILTER_MIN_POINT_MAG_LINEAR_MIP_POINT : D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT;
+
+		case MinFilter_NEAREST_MIPMAP_LINEAR:
+			return (magFilter == MagFilter_NEAREST) ? D3D12_FILTER_MIN_MAG_POINT_MIP_LINEAR : D3D12_FILTER_MIN_POINT_MAG_MIP_LINEAR;
+
+		case MinFilter_LINEAR_MIPMAP_LINEAR:
+			return (magFilter == MagFilter_NEAREST) ? D3D12_FILTER_MIN_LINEAR_MAG_POINT_MIP_LINEAR : D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+
+		default:
+			return D3D12_FILTER_MIN_MAG_MIP_LINEAR; // Safe default
+		}
+	}
 }
 
 inline GLTFLocal::GLTFStreamReader::GLTFStreamReader(fs::path pathBase) : m_pathBase(std::move(pathBase))
@@ -182,25 +209,25 @@ std::vector<GUID> GLTFLocal::GetMeshesInfo(const fs::path& path) {
 						engineTexture.setScratchImage(std::move(mipMapedScratchImage));
 
 						auto engineSampler = std::make_unique<Engine::Sampler>();
-						auto magFilter = sampler.magFilter.Get();
-						auto minFilter = sampler.minFilter.Get();
+						auto magFilter = sampler.magFilter.HasValue() ? sampler.magFilter.Get() : MagFilter_NEAREST;
+						auto minFilter = sampler.minFilter.HasValue() ? sampler.minFilter.Get() : MinFilter_NEAREST;
 						auto wrapS = sampler.wrapS;
 						auto wrapT = sampler.wrapT;
 
+						//if (magFilter == MagFilter_NEAREST && minFilter == MinFilter_NEAREST) {
+						//	engineSampler->samplerDesc.Filter = D3D12_FILTER_COMPARISON_MIN_MAG_MIP_POINT;
+						//}
+						//else if (magFilter == MagFilter_LINEAR && minFilter == MinFilter_LINEAR) {
+						//	engineSampler->samplerDesc.Filter = D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT;
+						//}
+						//else if (magFilter == MagFilter_NEAREST && minFilter == MinFilter_LINEAR) {
+						//	engineSampler->samplerDesc.Filter = D3D12_FILTER_COMPARISON_MIN_LINEAR_MAG_MIP_POINT;
+						//}
+						//else if (magFilter == MagFilter_LINEAR && minFilter == MinFilter_NEAREST) {
+						//	engineSampler->samplerDesc.Filter = D3D12_FILTER_COMPARISON_MIN_POINT_MAG_LINEAR_MIP_POINT;
+						//}
 
-						if (magFilter == MagFilter_NEAREST && minFilter == MinFilter_NEAREST) {
-							engineSampler->samplerDesc.Filter = D3D12_FILTER_COMPARISON_MIN_MAG_MIP_POINT;
-						}
-						else if (magFilter == MagFilter_LINEAR && minFilter == MinFilter_LINEAR) {
-							engineSampler->samplerDesc.Filter = D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT;
-						}
-						else if (magFilter == MagFilter_NEAREST && minFilter == MinFilter_LINEAR) {
-							engineSampler->samplerDesc.Filter = D3D12_FILTER_COMPARISON_MIN_LINEAR_MAG_MIP_POINT;
-						}
-						else if (magFilter == MagFilter_LINEAR && minFilter == MinFilter_NEAREST) {
-							engineSampler->samplerDesc.Filter = D3D12_FILTER_COMPARISON_MIN_POINT_MAG_LINEAR_MIP_POINT;
-						}
-
+						engineSampler->samplerDesc.Filter = ConvertToD3D12Filter(magFilter, minFilter);
 
 						if (wrapS == Wrap_CLAMP_TO_EDGE) {
 							engineSampler->samplerDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
@@ -221,9 +248,10 @@ std::vector<GUID> GLTFLocal::GetMeshesInfo(const fs::path& path) {
 						else if (wrapT == Wrap_MIRRORED_REPEAT) {
 							engineSampler->samplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
 						}
+						engineSampler->samplerDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
 
-						auto& texManager = Engine::CPUTextureManager::getInstance();
-						auto& samManager = Engine::SamplerManager::getInstance();
+						auto& texManager = Engine::CPUTextureManager::GetInstance();
+						auto& samManager = Engine::SamplerManager::GetInstance();
 						GUID addedTextureID = GUID_NULL;
 
 						if (texture.second == TextureType::BaseColor) {
@@ -259,7 +287,9 @@ std::vector<GUID> GLTFLocal::GetMeshesInfo(const fs::path& path) {
 							emissiveTexture->emissiveFactor.y = material.emissiveFactor.g;
 							emissiveTexture->emissiveFactor.z = material.emissiveFactor.b;
 
-							meshMaterial.get()->getCBVData().emissiveFactor = emissiveTexture->emissiveFactor;
+							meshMaterial.get()->getCBVData().emissiveFactor.x = emissiveTexture->emissiveFactor.x;
+							meshMaterial.get()->getCBVData().emissiveFactor.y = emissiveTexture->emissiveFactor.y;
+							meshMaterial.get()->getCBVData().emissiveFactor.z = emissiveTexture->emissiveFactor.z;
 
 							addedTextureID = texManager.add(std::move(emissiveTexture));
 						}
@@ -293,7 +323,7 @@ std::vector<GUID> GLTFLocal::GetMeshesInfo(const fs::path& path) {
 #endif
 				meshMaterial->setTextureIds(std::move(textureIds));
 				meshMaterial->setSamplerIds(std::move(samplerIds));
-				auto& matManager = Engine::CPUMaterialManager::getInstance();
+				auto& matManager = Engine::CPUMaterialManager::GetInstance();
 				meshData->setMaterialId(matManager.add(std::move(meshMaterial)));
 
 				for (const auto& attribute : primitive.attributes) {
@@ -324,7 +354,7 @@ std::vector<GUID> GLTFLocal::GetMeshesInfo(const fs::path& path) {
 					}
 				}
 
-				auto& meshManager = Engine::CPUMeshManager::getInstance();
+				auto& meshManager = Engine::CPUMeshManager::GetInstance();
 				vectorAddMutex.lock();
 				meshDataList.push_back(meshManager.add(std::move(meshData)));
 				vectorAddMutex.unlock();

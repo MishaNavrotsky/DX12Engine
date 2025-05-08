@@ -94,9 +94,14 @@ namespace Engine {
 			std::iota(m_freeSamplerSlots.rbegin(), m_freeSamplerSlots.rend(), 0);
 		}
 
-		static BindlessHeapDescriptor& getInstance() {
+		static BindlessHeapDescriptor& GetInstance() {
 			static BindlessHeapDescriptor instance;
 			return instance;
+		}
+
+		uint32_t getCBVsOffset() {
+			const uint32_t srvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+			return N_SRV_DESCRIPTORS * srvDescriptorSize;
 		}
 
 		void registerDevice(ComPtr<ID3D12Device> device) {
@@ -114,12 +119,17 @@ namespace Engine {
 			samplerHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 			ThrowIfFailed(m_device->CreateDescriptorHeap(&samplerHeapDesc, IID_PPV_ARGS(&m_samplerDescriptorHeap)));
 
-			auto defaultPBRTextures = CreateDefaultPBRTextures(device.Get());
-			this->addTexture(defaultPBRTextures.baseColor);
-			this->addTexture(defaultPBRTextures.emissive);
-			this->addTexture(defaultPBRTextures.metallicRoughness);
-			this->addTexture(defaultPBRTextures.normal);
-			this->addTexture(defaultPBRTextures.occlusion);
+			InitializeDummyResource();
+			ZeroOutDescriptors(m_srvDescriptorHeap.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, N_SRV_DESCRIPTORS + N_CBV_DESCRIPTORS);
+			ZeroOutDescriptors(m_samplerDescriptorHeap.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, N_SAMPLERS);
+
+
+			m_defaultPBRTextures = CreateDefaultPBRTextures(device.Get());
+			this->addTexture(m_defaultPBRTextures.baseColor);
+			this->addTexture(m_defaultPBRTextures.emissive);
+			this->addTexture(m_defaultPBRTextures.metallicRoughness);
+			this->addTexture(m_defaultPBRTextures.normal);
+			this->addTexture(m_defaultPBRTextures.occlusion);
 
 			this->addSampler(GetSamplerDescForTexture(TextureType::BASE_COLOR));
 			this->addSampler(GetSamplerDescForTexture(TextureType::EMISSIVE));
@@ -177,7 +187,7 @@ namespace Engine {
 			return slot;
 		}
 
-		uint32_t addCBV(ComPtr<ID3D12Resource> constantBuffer, UINT size) {
+		uint32_t addCBV(ComPtr<ID3D12Resource> constantBuffer, uint64_t size) {
 			std::lock_guard lock(m_cbv);
 
 			if (m_freeCbvSlots.empty()) {
@@ -242,9 +252,69 @@ namespace Engine {
 		}
 
 	private:
+		void ZeroOutDescriptors(ID3D12DescriptorHeap* heap, D3D12_DESCRIPTOR_HEAP_TYPE heapType, UINT numDescriptors) {
+			const UINT descriptorSize = m_device->GetDescriptorHandleIncrementSize(heapType);
+			D3D12_CPU_DESCRIPTOR_HANDLE heapStart = heap->GetCPUDescriptorHandleForHeapStart();
+
+			for (UINT i = 0; i < numDescriptors; ++i) {
+				// Create an empty descriptor (zeroed out) in the heap
+				if (heapType == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) {
+					if (i < N_SRV_DESCRIPTORS) {
+						m_device->CreateShaderResourceView(m_dummyResource.Get(), nullptr, heapStart); // SRV
+					}
+					else {
+						m_device->CreateConstantBufferView(nullptr, heapStart); // CBV
+					}
+				}
+				else if (heapType == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER) {
+					D3D12_SAMPLER_DESC randomSamplerDesc = {};
+					randomSamplerDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+					randomSamplerDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+					randomSamplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+					randomSamplerDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
+
+					randomSamplerDesc.MipLODBias = 0.5f;
+					randomSamplerDesc.MaxAnisotropy = 8;
+
+					randomSamplerDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+
+					randomSamplerDesc.MinLOD = 0.0f;
+					randomSamplerDesc.MaxLOD = D3D12_FLOAT32_MAX;
+
+					m_device->CreateSampler(&randomSamplerDesc, heapStart);
+				}
+
+				heapStart.ptr += descriptorSize;
+			}
+		}
+
+		void InitializeDummyResource() {
+			D3D12_RESOURCE_DESC dummyResourceDesc = {};
+			dummyResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+			dummyResourceDesc.Width = 1;  // 1 byte buffer
+			dummyResourceDesc.Height = 1;
+			dummyResourceDesc.DepthOrArraySize = 1;
+			dummyResourceDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+			dummyResourceDesc.MipLevels = 1;
+			dummyResourceDesc.SampleDesc.Count = 1;
+			dummyResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+			dummyResourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+			auto d = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+			ThrowIfFailed(m_device->CreateCommittedResource(
+				&d,
+				D3D12_HEAP_FLAG_NONE,
+				&dummyResourceDesc,
+				D3D12_RESOURCE_STATE_COMMON,
+				nullptr,
+				IID_PPV_ARGS(&m_dummyResource)
+			));
+		}
+
 		ComPtr<ID3D12Device> m_device;
 		ComPtr<ID3D12DescriptorHeap> m_srvDescriptorHeap;
 		ComPtr<ID3D12DescriptorHeap> m_samplerDescriptorHeap;
+
 
 		std::vector<uint32_t> m_freeCbvSlots = std::vector<uint32_t>(N_CBV_DESCRIPTORS);
 		std::vector<uint32_t> m_freeSrvSlots = std::vector<uint32_t>(N_SRV_DESCRIPTORS);
@@ -255,5 +325,9 @@ namespace Engine {
 		std::mutex m_cbv;
 		std::mutex m_sampler;
 		std::mutex m_texture;
+
+		DefaultPBRTextures m_defaultPBRTextures;
+
+		ComPtr<ID3D12Resource> m_dummyResource;
 	};
 }
