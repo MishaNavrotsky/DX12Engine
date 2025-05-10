@@ -7,7 +7,6 @@
 namespace Engine {
 	class Scene {
 	public:
-		void initialize() {}
 		uint64_t addObject(std::unique_ptr<ISceneObject>&& sceneObject) noexcept {
 			std::shared_ptr<ISceneObject> obj = std::move(sceneObject);
 			m_scene.push_back(obj);

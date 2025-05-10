@@ -70,7 +70,7 @@ void Renderer::LoadPipeline()
 	m_uploadQueue.registerDevice(m_device);
 	m_bindlessHeapDescriptor.registerDevice(m_device);
 	Engine::Device::SetDevice(m_device);
-	m_scene.initialize();
+	m_deferredPipeline = std::unique_ptr<Engine::DeferredPipeline>(new Engine::DeferredPipeline(m_device, m_width, m_height));
 
 
 	D3D12_COMMAND_QUEUE_DESC queueDesc = {};
@@ -200,13 +200,15 @@ void Renderer::LoadAssets()
 #else
 		UINT compileFlags = 0;
 #endif
-		ComPtr<IDxcCompiler3> compiler = nullptr;
-		ComPtr<IDxcLibrary> library = nullptr;
-		ThrowIfFailed(DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&compiler)));
-		ThrowIfFailed(DxcCreateInstance(CLSID_DxcLibrary, IID_PPV_ARGS(&library)));
+		Engine::PSOShaderCreate psoSC;
+		psoSC.PS = L"assets\\shaders\\shaders.hlsl";
+		psoSC.VS = L"assets\\shaders\\shaders.hlsl";
+		psoSC.PSEntry = L"PSMain";
+		psoSC.VSEntry = L"VSMain";
+		auto shaders = Engine::PSOShader::Create(psoSC);
 
-		m_vertexShader = CompileShaderFromFile(compiler.Get(), library.Get(), GetAssetFullPath(L"assets\\shaders\\shaders.hlsl").c_str(), L"VSMain", L"vs_6_6");
-		m_pixelShader = CompileShaderFromFile(compiler.Get(), library.Get(), GetAssetFullPath(L"assets\\shaders\\shaders.hlsl").c_str(), L"PSMain", L"ps_6_6");
+		m_vertexShader = shaders->getVS();
+		m_pixelShader = shaders->getPS();
 	}
 	{
 		ThrowIfFailed(m_device->CreateRootSignature(0, m_vertexShader->GetBufferPointer(), m_vertexShader->GetBufferSize(), IID_PPV_ARGS(&m_rootSignature)));
@@ -252,7 +254,11 @@ void Renderer::LoadAssets()
 
 
 	{
-		m_scene.addObject(std::make_unique<Engine::GLTFSceneObject>(L"assets\\models\\alicev2rigged_c.glb"));
+		m_scene.addObject(std::make_unique<Engine::GLTFSceneObject>(L"assets\\models\\alicev2rigged.glb"));
+		auto o = std::make_unique<Engine::GLTFSceneObject>(L"assets\\models\\alicev2rigged.glb");
+		o.get()->modelMatrix.setPosition(8000, 0, 0);
+		m_scene.addObject(std::move(o));
+
 		m_modelLoader.waitForQueueEmpty();
 		m_uploadQueue.execute().get();
 	}
@@ -385,6 +391,8 @@ void Renderer::PopulateCommandList()
 		m_cameraBuffer->Unmap(0, nullptr);
 	}
 
+
+	//auto pso = m_deferredPipeline->getPso({ D3D12_CULL_MODE_NONE, D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE });
 
 
 

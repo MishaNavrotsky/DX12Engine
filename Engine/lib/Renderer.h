@@ -9,6 +9,8 @@
 #include "loaders/ModelLoader.h"
 #include "descriptors/BindlessHeapDescriptor.h"
 #include "Device.h"
+#include "pipelines/PSOShader.h"
+#include "pipelines/DeferredPipeline.h"
 
 
 
@@ -79,6 +81,8 @@ private:
     // App resources.
     ComPtr<ID3D12Resource> m_vertexBuffer;
     D3D12_VERTEX_BUFFER_VIEW m_vertexBufferView;
+
+    std::unique_ptr<Engine::DeferredPipeline> m_deferredPipeline;
 
     float yaw = 0;
     float pitch = 0;

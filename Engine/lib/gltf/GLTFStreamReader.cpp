@@ -4,8 +4,8 @@
 #define DEBUG_MESHES_LOAD
 
 namespace GLTFLocal {
-	BS::thread_pool<> m_threadPool(1);
-	BS::thread_pool<> m_texturesThreadPool(1);
+	BS::thread_pool<> m_threadPool;
+	BS::thread_pool<> m_texturesThreadPool;
 	std::mutex m_consoleMutex;
 
 	static D3D12_FILTER ConvertToD3D12Filter(MagFilterMode magFilter, MinFilterMode minFilter)
@@ -173,6 +173,7 @@ std::vector<GUID> GLTFLocal::GetMeshesInfo(const fs::path& path) {
 					auto lambda = [&, j] {
 						auto& texture = materialTextures[j];
 						if (texture.first.empty()) return;
+						auto ex = material.metallicRoughness.GetExtensions();
 						auto& tex = document.textures.Get(texture.first);
 						auto& image = document.images.Get(tex.imageId);
 						auto& sampler = document.samplers.Get(tex.samplerId);
@@ -181,7 +182,6 @@ std::vector<GUID> GLTFLocal::GetMeshesInfo(const fs::path& path) {
 						streamMutex.unlock();
 
 
-						int desiredChannels = 4;
 						auto engineTexture = Engine::CPUTexture();
 
 						DirectX::ScratchImage scratchImage;

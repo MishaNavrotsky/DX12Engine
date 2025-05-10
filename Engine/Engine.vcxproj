@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="..\packages\Microsoft.Direct3D.D3D12.1.614.1\build\native\Microsoft.Direct3D.D3D12.props" Condition="Exists('..\packages\Microsoft.Direct3D.D3D12.1.614.1\build\native\Microsoft.Direct3D.D3D12.props')" />
+  <Import Project="..\packages\Microsoft.Direct3D.D3D12.1.615.1\build\native\Microsoft.Direct3D.D3D12.props" Condition="Exists('..\packages\Microsoft.Direct3D.D3D12.1.615.1\build\native\Microsoft.Direct3D.D3D12.props')" />
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|x64">
       <Configuration>Debug</Configuration>
@@ -156,6 +156,8 @@
     <ClInclude Include="lib\mesh\CPUTexture.h" />
     <ClInclude Include="lib\mesh\ModelHeaps.h" />
     <ClInclude Include="lib\mesh\Model.h" />
+    <ClInclude Include="lib\pipelines\DeferredPipeline.h" />
+    <ClInclude Include="lib\pipelines\PSOShader.h" />
     <ClInclude Include="lib\queues\GPUUploadQueue.h" />
     <ClInclude Include="lib\renderable\MeshRenderable.h" />
     <ClInclude Include="lib\scene\Scene.h" />
@@ -171,6 +173,7 @@
     <ClCompile Include="lib\Device.cpp" />
     <ClCompile Include="lib\gltf\GLTFSceneObject.cpp" />
     <ClCompile Include="lib\gltf\GLTFStreamReader.cpp" />
+    <ClCompile Include="lib\pipelines\PSOShader.cpp" />
     <ClCompile Include="lib\renderable\MeshRenderable.cpp" />
     <ClCompile Include="lib\Win32Application.cpp" />
     <ClCompile Include="lib\Renderer.cpp" />
@@ -222,7 +225,6 @@
       <FileType>Document</FileType>
       <DestinationFolders Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)/assets/models</DestinationFolders>
     </CopyFileToFolders>
-    <None Include="packages.config" />
     <CopyFileToFolders Include="third_party\dxcompiler.dll">
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
       <FileType>Document</FileType>
@@ -235,7 +237,7 @@
     </CopyFileToFolders>
   </ItemGroup>
   <ItemGroup>
-    <CopyFileToFolders Include="assets\shaders\shaders.hlsl">
+    <CopyFileToFolders Include="assets\shaders\gbuffers.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
       <FileType>Document</FileType>
@@ -243,15 +245,25 @@
       <DestinationFolders Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)/assets/shaders</DestinationFolders>
     </CopyFileToFolders>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <CopyFileToFolders Include="assets\shaders\shaders.hlsl">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <FileType>Document</FileType>
+      <DestinationFolders Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)/assets/shaders</DestinationFolders>
+    </CopyFileToFolders>
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
-    <Import Project="..\packages\Microsoft.Direct3D.D3D12.1.614.1\build\native\Microsoft.Direct3D.D3D12.targets" Condition="Exists('..\packages\Microsoft.Direct3D.D3D12.1.614.1\build\native\Microsoft.Direct3D.D3D12.targets')" />
+    <Import Project="..\packages\Microsoft.Direct3D.D3D12.1.615.1\build\native\Microsoft.Direct3D.D3D12.targets" Condition="Exists('..\packages\Microsoft.Direct3D.D3D12.1.615.1\build\native\Microsoft.Direct3D.D3D12.targets')" />
   </ImportGroup>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
       <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
     </PropertyGroup>
-    <Error Condition="!Exists('..\packages\Microsoft.Direct3D.D3D12.1.614.1\build\native\Microsoft.Direct3D.D3D12.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.Direct3D.D3D12.1.614.1\build\native\Microsoft.Direct3D.D3D12.props'))" />
-    <Error Condition="!Exists('..\packages\Microsoft.Direct3D.D3D12.1.614.1\build\native\Microsoft.Direct3D.D3D12.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.Direct3D.D3D12.1.614.1\build\native\Microsoft.Direct3D.D3D12.targets'))" />
+    <Error Condition="!Exists('..\packages\Microsoft.Direct3D.D3D12.1.615.1\build\native\Microsoft.Direct3D.D3D12.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.Direct3D.D3D12.1.615.1\build\native\Microsoft.Direct3D.D3D12.props'))" />
+    <Error Condition="!Exists('..\packages\Microsoft.Direct3D.D3D12.1.615.1\build\native\Microsoft.Direct3D.D3D12.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.Direct3D.D3D12.1.615.1\build\native\Microsoft.Direct3D.D3D12.targets'))" />
   </Target>
 </Project>
