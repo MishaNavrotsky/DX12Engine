@@ -6,7 +6,13 @@ struct CBVCameraData {
 	XMFLOAT4X4 projectionReverseDepthMatrix;
 	XMFLOAT4X4 viewMatrix;
 	XMFLOAT4X4 viewProjectionReverseDepthMatrix;
+
+	XMFLOAT4X4 prevProjectionMatrix;
+	XMFLOAT4X4 prevProjectionReverseDepthMatrix;
+	XMFLOAT4X4 prevViewMatrix;
+	XMFLOAT4X4 prevViewProjectionReverseDepthMatrix;
 	XMFLOAT4 position;
+	XMUINT4 screenDimensions;
 };
 
 Renderer::Renderer(UINT width, UINT height, std::wstring name) :
@@ -369,8 +375,6 @@ void Renderer::OnDestroy()
 
 void Renderer::PopulateCommandList()
 {
-	ThrowIfFailed(m_commandAllocator->Reset());
-	ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), m_pipelineState.Get()));
 
 	{
 		CBVCameraData cbvData;
@@ -381,7 +385,19 @@ void Renderer::PopulateCommandList()
 		XMStoreFloat4x4(&cbvData.projectionReverseDepthMatrix, cameraProjectionReverseDepth);
 		XMStoreFloat4x4(&cbvData.viewMatrix, cameraView);
 		XMStoreFloat4x4(&cbvData.viewProjectionReverseDepthMatrix, XMMatrixTranspose(cameraView * cameraProjectionReverseDepth));
+
+		auto cameraPrevProjection = m_camera.getPrevProjectionMatrix();
+		auto cameraPrevProjectionReverseDepth = m_camera.getPrevProjectionMatrixForReverseDepth();
+		auto cameraPrevView = m_camera.getPrevViewMatrix();
+		XMStoreFloat4x4(&cbvData.prevProjectionMatrix, cameraPrevProjection);
+		XMStoreFloat4x4(&cbvData.prevProjectionReverseDepthMatrix, cameraPrevProjectionReverseDepth);
+		XMStoreFloat4x4(&cbvData.prevViewMatrix, cameraPrevView);
+		XMStoreFloat4x4(&cbvData.prevViewProjectionReverseDepthMatrix, XMMatrixTranspose(cameraPrevView * cameraPrevProjectionReverseDepth));
+
 		XMStoreFloat4(&cbvData.position, m_camera.getPosition());
+		XMVECTOR dimensions = XMVectorSet(m_width, m_height, 0, 0);
+		XMStoreUInt4(&cbvData.screenDimensions, dimensions);
+
 
 		void* mappedData = nullptr;
 		m_cameraBuffer->Map(0, nullptr, &mappedData);
@@ -391,46 +407,31 @@ void Renderer::PopulateCommandList()
 		m_cameraBuffer->Unmap(0, nullptr);
 	}
 
-
-	//auto pso = m_deferredPipeline->getPso({ D3D12_CULL_MODE_NONE, D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE });
-
-
-
-
-	m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
+	ThrowIfFailed(m_commandAllocator->Reset());
+	ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), nullptr));
+	m_commandList->SetPipelineState(m_deferredPipeline->getPso({ D3D12_CULL_MODE_NONE, D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE }));
+	m_commandList->SetGraphicsRootSignature(m_deferredPipeline->getRootSignature());
 	m_commandList->SetGraphicsRootConstantBufferView(0, m_cameraBuffer->GetGPUVirtualAddress());
 
 	ID3D12DescriptorHeap* heaps[] = { m_bindlessHeapDescriptor.getSrvDescriptorHeap(), m_bindlessHeapDescriptor.getSamplerDescriptorHeap() };
 	m_commandList->SetDescriptorHeaps(_countof(heaps), heaps);
-	//D3D12_GPU_DESCRIPTOR_HANDLE srvHeapStart = m_bindlessHeapDescriptor.getSrvDescriptorHeap()->GetGPUDescriptorHandleForHeapStart();
-	//D3D12_GPU_DESCRIPTOR_HANDLE samplerHeapStart = m_bindlessHeapDescriptor.getSamplerDescriptorHeap()->GetGPUDescriptorHandleForHeapStart();
-	//D3D12_GPU_DESCRIPTOR_HANDLE cbvHandle = {};
-	//cbvHandle.ptr = srvHeapStart.ptr + m_bindlessHeapDescriptor.getCBVsOffset();
-	//m_commandList->SetGraphicsRootDescriptorTable(1, srvHeapStart); // SRV t0
-	//m_commandList->SetGraphicsRootDescriptorTable(2, cbvHandle); // CBV b1
-	//m_commandList->SetGraphicsRootDescriptorTable(3, samplerHeapStart); // Sampler s0
-
 	m_commandList->RSSetViewports(1, &m_viewport);
 	m_commandList->RSSetScissorRects(1, &m_scissorRect);
 
-	auto renderTargetBarrierToRT = CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
-	m_commandList->ResourceBarrier(1, &renderTargetBarrierToRT);
+	auto rtvHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(m_deferredPipeline->getRtvDescHeap()->GetCPUDescriptorHandleForHeapStart());
+	auto dsvHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(m_deferredPipeline->getDsvDescHeap()->GetCPUDescriptorHandleForHeapStart());
+	m_commandList->OMSetRenderTargets(m_deferredPipeline->getRenderTargetsSize(), &rtvHandle, TRUE, &dsvHandle);
 
-	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart(), m_frameIndex, m_rtvDescriptorSize);
-	CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_dsvHeap->GetCPUDescriptorHandleForHeapStart());
-	m_commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
-
-	const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
-	m_commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
+	const auto& rtvsClearColors = m_deferredPipeline->getRtvsClearValues();
+	UINT rtvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	for (auto& clearColor : rtvsClearColors) {
+		m_commandList->ClearRenderTargetView(rtvHandle, clearColor.Color, 0, nullptr);
+		rtvHandle.Offset(1, rtvDescriptorSize);
+	}
 	m_commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 0.0f, 0, 0, nullptr);
 	m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	m_scene.render(m_commandList.Get());
-
-	//m_commandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);
-	//m_commandList->DrawInstanced(3, 1, 0, 0);
-	auto renderTargetBarrierToSP = CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
-	m_commandList->ResourceBarrier(1, &renderTargetBarrierToSP);
 
 	ThrowIfFailed(m_commandList->Close());
 }

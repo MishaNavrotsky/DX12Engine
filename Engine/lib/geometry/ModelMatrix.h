@@ -8,6 +8,7 @@ namespace Engine {
 	public:
 		ModelMatrix() {
 			updateMatrix();
+			m_prevModel = m_model;
 		}
 		void setPosition(float x, float y, float z) {
 			m_position = XMVectorSet(x, y, z, 0.0f);
@@ -30,14 +31,20 @@ namespace Engine {
 		const XMMATRIX& getModelMatrix() const {
 			return m_model;
 		}
+
+		const XMMATRIX& getPrevModelMatrix() const {
+			return m_prevModel;
+		}
 	private:
 		void updateMatrix() {
+			m_prevModel = m_model;
 			XMMATRIX translationMatrix = XMMatrixTranslationFromVector(m_position);
 			XMMATRIX rotationMatrix = XMMatrixRotationQuaternion(m_quaternion);
 			XMMATRIX scalingMatrix = XMMatrixScalingFromVector(m_scale);
 			m_model = XMMatrixMultiply(scalingMatrix, XMMatrixMultiply(rotationMatrix, translationMatrix));
 		}
 		XMMATRIX m_model;
+		XMMATRIX m_prevModel;
 		XMVECTOR m_position = XMVectorSet(0.0, 0.0, 0.0, 0.0);
 		XMVECTOR m_quaternion = XMQuaternionRotationRollPitchYaw(0., 0., 0.);
 		XMVECTOR m_scale = XMVectorSet(1.0, 1.0, 1.0, 1.0);

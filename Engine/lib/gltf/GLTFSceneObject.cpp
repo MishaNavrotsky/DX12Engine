@@ -57,6 +57,8 @@ void Engine::GLTFSceneObject::render(ID3D12GraphicsCommandList* commandList)
 		CBVMeshData cbvData = {};
 		cbvData.cbvDataBindlessHeapSlot.x = cpuMaterial.getCBVDataBindlessHeapSlot();
 		XMStoreFloat4x4(&cbvData.modelMatrix, XMMatrixTranspose(modelMatrix.getModelMatrix()));
+		XMStoreFloat4x4(&cbvData.prevModelMatrix, XMMatrixTranspose(modelMatrix.getPrevModelMatrix()));
+
 
 		{
 			void* mappedData = nullptr;

@@ -13,6 +13,7 @@
 namespace Engine {
 	struct CBVMeshData {
 		XMFLOAT4X4 modelMatrix;
+		XMFLOAT4X4 prevModelMatrix;
 
 		XMUINT4 cbvDataBindlessHeapSlot;
 	};

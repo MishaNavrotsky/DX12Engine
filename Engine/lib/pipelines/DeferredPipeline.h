@@ -7,6 +7,8 @@
 #include "PSOShader.h"
 #include <span>
 
+const uint32_t N_OF_RTVS = 7;
+
 namespace Engine {
 	using namespace Microsoft::WRL;
 	class DeferredPipeline {
@@ -50,8 +52,8 @@ namespace Engine {
 			return m_rootSignature.Get();
 		}
 
-		std::array<ID3D12Resource*, 6> getRtvResources() const {
-			std::array<ID3D12Resource*, 6> resourcePtrs;
+		std::array<ID3D12Resource*, N_OF_RTVS> getRtvResources() const {
+			std::array<ID3D12Resource*, N_OF_RTVS> resourcePtrs;
 
 			// Extract raw pointers from ComPtr
 			for (size_t i = 0; i < resourcePtrs.size(); i++) {
@@ -74,9 +76,17 @@ namespace Engine {
 			return m_dsvHeap.Get();
 		}
 
+		inline uint32_t getRenderTargetsSize() {
+			return N_OF_RTVS;
+		}
+
+		std::span<D3D12_CLEAR_VALUE> getRtvsClearValues() {
+			return std::span<D3D12_CLEAR_VALUE>(m_rtvClearValues);
+		}
+
 	private:
 		void populateRtvClearValues() {
-			for (uint32_t i = 0; i < _countof(m_rtvFormats); i++) {
+			for (uint32_t i = 0; i < N_OF_RTVS; i++) {
 				m_rtvClearValues[i].Format = m_rtvFormats[i];
 			}
 
@@ -98,15 +108,23 @@ namespace Engine {
 
 			m_rtvClearValues[3].Color[0] = 0.0f; // Roughness-Metallic (Default)
 			m_rtvClearValues[3].Color[1] = 0.0f;
+			m_rtvClearValues[3].Color[2] = 1.0f; // Ao (Black)
+			m_rtvClearValues[3].Color[3] = 0.0f; // unused
 
-			m_rtvClearValues[4].Color[0] = 0.0f; // Emissive + AO (Default Black)
+
+			m_rtvClearValues[4].Color[0] = 0.0f; // Emissive
 			m_rtvClearValues[4].Color[1] = 0.0f;
 			m_rtvClearValues[4].Color[2] = 0.0f;
-			m_rtvClearValues[4].Color[3] = 1.0f;
+			m_rtvClearValues[4].Color[3] = 0.0f; // unused
+
+			m_rtvClearValues[5].Color[0] = 0.0f; // Motion Vectors
+			m_rtvClearValues[5].Color[1] = 0.0f;
+			m_rtvClearValues[5].Color[2] = 0.0f;
+			m_rtvClearValues[5].Color[3] = 0.0f; // unused
 
 			// Material ID (UINT does not use Color values, uses DepthStencil instead)
-			m_rtvClearValues[5].DepthStencil.Depth = 0.0f;
-			m_rtvClearValues[5].DepthStencil.Stencil = 0;
+			m_rtvClearValues[6].DepthStencil.Depth = 0.0f;
+			m_rtvClearValues[6].DepthStencil.Stencil = 0;
 		}
 		void createRtvCommitedResources() {
 			D3D12_HEAP_PROPERTIES rtvProp = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
@@ -121,7 +139,7 @@ namespace Engine {
 			rtvDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 			rtvDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
 
-			for (uint32_t i = 0; i < _countof(m_rtvResources); i++) {
+			for (uint32_t i = 0; i < N_OF_RTVS; i++) {
 				rtvDesc.Format = m_rtvFormats[i];
 				ThrowIfFailed(m_device->CreateCommittedResource(
 					&rtvProp,
@@ -133,7 +151,7 @@ namespace Engine {
 			}
 		}
 		void createRtvsDescriptorHeap() {
-			m_rtvHeapDesc.NumDescriptors = _countof(m_rtvResources);
+			m_rtvHeapDesc.NumDescriptors = N_OF_RTVS;
 			m_rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
 			m_rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 			ThrowIfFailed(m_device->CreateDescriptorHeap(&m_rtvHeapDesc, IID_PPV_ARGS(&m_rtvHeap)));
@@ -141,7 +159,7 @@ namespace Engine {
 			m_rtvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 			D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = m_rtvHeap->GetCPUDescriptorHandleForHeapStart();
 
-			for (uint32_t i = 0; i < _countof(m_rtvResources); i++) {
+			for (uint32_t i = 0; i < N_OF_RTVS; i++) {
 				auto& res = m_rtvResources[i];
 				m_device->CreateRenderTargetView(res.Get(), nullptr, rtvHandle);
 				rtvHandle.ptr += m_rtvDescriptorSize;
@@ -212,8 +230,8 @@ namespace Engine {
 
 			psoDesc.SampleMask = UINT_MAX;
 			psoDesc.PrimitiveTopologyType = key.topology;
-			psoDesc.NumRenderTargets = 6;
-			for (uint32_t i = 0; i < _countof(m_rtvFormats); i++) {
+			psoDesc.NumRenderTargets = N_OF_RTVS;
+			for (uint32_t i = 0; i < N_OF_RTVS; i++) {
 				psoDesc.RTVFormats[i] = m_rtvFormats[i];
 			}
 			psoDesc.SampleDesc.Count = 1;
@@ -228,16 +246,17 @@ namespace Engine {
 		D3D12_DESCRIPTOR_HEAP_DESC m_rtvHeapDesc = {};
 		UINT m_rtvDescriptorSize = 0;
 
-		ComPtr<ID3D12Resource> m_rtvResources[6];
-		DXGI_FORMAT m_rtvFormats[6] = {
+		ComPtr<ID3D12Resource> m_rtvResources[N_OF_RTVS];
+		DXGI_FORMAT m_rtvFormats[N_OF_RTVS] = {
 			DXGI_FORMAT_R16G16B16A16_FLOAT, // albedo/diffues
-			DXGI_FORMAT_R32G32B32A32_FLOAT, // world normals
-			DXGI_FORMAT_R32G32B32A32_FLOAT, // world posiiton
-			DXGI_FORMAT_R16G16_FLOAT, // RM
-			DXGI_FORMAT_R16G16B16A16_FLOAT, // Emissive + Ao
+			DXGI_FORMAT_R32G32B32A32_FLOAT, // world normals + zero
+			DXGI_FORMAT_R32G32B32A32_FLOAT, // world posiiton + zero
+			DXGI_FORMAT_R16G16B16A16_FLOAT, // RM + Ao + Zero
+			DXGI_FORMAT_R16G16B16A16_FLOAT, // Emissive + Zero
+			DXGI_FORMAT_R16G16B16A16_FLOAT, // ScreenSpace Motion Vectors + Zero
 			DXGI_FORMAT_R32_UINT, // MaterialId
 		};
-		D3D12_CLEAR_VALUE m_rtvClearValues[6];
+		D3D12_CLEAR_VALUE m_rtvClearValues[N_OF_RTVS];
 
 		std::unordered_map<EnumKey, ComPtr<ID3D12PipelineState>, EnumKeyHash> m_psos;
 		ComPtr<ID3D12DescriptorHeap> m_rtvHeap;

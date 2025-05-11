@@ -14,6 +14,10 @@ namespace Engine {
 
 			updateProjectionMatrix();
 			updateViewMatrix();
+
+			m_prevViewMatrix = m_viewMatrix;
+			m_prevReverseZProjectionMatrix = m_reverseZProjectionMatrix;
+			m_prevProjectionMatrix = m_projectionMatrix;
 		}
 
 		void setPosition(XMVECTOR position) {
@@ -30,16 +34,21 @@ namespace Engine {
 		XMMATRIX getProjectionMatrix() const {
 			return m_projectionMatrix;
 		}
+		XMMATRIX getPrevProjectionMatrix() const {
+			return m_prevProjectionMatrix;
+		}
+
 		XMMATRIX getProjectionMatrixForReverseDepth() const {
-			return XMMatrixPerspectiveFovLH(
-				m_fov,
-				m_aspectRatio,
-				m_farPlane,
-				m_nearPlane
-			);
+			return m_reverseZProjectionMatrix;
+		}
+		XMMATRIX getPrevProjectionMatrixForReverseDepth() const {
+			return m_prevReverseZProjectionMatrix;
 		}
 		XMMATRIX getViewMatrix() const {
 			return m_viewMatrix;
+		}
+		XMMATRIX getPrevViewMatrix() const {
+			return m_prevViewMatrix;
 		}
 		XMVECTOR getPosition() const {
 			return m_position;
@@ -52,6 +61,10 @@ namespace Engine {
 		XMMATRIX m_projectionMatrix = XMMatrixIdentity();
 		XMVECTOR m_position = XMVectorSet(0, 0, -5, 1);
 		XMVECTOR m_lookAt = XMVectorSet(1, 0, 0, 1);
+		XMMATRIX m_prevViewMatrix = XMMatrixIdentity();
+		XMMATRIX m_prevProjectionMatrix = XMMatrixIdentity();
+		XMMATRIX m_reverseZProjectionMatrix = XMMatrixIdentity();
+		XMMATRIX m_prevReverseZProjectionMatrix = XMMatrixIdentity();
 
 
 		float m_fov;
@@ -62,6 +75,7 @@ namespace Engine {
 		float m_aspectRatio;
 
 		void updateViewMatrix() {
+			m_prevViewMatrix = m_viewMatrix;
 			m_viewMatrix = XMMatrixLookAtLH(
 				m_position,
 				m_position + m_lookAt,
@@ -70,11 +84,20 @@ namespace Engine {
 		}
 
 		void updateProjectionMatrix() {
+			m_prevProjectionMatrix = m_projectionMatrix;
 			m_projectionMatrix = XMMatrixPerspectiveFovLH(
 				m_fov,
 				m_aspectRatio,
 				m_nearPlane,
 				m_farPlane
+			);
+
+			m_prevReverseZProjectionMatrix = m_reverseZProjectionMatrix;
+			m_reverseZProjectionMatrix = XMMatrixPerspectiveFovLH(
+				m_fov,
+				m_aspectRatio,
+				m_farPlane,
+				m_nearPlane
 			);
 		}
 	};
