@@ -17,9 +17,6 @@ struct CBVCameraData {
 
 Renderer::Renderer(UINT width, UINT height, std::wstring name) :
 	DXSample(width, height, name),
-	m_frameIndex(0),
-	m_viewport(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height)),
-	m_scissorRect(0, 0, static_cast<LONG>(width), static_cast<LONG>(height)),
 	m_rtvDescriptorSize(0),
 	m_camera(XMConvertToRadians(60.0f), width, height, 0.1f, 100000.0f)
 {
@@ -91,7 +88,7 @@ void Renderer::LoadPipeline()
 	swapChainDesc.BufferCount = FrameCount;
 	swapChainDesc.Width = m_width;
 	swapChainDesc.Height = m_height;
-	swapChainDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+	swapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 	swapChainDesc.SampleDesc.Count = 1;
@@ -108,8 +105,6 @@ void Renderer::LoadPipeline()
 	ThrowIfFailed(factory->MakeWindowAssociation(Win32Application::GetHwnd(), DXGI_MWA_NO_ALT_ENTER));
 
 	ThrowIfFailed(swapChain.As(&m_swapChain));
-	m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
-
 	{
 		D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
 		rtvHeapDesc.NumDescriptors = FrameCount;
@@ -118,55 +113,6 @@ void Renderer::LoadPipeline()
 		ThrowIfFailed(m_device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&m_rtvHeap)));
 
 		m_rtvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-	}
-	{
-		D3D12_CLEAR_VALUE clearValue = {};
-		clearValue.Format = DXGI_FORMAT_D32_FLOAT; // Match the depth buffer format
-		clearValue.DepthStencil.Depth = 0.0f; // Default depth clear value
-		clearValue.DepthStencil.Stencil = 0; // Default stencil clear value
-
-
-		D3D12_RESOURCE_DESC depthBufferDesc = {};
-		depthBufferDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-		depthBufferDesc.Width = GetWidth();
-		depthBufferDesc.Height = GetHeight();
-		depthBufferDesc.DepthOrArraySize = 1;
-		depthBufferDesc.MipLevels = 1;
-		depthBufferDesc.Format = DXGI_FORMAT_D32_FLOAT;
-		depthBufferDesc.SampleDesc.Count = 1;
-		depthBufferDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
-
-		D3D12_HEAP_PROPERTIES heapProps = {};
-		heapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
-
-		ThrowIfFailed(m_device->CreateCommittedResource(
-			&heapProps,
-			D3D12_HEAP_FLAG_NONE,
-			&depthBufferDesc,
-			D3D12_RESOURCE_STATE_DEPTH_WRITE,
-			&clearValue,
-			IID_PPV_ARGS(&m_depthStencilBuffer)
-		));
-
-		D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
-		dsvDesc.Format = DXGI_FORMAT_D32_FLOAT;
-		dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-		dsvDesc.Flags = D3D12_DSV_FLAG_NONE;
-
-		// Create a depth stencil view
-		D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {};
-		dsvHeapDesc.NumDescriptors = 1;
-		dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-		dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-		dsvHeapDesc.NodeMask = 0;
-
-		ThrowIfFailed(m_device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&m_dsvHeap)));
-
-		m_device->CreateDepthStencilView(
-			m_depthStencilBuffer.Get(),
-			&dsvDesc,
-			m_dsvHeap->GetCPUDescriptorHandleForHeapStart()
-		);
 	}
 	{
 		auto sizeInBytesWithAlignment = (static_cast<UINT>(sizeof(CBVCameraData)) + 255) & ~255;
@@ -199,70 +145,18 @@ void Renderer::LoadPipeline()
 	}
 
 	ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_commandAllocator)));
+	ThrowIfFailed(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_commandAllocator.Get(), nullptr, IID_PPV_ARGS(&m_commandList)));
+	ThrowIfFailed(m_commandList->Close());
+	ThrowIfFailed(m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence)));
+	m_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+	if (m_fenceEvent == nullptr)
+	{
+		ThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
+	}
 }
 
 void Renderer::LoadAssets()
 {
-	{
-
-#if defined(_DEBUG)
-		UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
-#else
-		UINT compileFlags = 0;
-#endif
-		Engine::PSOShaderCreate psoSC;
-		psoSC.PS = L"assets\\shaders\\shaders.hlsl";
-		psoSC.VS = L"assets\\shaders\\shaders.hlsl";
-		psoSC.PSEntry = L"PSMain";
-		psoSC.VSEntry = L"VSMain";
-		auto shaders = Engine::PSOShader::Create(psoSC);
-
-		m_vertexShader = shaders->getVS();
-		m_pixelShader = shaders->getPS();
-	}
-	{
-		ThrowIfFailed(m_device->CreateRootSignature(0, m_vertexShader->GetBufferPointer(), m_vertexShader->GetBufferSize(), IID_PPV_ARGS(&m_rootSignature)));
-	}
-
-	{
-		D3D12_INPUT_ELEMENT_DESC inputElementDescs[] =
-		{
-			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-			{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 1, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 2, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-			{ "TANGENT", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 3, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		};
-
-		D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
-		psoDesc.InputLayout = { inputElementDescs, _countof(inputElementDescs) };
-		//psoDesc.pRootSignature = m_rootSignature.Get();
-		CD3DX12_DEPTH_STENCIL_DESC depthStencilDesc = {};
-		depthStencilDesc.DepthEnable = TRUE;
-		depthStencilDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
-		depthStencilDesc.DepthFunc = D3D12_COMPARISON_FUNC_GREATER;
-		depthStencilDesc.StencilEnable = FALSE;
-
-		psoDesc.DepthStencilState = depthStencilDesc;
-		psoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
-		psoDesc.VS = CD3DX12_SHADER_BYTECODE(m_vertexShader->GetBufferPointer(), m_vertexShader->GetBufferSize());
-		psoDesc.PS = CD3DX12_SHADER_BYTECODE(m_pixelShader->GetBufferPointer(), m_pixelShader->GetBufferSize());
-		psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-		psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
-		psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-
-		psoDesc.SampleMask = UINT_MAX;
-		psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-		psoDesc.NumRenderTargets = 1;
-		psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
-		psoDesc.SampleDesc.Count = 1;
-		ThrowIfFailed(m_device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_pipelineState)));
-	}
-
-	ThrowIfFailed(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_commandAllocator.Get(), m_pipelineState.Get(), IID_PPV_ARGS(&m_commandList)));
-
-	ThrowIfFailed(m_commandList->Close());
-
-
 	{
 		m_scene.addObject(std::make_unique<Engine::GLTFSceneObject>(L"assets\\models\\alicev2rigged.glb"));
 		auto o = std::make_unique<Engine::GLTFSceneObject>(L"assets\\models\\alicev2rigged.glb");
@@ -271,46 +165,7 @@ void Renderer::LoadAssets()
 
 		m_modelLoader.waitForQueueEmpty();
 		m_uploadQueue.execute().get();
-	}
-
-
-	// Create the vertex buffer.
-	{
-		// Define the geometry for a triangle.
-		Vertex triangleVertices[] =
-		{
-			{ { 0.0f, 0.25f, 0.0f }, },
-			{ { 0.25f, -0.25f, 0.0f }, },
-			{ { -0.25f, -0.25f, 0.0f }, }
-		};
-
-		const UINT vertexBufferSize = sizeof(triangleVertices);
-
-		// Note: using upload heaps to transfer static data like vert buffers is not 
-		// recommended. Every time the GPU needs it, the upload heap will be marshalled 
-		// over. Please read up on Default Heap usage. An upload heap is used here for 
-		// code simplicity and because there are very few verts to actually transfer.
-		auto heapUploadProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-		auto heapUploadDesc = CD3DX12_RESOURCE_DESC::Buffer(vertexBufferSize);
-		ThrowIfFailed(m_device->CreateCommittedResource(
-			&heapUploadProps,
-			D3D12_HEAP_FLAG_NONE,
-			&heapUploadDesc,
-			D3D12_RESOURCE_STATE_GENERIC_READ,
-			nullptr,
-			IID_PPV_ARGS(&m_vertexBuffer)));
-
-		// Copy the triangle data to the vertex buffer.
-		UINT8* pVertexDataBegin;
-		CD3DX12_RANGE readRange(0, 0);        // We do not intend to read from this resource on the CPU.
-		ThrowIfFailed(m_vertexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin)));
-		memcpy(pVertexDataBegin, triangleVertices, sizeof(triangleVertices));
-		m_vertexBuffer->Unmap(0, nullptr);
-
-		// Initialize the vertex buffer view.
-		m_vertexBufferView.BufferLocation = m_vertexBuffer->GetGPUVirtualAddress();
-		m_vertexBufferView.StrideInBytes = sizeof(Vertex);
-		m_vertexBufferView.SizeInBytes = vertexBufferSize;
+		WaitForCommandQueueExecute();
 	}
 
 	{
@@ -322,8 +177,6 @@ void Renderer::LoadAssets()
 		{
 			ThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
 		}
-
-		WaitForPreviousFrame();
 	}
 }
 
@@ -360,28 +213,51 @@ void Renderer::OnRender()
 	{
 		this->OnKeyDown();
 	}
+	m_camera.update();
 	PopulateCommandList();
 
+
+	ThrowIfFailed(m_commandAllocator->Reset());
+	ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), nullptr));
+
+	auto uavBuffer = m_lightingPipeline->getOutputTexture();
+	auto swapChainBuffer = m_renderTargets[m_swapChain->GetCurrentBackBufferIndex()].Get();
+
+	{
+		CD3DX12_RESOURCE_BARRIER uavBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
+			uavBuffer, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
+		CD3DX12_RESOURCE_BARRIER swapChainBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
+			swapChainBuffer, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_COPY_DEST);
+		D3D12_RESOURCE_BARRIER barriers[] = { uavBarrier,  swapChainBarrier };
+		m_commandList->ResourceBarrier(2, barriers);
+	}
+	m_commandList->CopyResource(swapChainBuffer, uavBuffer);
+	{
+		CD3DX12_RESOURCE_BARRIER uavBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
+			uavBuffer, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+		CD3DX12_RESOURCE_BARRIER swapChainBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
+			swapChainBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PRESENT);
+		D3D12_RESOURCE_BARRIER barriers[] = { uavBarrier,  swapChainBarrier };
+		m_commandList->ResourceBarrier(2, barriers);
+	}
+
+	ThrowIfFailed(m_commandList->Close());
 	m_commandQueue->Wait(m_lightingPipeline->getFence(), m_lightingPipeline->getFenceValue());
 	ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
 	m_commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
-	auto d = m_renderTargets[0].Get()->GetDesc();
-
+	WaitForCommandQueueExecute();
 	ThrowIfFailed(m_swapChain->Present(1, 0));
-
-	WaitForPreviousFrame();
 }
 
 void Renderer::OnDestroy()
 {
-	WaitForPreviousFrame();
+	WaitForCommandQueueExecute();
 
 	CloseHandle(m_fenceEvent);
 }
 
 void Renderer::PopulateCommandList()
 {
-
 	{
 		CBVCameraData cbvData;
 		auto cameraProjection = m_camera.getProjectionMatrix();
@@ -418,7 +294,7 @@ void Renderer::PopulateCommandList()
 
 }
 
-void Renderer::WaitForPreviousFrame()
+void Renderer::WaitForCommandQueueExecute()
 {
 
 	const UINT64 fence = m_fenceValue;
@@ -430,8 +306,6 @@ void Renderer::WaitForPreviousFrame()
 		ThrowIfFailed(m_fence->SetEventOnCompletion(fence, m_fenceEvent));
 		WaitForSingleObject(m_fenceEvent, INFINITE);
 	}
-
-	m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
 }
 
 void Renderer::OnKeyDown()

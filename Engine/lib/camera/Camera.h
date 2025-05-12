@@ -23,11 +23,13 @@ namespace Engine {
 		void setPosition(XMVECTOR position) {
 			position.m128_f32[3] = 1.f;
 			m_position = position;
-			updateViewMatrix();
 		}
 		void setLookAt(XMVECTOR lookAt) {
 			lookAt.m128_f32[3] = 1.f;
 			m_lookAt = lookAt;
+		}
+
+		void update() {
 			updateViewMatrix();
 		}
 

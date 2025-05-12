@@ -94,7 +94,7 @@ namespace Engine {
 			texDesc.Height = m_height;
 			texDesc.DepthOrArraySize = 1;
 			texDesc.MipLevels = 1;
-			texDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+			texDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 			texDesc.SampleDesc.Count = 1;
 			texDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 

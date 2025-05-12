@@ -44,8 +44,8 @@ namespace Engine {
 			createRtvCommitedResources();
 			createRtvsDescriptorHeap();
 			createDsv();
+			createRootSignature();
 
-			ThrowIfFailed(m_device->CreateRootSignature(0, m_shaders->getPS()->GetBufferPointer(), m_shaders->getPS()->GetBufferSize(), IID_PPV_ARGS(&m_rootSignature)));
 			D3D12_COMMAND_QUEUE_DESC queueDesc = {};
 			queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
 			queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
@@ -87,6 +87,9 @@ namespace Engine {
 
 			ID3D12DescriptorHeap* heaps[] = { m_bindlessHeapDescriptor.getSrvDescriptorHeap(), m_bindlessHeapDescriptor.getSamplerDescriptorHeap() };
 			m_commandList->SetDescriptorHeaps(_countof(heaps), heaps);
+			m_commandList->SetGraphicsRootDescriptorTable(2, m_bindlessHeapDescriptor.getSrvDescriptorHeap()->GetGPUDescriptorHandleForHeapStart());
+			m_commandList->SetGraphicsRootDescriptorTable(3, m_bindlessHeapDescriptor.getSamplerDescriptorHeap()->GetGPUDescriptorHandleForHeapStart());
+
 			m_commandList->RSSetViewports(1, &m_viewport);
 			m_commandList->RSSetScissorRects(1, &m_scissorRect);
 
@@ -338,6 +341,75 @@ namespace Engine {
 
 			return pso;
 		}
+		void createRootSignature() {
+			D3D12_DESCRIPTOR_RANGE descriptorRanges[3] = {};
+
+			// Bindless SRVs (10K textures)
+			descriptorRanges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+			descriptorRanges[0].NumDescriptors = 500000;
+			descriptorRanges[0].BaseShaderRegister = 0; // t0
+			descriptorRanges[0].RegisterSpace = 0;
+			descriptorRanges[0].OffsetInDescriptorsFromTableStart = 0;
+
+			// Bindless CBVs (10K constant buffers)
+			descriptorRanges[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+			descriptorRanges[1].NumDescriptors = 500000;
+			descriptorRanges[1].BaseShaderRegister = 2; // b2 (b0 and b1 are non-bindless)
+			descriptorRanges[1].RegisterSpace = 0;
+			descriptorRanges[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+			// Samplers (2,048 entries)
+			descriptorRanges[2].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
+			descriptorRanges[2].NumDescriptors = 2048;
+			descriptorRanges[2].BaseShaderRegister = 0; // s0
+			descriptorRanges[2].RegisterSpace = 0;
+			descriptorRanges[2].OffsetInDescriptorsFromTableStart = 0;
+
+
+
+
+			D3D12_ROOT_PARAMETER rootParameters[4] = {};
+
+			// Non-bindless CBV (b0)
+			rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+			rootParameters[0].Descriptor.ShaderRegister = 0; // b0
+			rootParameters[0].Descriptor.RegisterSpace = 0;
+			rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+			// Non-bindless CBV (b1)
+			rootParameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+			rootParameters[1].Descriptor.ShaderRegister = 1; // b1
+			rootParameters[1].Descriptor.RegisterSpace = 0;
+			rootParameters[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+			// Bindless Descriptor Table (SRVs + CBVs)
+			rootParameters[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+			rootParameters[2].DescriptorTable.NumDescriptorRanges = _countof(descriptorRanges) - 1; // Excluding sampler range
+			rootParameters[2].DescriptorTable.pDescriptorRanges = descriptorRanges;
+			rootParameters[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+			// Separate Descriptor Table for Dynamic Samplers
+			rootParameters[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+			rootParameters[3].DescriptorTable.NumDescriptorRanges = 1;
+			rootParameters[3].DescriptorTable.pDescriptorRanges = &descriptorRanges[2]; // Sampler range
+			rootParameters[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+
+			D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc = {};
+			rootSignatureDesc.NumParameters = _countof(rootParameters);
+			rootSignatureDesc.pParameters = rootParameters;
+			rootSignatureDesc.NumStaticSamplers = 0;
+			rootSignatureDesc.pStaticSamplers = nullptr;
+			rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT 
+				| D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED 
+				| D3D12_ROOT_SIGNATURE_FLAG_SAMPLER_HEAP_DIRECTLY_INDEXED;
+
+			ComPtr<ID3DBlob> signatureBlob, errorBlob;
+			ThrowIfFailed(D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signatureBlob, &errorBlob));
+
+			ThrowIfFailed(m_device->CreateRootSignature(0, signatureBlob->GetBufferPointer(), signatureBlob->GetBufferSize(), IID_PPV_ARGS(&m_rootSignature)));
+		}
+
 		CD3DX12_DEPTH_STENCIL_DESC m_depthStencilDesc = {};
 		D3D12_DESCRIPTOR_HEAP_DESC m_rtvHeapDesc = {};
 		UINT m_rtvDescriptorSize = 0;

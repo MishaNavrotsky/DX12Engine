@@ -1,19 +1,8 @@
-//#define RS "RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT | CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED | SAMPLER_HEAP_DIRECTLY_INDEXED), " \
-//            "CBV(b0, flags=DATA_STATIC), " \
-//            "DescriptorTable(SRV(t0, numDescriptors = 10000)), " \
-//            "DescriptorTable(CBV(b1, numDescriptors = 10000)), " \
-//            "DescriptorTable(Sampler(s0, numDescriptors = 2048))"
-
-#define RS \
-    "RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT | CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED | SAMPLER_HEAP_DIRECTLY_INDEXED), \
-     CBV(b0, flags=DATA_STATIC), \
-     CBV(b1, flags=DATA_STATIC)"
-
 struct PSInput
 {
     float4 position : SV_POSITION;
     float4 worldPosition : TEXCOORD0;
-    float3 worldNormal : TEXCOORD1; 
+    float3 worldNormal : TEXCOORD1;
     float3 worldTangent : TEXCOORD2;
     float4 tangent : TANGENT;
     float2 texcoords : TEXCOORD3;
@@ -68,7 +57,6 @@ cbuffer cb1 : register(b1)
     uint4 cbvDataBindlessHeapSlot;
 };
 
-[RootSignature(RS)]
 PSInput VSMain(VertexShaderInput input)
 {
     PSInput result;
@@ -76,8 +64,8 @@ PSInput VSMain(VertexShaderInput input)
     result.position = mul(result.position, viewProjectionReverseDepthMatrix);
     result.texcoords = input.texcoords;
     result.worldPosition = mul(float4(input.position, 1.0), modelMatrix);
-    result.worldTangent = mul(input.tangent.xyz, (float3x3)modelMatrix);
-    result.worldNormal = mul(input.normal, (float3x3)modelMatrix);
+    result.worldTangent = mul(input.tangent.xyz, (float3x3) modelMatrix);
+    result.worldNormal = mul(input.normal, (float3x3) modelMatrix);
     result.tangent = input.tangent;
     // Convert to NDC
     float4 ndcPosition = result.position / result.position.w;
@@ -102,23 +90,27 @@ struct PSOutput
     uint materialID : SV_Target6;
 };
 
-[RootSignature(RS)]
+ConstantBuffer<CPUMaterialCBVData> g_cbvs[] : register(b2, space0);
+Texture2D<float4> g_textures[] : register(t0, space0);
+SamplerState g_samplers[] : register(s0, space0);
+
+
 PSOutput PSMain(PSInput input)
 {
     PSOutput output;
 
-    ConstantBuffer<CPUMaterialCBVData> cbvMat = ResourceDescriptorHeap[cbvDataBindlessHeapSlot.x];
-    Texture2D<float4> diffuseTex = ResourceDescriptorHeap[cbvMat.diffuseEmissiveNormalOcclusionTexSlots.x];
-    Texture2D<float4> emissiveTex = ResourceDescriptorHeap[cbvMat.diffuseEmissiveNormalOcclusionTexSlots.y];
-    Texture2D<float4> normalTex = ResourceDescriptorHeap[cbvMat.diffuseEmissiveNormalOcclusionTexSlots.z];
-    Texture2D<float4> occlusionTex = ResourceDescriptorHeap[cbvMat.diffuseEmissiveNormalOcclusionTexSlots.w];
-    Texture2D<float4> mrTex = ResourceDescriptorHeap[cbvMat.MrTexSlots.x];
+    ConstantBuffer<CPUMaterialCBVData> cbvMat = g_cbvs[cbvDataBindlessHeapSlot.x - 500000];
+    Texture2D<float4> diffuseTex = g_textures[cbvMat.diffuseEmissiveNormalOcclusionTexSlots.x];
+    Texture2D<float4> emissiveTex = g_textures[cbvMat.diffuseEmissiveNormalOcclusionTexSlots.y];
+    Texture2D<float4> normalTex = g_textures[cbvMat.diffuseEmissiveNormalOcclusionTexSlots.z];
+    Texture2D<float4> occlusionTex = g_textures[cbvMat.diffuseEmissiveNormalOcclusionTexSlots.w];
+    Texture2D<float4> mrTex = g_textures[cbvMat.MrTexSlots.x];
     
-    SamplerState diffuseSam = SamplerDescriptorHeap[cbvMat.diffuseEmissiveNormalOcclusionSamSlots.x];
-    SamplerState emissiveSam = SamplerDescriptorHeap[cbvMat.diffuseEmissiveNormalOcclusionSamSlots.y];
-    SamplerState normalSam = SamplerDescriptorHeap[cbvMat.diffuseEmissiveNormalOcclusionSamSlots.z];
-    SamplerState occlusionSam = SamplerDescriptorHeap[cbvMat.diffuseEmissiveNormalOcclusionSamSlots.w];
-    SamplerState mrSam = SamplerDescriptorHeap[cbvMat.MrSamSlots.x];
+    SamplerState diffuseSam = g_samplers[cbvMat.diffuseEmissiveNormalOcclusionSamSlots.x];
+    SamplerState emissiveSam = g_samplers[cbvMat.diffuseEmissiveNormalOcclusionSamSlots.y];
+    SamplerState normalSam = g_samplers[cbvMat.diffuseEmissiveNormalOcclusionSamSlots.z];
+    SamplerState occlusionSam = g_samplers[cbvMat.diffuseEmissiveNormalOcclusionSamSlots.w];
+    SamplerState mrSam = g_samplers[cbvMat.MrSamSlots.x];
     
     float normalScale = cbvMat.normalScaleOcclusionStrengthMRFactors.x;
     float occlusionStrength = cbvMat.normalScaleOcclusionStrengthMRFactors.y;
@@ -145,7 +137,6 @@ PSOutput PSMain(PSInput input)
     output.worldPosition = float4(input.worldPosition.xyz, 0.0);
     output.roughnessMetalAo = float4(rm, occlusion, 0.0);
     output.emissive = float4(emissive.x, emissive.y, emissive.z, 0.0);
-    output.screenSpaceMotion = float4(1, 1, 1, 1);
     output.materialID = cbvDataBindlessHeapSlot.x;
     
     float2 motionNDC = input.ndcPosition.xy - input.ndcPrevPosition.xy;
@@ -154,6 +145,6 @@ PSOutput PSMain(PSInput input)
     float2 motionXY = 0.5 * motionNDC * screenDimensions.xy;
 
     output.screenSpaceMotion = float4(motionXY, motionZ, 0.0);
-    
+        
     return output;
 }

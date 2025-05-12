@@ -38,12 +38,12 @@ namespace Engine {
 
 			D3D12_COMMAND_QUEUE_DESC queueDesc = {};
 			queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
-			queueDesc.Type = D3D12_COMMAND_LIST_TYPE_COPY;
+			queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
 
 			ThrowIfFailed(m_device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&m_uploadCommandQueue)));
 			for (auto& task : m_tasks) {
-				ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COPY, IID_PPV_ARGS(&task->commandAllocator)));
-				ThrowIfFailed(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COPY, task->commandAllocator.Get(), nullptr, IID_PPV_ARGS(&task->commandList)));
+				ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&task->commandAllocator)));
+				ThrowIfFailed(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, task->commandAllocator.Get(), nullptr, IID_PPV_ARGS(&task->commandList)));
 			}
 		}
 

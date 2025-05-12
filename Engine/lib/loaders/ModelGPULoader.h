@@ -263,6 +263,15 @@ namespace Engine {
 
 					auto gpuTexture = std::make_unique<GPUTexture>();
 					ThrowIfFailed(CreateTexture(m_device, image.GetMetadata(), gpuTexture->getResource().GetAddressOf()));
+					{
+
+						CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+							gpuTexture->getResource().Get(),
+							D3D12_RESOURCE_STATE_COMMON,
+							D3D12_RESOURCE_STATE_COPY_DEST
+						);
+						commandList->ResourceBarrier(1, &barrier);
+					}
 
 					std::vector<D3D12_SUBRESOURCE_DATA> subresources;
 					ThrowIfFailed(PrepareUpload(m_device, image.GetImages(), image.GetImageCount(), image.GetMetadata(), subresources));
@@ -308,6 +317,12 @@ namespace Engine {
 					static_cast<UINT>(subresources.size()),
 					subresources.data()
 				);
+				CD3DX12_RESOURCE_BARRIER textureFinalBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
+					texture.getResource().Get(),                  // Texture resource
+					D3D12_RESOURCE_STATE_COPY_DEST,               // State after UpdateSubresources
+					D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE     // Final state for using in shaders
+				);
+				commandList->ResourceBarrier(1, &textureFinalBarrier);
 
 				uint64_t requiredSize = Align(
 					GetRequiredIntermediateSize(texture.getResource().Get(), 0, static_cast<UINT>(subresources.size())),
@@ -413,14 +428,31 @@ namespace Engine {
 					nullptr,
 					IID_PPV_ARGS(&cbvRes)
 				));
+				{
 
+					CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+						cbvRes.Get(),
+						D3D12_RESOURCE_STATE_COMMON,
+						D3D12_RESOURCE_STATE_COPY_DEST
+					);
+					commandList->ResourceBarrier(1, &barrier);
+				}
 				commandList->CopyBufferRegion(
-					cbvRes.Get(),         // Destination
-					0,                    // Destination offset
-					cbvsUploadBuffer.Get(), // Source
-					copyCBVsOffset,           // Source offset in upload buffer
-					cbSize                // Aligned CBV size
+					cbvRes.Get(),       
+					0,                  
+					cbvsUploadBuffer.Get(), 
+					copyCBVsOffset,          
+					cbSize               
 				);
+				{
+
+					CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+						cbvRes.Get(),
+						D3D12_RESOURCE_STATE_COPY_DEST,
+						D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER
+					);
+					commandList->ResourceBarrier(1, &barrier);
+				}
 
 				copyCBVsOffset += cbSize;
 				mat.setCBVDataBindlessHeapSlot(m_bindlessHeapDescriptor.addCBV(cbvRes, cbSize));
