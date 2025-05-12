@@ -44,7 +44,7 @@ void Engine::GLTFSceneObject::onLoadComplete()
 		m_cbvs.push_back(std::move(res));
 	}
 }
-void Engine::GLTFSceneObject::render(ID3D12GraphicsCommandList* commandList)
+void Engine::GLTFSceneObject::render(ID3D12GraphicsCommandList* commandList, std::function<void(CPUMesh&)> callback)
 {
 	for (size_t i = 0; i < m_renderables.size(); i++) {
 		auto& r = m_renderables[i];
@@ -68,6 +68,7 @@ void Engine::GLTFSceneObject::render(ID3D12GraphicsCommandList* commandList)
 		}
 
 		commandList->SetGraphicsRootConstantBufferView(1, cbv->GetGPUVirtualAddress());
+		callback(cpuMesh);
 		r->render(commandList);
 	}
 

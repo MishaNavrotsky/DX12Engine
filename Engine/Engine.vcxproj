@@ -156,7 +156,8 @@
     <ClInclude Include="lib\mesh\CPUTexture.h" />
     <ClInclude Include="lib\mesh\ModelHeaps.h" />
     <ClInclude Include="lib\mesh\Model.h" />
-    <ClInclude Include="lib\pipelines\DeferredPipeline.h" />
+    <ClInclude Include="lib\pipelines\LightingPipeline.h" />
+    <ClInclude Include="lib\pipelines\GBufferPipeline.h" />
     <ClInclude Include="lib\pipelines\PSOShader.h" />
     <ClInclude Include="lib\queues\GPUUploadQueue.h" />
     <ClInclude Include="lib\renderable\MeshRenderable.h" />
@@ -250,6 +251,17 @@
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="assets\shaders\shaders.hlsl">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <FileType>Document</FileType>
+      <DestinationFolders Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)/assets/shaders</DestinationFolders>
+    </CopyFileToFolders>
+  </ItemGroup>
+  <ItemGroup>
+    <CopyFileToFolders Include="assets\shaders\lighting.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">4.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">4.0</ShaderModel>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
       <FileType>Document</FileType>
       <DestinationFolders Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)/assets/shaders</DestinationFolders>

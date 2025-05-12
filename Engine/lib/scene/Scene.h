@@ -1,6 +1,8 @@
 #include "stdafx.h"
 #pragma once
 #include "ISceneObject.h"
+#include "../mesh/CPUMesh.h"
+
 #include "../Device.h"
 
 
@@ -13,10 +15,10 @@ namespace Engine {
 			return m_idIncreemntal++;
 		}
 
-		void render(ID3D12GraphicsCommandList* commandList) const {
+		void render(ID3D12GraphicsCommandList* commandList, std::function<void(CPUMesh&)> callback) const {
 			for (auto& sceneObj : m_scene) {
 				if (!sceneObj->isLoadComplete()) continue;
-				sceneObj->render(commandList);
+				sceneObj->render(commandList, callback);
 			}
 		}
 

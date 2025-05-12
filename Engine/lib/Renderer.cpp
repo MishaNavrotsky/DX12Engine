@@ -76,7 +76,9 @@ void Renderer::LoadPipeline()
 	m_uploadQueue.registerDevice(m_device);
 	m_bindlessHeapDescriptor.registerDevice(m_device);
 	Engine::Device::SetDevice(m_device);
-	m_deferredPipeline = std::unique_ptr<Engine::DeferredPipeline>(new Engine::DeferredPipeline(m_device, m_width, m_height));
+	m_gbufferPipeline = std::unique_ptr<Engine::GBufferPipeline>(new Engine::GBufferPipeline(m_device, m_width, m_height));
+	m_lightingPipeline = std::unique_ptr<Engine::LightingPipeline>(new Engine::LightingPipeline(m_device, m_width, m_height));
+
 
 
 	D3D12_COMMAND_QUEUE_DESC queueDesc = {};
@@ -89,7 +91,7 @@ void Renderer::LoadPipeline()
 	swapChainDesc.BufferCount = FrameCount;
 	swapChainDesc.Width = m_width;
 	swapChainDesc.Height = m_height;
-	swapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	swapChainDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
 	swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 	swapChainDesc.SampleDesc.Count = 1;
@@ -189,6 +191,8 @@ void Renderer::LoadPipeline()
 		for (UINT n = 0; n < FrameCount; n++)
 		{
 			ThrowIfFailed(m_swapChain->GetBuffer(n, IID_PPV_ARGS(&m_renderTargets[n])));
+
+
 			m_device->CreateRenderTargetView(m_renderTargets[n].Get(), nullptr, rtvHandle);
 			rtvHandle.Offset(1, m_rtvDescriptorSize);
 		}
@@ -358,8 +362,10 @@ void Renderer::OnRender()
 	}
 	PopulateCommandList();
 
+	m_commandQueue->Wait(m_lightingPipeline->getFence(), m_lightingPipeline->getFenceValue());
 	ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
 	m_commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
+	auto d = m_renderTargets[0].Get()->GetDesc();
 
 	ThrowIfFailed(m_swapChain->Present(1, 0));
 
@@ -395,7 +401,7 @@ void Renderer::PopulateCommandList()
 		XMStoreFloat4x4(&cbvData.prevViewProjectionReverseDepthMatrix, XMMatrixTranspose(cameraPrevView * cameraPrevProjectionReverseDepth));
 
 		XMStoreFloat4(&cbvData.position, m_camera.getPosition());
-		XMVECTOR dimensions = XMVectorSet(m_width, m_height, 0, 0);
+		XMVECTOR dimensions = XMVectorSetInt(m_width, m_height, 0, 0);
 		XMStoreUInt4(&cbvData.screenDimensions, dimensions);
 
 
@@ -407,33 +413,9 @@ void Renderer::PopulateCommandList()
 		m_cameraBuffer->Unmap(0, nullptr);
 	}
 
-	ThrowIfFailed(m_commandAllocator->Reset());
-	ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), nullptr));
-	m_commandList->SetPipelineState(m_deferredPipeline->getPso({ D3D12_CULL_MODE_NONE, D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE }));
-	m_commandList->SetGraphicsRootSignature(m_deferredPipeline->getRootSignature());
-	m_commandList->SetGraphicsRootConstantBufferView(0, m_cameraBuffer->GetGPUVirtualAddress());
+	m_gbufferPipeline->renderGBuffers(m_scene, m_cameraBuffer.Get());
+	m_lightingPipeline->computeLighting(m_gbufferPipeline.get(), m_cameraBuffer.Get());
 
-	ID3D12DescriptorHeap* heaps[] = { m_bindlessHeapDescriptor.getSrvDescriptorHeap(), m_bindlessHeapDescriptor.getSamplerDescriptorHeap() };
-	m_commandList->SetDescriptorHeaps(_countof(heaps), heaps);
-	m_commandList->RSSetViewports(1, &m_viewport);
-	m_commandList->RSSetScissorRects(1, &m_scissorRect);
-
-	auto rtvHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(m_deferredPipeline->getRtvDescHeap()->GetCPUDescriptorHandleForHeapStart());
-	auto dsvHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(m_deferredPipeline->getDsvDescHeap()->GetCPUDescriptorHandleForHeapStart());
-	m_commandList->OMSetRenderTargets(m_deferredPipeline->getRenderTargetsSize(), &rtvHandle, TRUE, &dsvHandle);
-
-	const auto& rtvsClearColors = m_deferredPipeline->getRtvsClearValues();
-	UINT rtvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-	for (auto& clearColor : rtvsClearColors) {
-		m_commandList->ClearRenderTargetView(rtvHandle, clearColor.Color, 0, nullptr);
-		rtvHandle.Offset(1, rtvDescriptorSize);
-	}
-	m_commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 0.0f, 0, 0, nullptr);
-	m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-	m_scene.render(m_commandList.Get());
-
-	ThrowIfFailed(m_commandList->Close());
 }
 
 void Renderer::WaitForPreviousFrame()

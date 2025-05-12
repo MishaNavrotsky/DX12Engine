@@ -42,6 +42,6 @@ namespace Engine {
 		void onLoadComplete();
 
 		// Inherited via ISceneObject
-		void render(ID3D12GraphicsCommandList* commandList) override;
+		void render(ID3D12GraphicsCommandList* commandList, std::function<void(CPUMesh&)> callback) override;
 	};
 }

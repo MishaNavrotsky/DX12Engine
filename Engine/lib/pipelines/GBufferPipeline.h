@@ -11,7 +11,7 @@ const uint32_t N_OF_RTVS = 7;
 
 namespace Engine {
 	using namespace Microsoft::WRL;
-	class DeferredPipeline {
+	class GBufferPipeline {
 		struct EnumKey {
 			D3D12_CULL_MODE cullMode;
 			D3D12_PRIMITIVE_TOPOLOGY_TYPE topology;
@@ -28,7 +28,7 @@ namespace Engine {
 			}
 		};
 	public:
-		DeferredPipeline(ComPtr<ID3D12Device> device, UINT width, UINT height) : m_device(device), m_width(width), m_height(height) {
+		GBufferPipeline(ComPtr<ID3D12Device> device, UINT width, UINT height) : m_device(device), m_width(width), m_height(height) {
 			Engine::PSOShaderCreate psoSC;
 			psoSC.PS = L"assets\\shaders\\gbuffers.hlsl";
 			psoSC.VS = L"assets\\shaders\\gbuffers.hlsl";
@@ -46,10 +46,107 @@ namespace Engine {
 			createDsv();
 
 			ThrowIfFailed(m_device->CreateRootSignature(0, m_shaders->getPS()->GetBufferPointer(), m_shaders->getPS()->GetBufferSize(), IID_PPV_ARGS(&m_rootSignature)));
+			D3D12_COMMAND_QUEUE_DESC queueDesc = {};
+			queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
+			queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+			ThrowIfFailed(m_device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&m_commandQueue)));
+			ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_commandAllocator)));
+			ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_commandAllocatorBarrier)));
+
+			ThrowIfFailed(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_commandAllocator.Get(), nullptr, IID_PPV_ARGS(&m_commandList)));
+			ThrowIfFailed(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_commandAllocatorBarrier.Get(), nullptr, IID_PPV_ARGS(&m_commandListBarrier)));
+			ThrowIfFailed(m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence)));
+			m_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+			if (m_fenceEvent == nullptr)
+			{
+				ThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
+			}
+			ThrowIfFailed(m_commandList->Close());
+			ThrowIfFailed(m_commandListBarrier->Close());
+
+
+			m_viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height));
+			m_scissorRect = CD3DX12_RECT(0, 0, static_cast<LONG>(width), static_cast<LONG>(height));
 		}
 
-		ID3D12RootSignature* getRootSignature() const {
-			return m_rootSignature.Get();
+		void renderGBuffers(const Scene& scene, ID3D12Resource* cameraBuffer) {
+			ThrowIfFailed(m_commandAllocator->Reset());
+			ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), nullptr));
+			{
+				CD3DX12_RESOURCE_BARRIER barrierBack[N_OF_RTVS];
+				for (uint32_t i = 0; i < N_OF_RTVS; i++) {
+					barrierBack[i] = CD3DX12_RESOURCE_BARRIER::Transition(m_rtvResources[i].Get(),
+						D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+						D3D12_RESOURCE_STATE_RENDER_TARGET);
+				}
+				m_commandList->ResourceBarrier(N_OF_RTVS, barrierBack);
+			}
+
+			m_commandList->SetGraphicsRootSignature(getRootSignature());
+			m_commandList->SetGraphicsRootConstantBufferView(0, cameraBuffer->GetGPUVirtualAddress());
+
+			ID3D12DescriptorHeap* heaps[] = { m_bindlessHeapDescriptor.getSrvDescriptorHeap(), m_bindlessHeapDescriptor.getSamplerDescriptorHeap() };
+			m_commandList->SetDescriptorHeaps(_countof(heaps), heaps);
+			m_commandList->RSSetViewports(1, &m_viewport);
+			m_commandList->RSSetScissorRects(1, &m_scissorRect);
+
+			auto rtvHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(getRtvDescHeap()->GetCPUDescriptorHandleForHeapStart());
+			auto dsvHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(getDsvDescHeap()->GetCPUDescriptorHandleForHeapStart());
+			m_commandList->OMSetRenderTargets(getRenderTargetsSize(), &rtvHandle, TRUE, &dsvHandle);
+
+			const auto& rtvsClearColors = getRtvsClearValues();
+			UINT rtvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+			for (auto& clearColor : rtvsClearColors) {
+				m_commandList->ClearRenderTargetView(rtvHandle, clearColor.Color, 0, nullptr);
+				rtvHandle.Offset(1, rtvDescriptorSize);
+			}
+			m_commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 0.0f, 0, 0, nullptr);
+			m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+			scene.render(m_commandList.Get(), [&](CPUMesh& mesh) {
+				m_commandList->SetPipelineState(getPso({ mesh.cullMode, D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE }));
+			});
+
+			ThrowIfFailed(m_commandList->Close());
+
+
+			ThrowIfFailed(m_commandAllocatorBarrier->Reset());
+			ThrowIfFailed(m_commandListBarrier->Reset(m_commandAllocatorBarrier.Get(), nullptr));
+			{
+				CD3DX12_RESOURCE_BARRIER barrierBack[N_OF_RTVS];
+				for (uint32_t i = 0; i < N_OF_RTVS; i++) {
+					barrierBack[i] = CD3DX12_RESOURCE_BARRIER::Transition(m_rtvResources[i].Get(),
+						D3D12_RESOURCE_STATE_RENDER_TARGET,
+						D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+				}
+				m_commandListBarrier->ResourceBarrier(N_OF_RTVS, barrierBack);
+			}
+			ThrowIfFailed(m_commandListBarrier->Close());
+
+
+			ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
+			m_commandQueue->ExecuteCommandLists(1, ppCommandLists);
+			ThrowIfFailed(m_commandQueue->Signal(m_fence.Get(), ++m_fenceValue));
+			ThrowIfFailed(m_commandQueue->Wait(m_fence.Get(), m_fenceValue));
+
+			ID3D12CommandList* ppCommandListsBarrier[] = { m_commandListBarrier.Get() };
+			m_commandQueue->ExecuteCommandLists(1, ppCommandListsBarrier);
+			ThrowIfFailed(m_commandQueue->Signal(m_fence.Get(), ++m_fenceValue));
+		}
+
+		ID3D12Fence* getFence() const {
+			return m_fence.Get();
+		}
+
+		UINT64 getFenceValue() const {
+			return m_fenceValue;
+		}
+
+		void waitForGPU() {
+			if (m_fence->GetCompletedValue() < m_fenceValue) {
+				ThrowIfFailed(m_fence->SetEventOnCompletion(m_fenceValue, m_fenceEvent));
+				WaitForSingleObject(m_fenceEvent, INFINITE);
+			}
 		}
 
 		std::array<ID3D12Resource*, N_OF_RTVS> getRtvResources() const {
@@ -63,19 +160,20 @@ namespace Engine {
 			return resourcePtrs;
 		}
 
+	private:
+		ID3D12RootSignature* getRootSignature() const {
+			return m_rootSignature.Get();
+		}
 		ID3D12PipelineState* getPso(const EnumKey key) {
 			if (m_psos.find(key) != m_psos.end()) return m_psos.at(key).Get();
 			return createPso(key).Get();
 		}
-
 		ID3D12DescriptorHeap* getRtvDescHeap() const {
 			return m_rtvHeap.Get();
 		}
-
 		ID3D12DescriptorHeap* getDsvDescHeap() const {
 			return m_dsvHeap.Get();
 		}
-
 		inline uint32_t getRenderTargetsSize() {
 			return N_OF_RTVS;
 		}
@@ -83,8 +181,6 @@ namespace Engine {
 		std::span<D3D12_CLEAR_VALUE> getRtvsClearValues() {
 			return std::span<D3D12_CLEAR_VALUE>(m_rtvClearValues);
 		}
-
-	private:
 		void populateRtvClearValues() {
 			for (uint32_t i = 0; i < N_OF_RTVS; i++) {
 				m_rtvClearValues[i].Format = m_rtvFormats[i];
@@ -145,7 +241,7 @@ namespace Engine {
 					&rtvProp,
 					D3D12_HEAP_FLAG_NONE,
 					&rtvDesc,
-					D3D12_RESOURCE_STATE_RENDER_TARGET,
+					D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
 					&m_rtvClearValues[i],
 					IID_PPV_ARGS(&m_rtvResources[i])));
 			}
@@ -276,5 +372,20 @@ namespace Engine {
 		ComPtr<ID3D12Resource> m_depthStencilBuffer;
 		ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
 		std::unique_ptr<PSOShader> m_shaders;
+
+		ComPtr<ID3D12CommandQueue> m_commandQueue;
+		ComPtr<ID3D12CommandAllocator> m_commandAllocator;
+		ComPtr<ID3D12CommandAllocator> m_commandAllocatorBarrier;
+
+		ComPtr<ID3D12GraphicsCommandList> m_commandList;
+		ComPtr<ID3D12GraphicsCommandList> m_commandListBarrier;
+		Engine::BindlessHeapDescriptor& m_bindlessHeapDescriptor = Engine::BindlessHeapDescriptor::GetInstance();
+
+		CD3DX12_VIEWPORT m_viewport;
+		CD3DX12_RECT m_scissorRect;
+
+		HANDLE m_fenceEvent;
+		ComPtr<ID3D12Fence> m_fence;
+		UINT64 m_fenceValue = 0;
 	};
 }

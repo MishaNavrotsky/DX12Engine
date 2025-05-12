@@ -10,7 +10,9 @@
 #include "descriptors/BindlessHeapDescriptor.h"
 #include "Device.h"
 #include "pipelines/PSOShader.h"
-#include "pipelines/DeferredPipeline.h"
+#include "pipelines/GBufferPipeline.h"
+#include "pipelines/LightingPipeline.h"
+
 
 
 
@@ -82,7 +84,9 @@ private:
     ComPtr<ID3D12Resource> m_vertexBuffer;
     D3D12_VERTEX_BUFFER_VIEW m_vertexBufferView;
 
-    std::unique_ptr<Engine::DeferredPipeline> m_deferredPipeline;
+    std::unique_ptr<Engine::GBufferPipeline> m_gbufferPipeline;
+    std::unique_ptr<Engine::LightingPipeline> m_lightingPipeline;
+
 
     float yaw = 0;
     float pitch = 0;

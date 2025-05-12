@@ -2,6 +2,7 @@
 #pragma once
 
 #include "../geometry/ModelMatrix.h"
+#include "../mesh/CPUMesh.h"
 
 namespace Engine {
 	class ISceneObject {
@@ -9,7 +10,7 @@ namespace Engine {
 		Engine::ModelMatrix modelMatrix;
 
 		virtual bool isLoadComplete() const = 0;
-		virtual void render(ID3D12GraphicsCommandList* commandList) = 0;
+		virtual void render(ID3D12GraphicsCommandList* commandList, std::function<void(CPUMesh&)> callback) = 0;
 
 		virtual ~ISceneObject() = default;
 	};
