@@ -11,7 +11,7 @@ const uint32_t N_OF_RTVS = 7;
 
 namespace Engine {
 	using namespace Microsoft::WRL;
-	class GBufferPipeline {
+	class GBufferPass {
 		struct EnumKey {
 			D3D12_CULL_MODE cullMode;
 			D3D12_PRIMITIVE_TOPOLOGY_TYPE topology;
@@ -28,7 +28,7 @@ namespace Engine {
 			}
 		};
 	public:
-		GBufferPipeline(ComPtr<ID3D12Device> device, UINT width, UINT height) : m_device(device), m_width(width), m_height(height) {
+		GBufferPass(ComPtr<ID3D12Device> device, UINT width, UINT height) : m_device(device), m_width(width), m_height(height) {
 			Engine::PSOShaderCreate psoSC;
 			psoSC.PS = L"assets\\shaders\\gbuffers.hlsl";
 			psoSC.VS = L"assets\\shaders\\gbuffers.hlsl";
@@ -344,23 +344,20 @@ namespace Engine {
 		void createRootSignature() {
 			D3D12_DESCRIPTOR_RANGE descriptorRanges[3] = {};
 
-			// Bindless SRVs (10K textures)
 			descriptorRanges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-			descriptorRanges[0].NumDescriptors = 500000;
+			descriptorRanges[0].NumDescriptors = N_SRV_DESCRIPTORS;
 			descriptorRanges[0].BaseShaderRegister = 0; // t0
 			descriptorRanges[0].RegisterSpace = 0;
 			descriptorRanges[0].OffsetInDescriptorsFromTableStart = 0;
 
-			// Bindless CBVs (10K constant buffers)
 			descriptorRanges[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-			descriptorRanges[1].NumDescriptors = 500000;
+			descriptorRanges[1].NumDescriptors = N_CBV_DESCRIPTORS;
 			descriptorRanges[1].BaseShaderRegister = 2; // b2 (b0 and b1 are non-bindless)
 			descriptorRanges[1].RegisterSpace = 0;
 			descriptorRanges[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-			// Samplers (2,048 entries)
 			descriptorRanges[2].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
-			descriptorRanges[2].NumDescriptors = 2048;
+			descriptorRanges[2].NumDescriptors = N_SAMPLERS;
 			descriptorRanges[2].BaseShaderRegister = 0; // s0
 			descriptorRanges[2].RegisterSpace = 0;
 			descriptorRanges[2].OffsetInDescriptorsFromTableStart = 0;
@@ -400,8 +397,8 @@ namespace Engine {
 			rootSignatureDesc.pParameters = rootParameters;
 			rootSignatureDesc.NumStaticSamplers = 0;
 			rootSignatureDesc.pStaticSamplers = nullptr;
-			rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT 
-				| D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED 
+			rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT
+				| D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED
 				| D3D12_ROOT_SIGNATURE_FLAG_SAMPLER_HEAP_DIRECTLY_INDEXED;
 
 			ComPtr<ID3DBlob> signatureBlob, errorBlob;

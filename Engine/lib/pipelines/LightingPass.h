@@ -4,14 +4,14 @@
 
 #include "../Device.h"
 #include "../DXSampleHelper.h"
-#include "GBufferPipeline.h"
+#include "GBufferPass.h"
 #include "PSOShader.h"
 
 namespace Engine {
 	using namespace Microsoft::WRL;
-	class LightingPipeline {
+	class LightingPass {
 	public:
-		LightingPipeline(ComPtr<ID3D12Device> device, UINT width, UINT height) : m_device(device), m_width(width), m_height(height) {
+		LightingPass(ComPtr<ID3D12Device> device, UINT width, UINT height) : m_device(device), m_width(width), m_height(height) {
 			Engine::PSOShaderCreate psoSC;
 			psoSC.CS = L"assets\\shaders\\lighting.hlsl";;
 			psoSC.CSEntry = L"main";
@@ -36,8 +36,8 @@ namespace Engine {
 			createRWTex();
 		}
 
-		void computeLighting(GBufferPipeline* gbufferPipeline, ID3D12Resource* cameraBuffer) {
-			createDescriptorHeap(gbufferPipeline->getRtvResources());
+		void computeLighting(GBufferPass* gbufferPass, ID3D12Resource* cameraBuffer) {
+			createDescriptorHeap(gbufferPass->getRtvResources());
 
 			ThrowIfFailed(m_commandAllocator->Reset());
 			ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), m_pso.Get()));
@@ -54,7 +54,7 @@ namespace Engine {
 			m_commandList->Dispatch(dispatchX, dispatchY, 1);
 			ThrowIfFailed(m_commandList->Close());
 
-			m_commandQueue->Wait(gbufferPipeline->getFence(), gbufferPipeline->getFenceValue());
+			m_commandQueue->Wait(gbufferPass->getFence(), gbufferPass->getFenceValue());
 			ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
 			m_commandQueue->ExecuteCommandLists(1, ppCommandLists);
 			ThrowIfFailed(m_commandQueue->Signal(m_fence.Get(), ++m_fenceValue));

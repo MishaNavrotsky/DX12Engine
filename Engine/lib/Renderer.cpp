@@ -73,8 +73,8 @@ void Renderer::LoadPipeline()
 	m_uploadQueue.registerDevice(m_device);
 	m_bindlessHeapDescriptor.registerDevice(m_device);
 	Engine::Device::SetDevice(m_device);
-	m_gbufferPipeline = std::unique_ptr<Engine::GBufferPipeline>(new Engine::GBufferPipeline(m_device, m_width, m_height));
-	m_lightingPipeline = std::unique_ptr<Engine::LightingPipeline>(new Engine::LightingPipeline(m_device, m_width, m_height));
+	m_gbufferPass = std::unique_ptr<Engine::GBufferPass>(new Engine::GBufferPass(m_device, m_width, m_height));
+	m_lightingPass = std::unique_ptr<Engine::LightingPass>(new Engine::LightingPass(m_device, m_width, m_height));
 
 
 
@@ -220,7 +220,7 @@ void Renderer::OnRender()
 	ThrowIfFailed(m_commandAllocator->Reset());
 	ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), nullptr));
 
-	auto uavBuffer = m_lightingPipeline->getOutputTexture();
+	auto uavBuffer = m_lightingPass->getOutputTexture();
 	auto swapChainBuffer = m_renderTargets[m_swapChain->GetCurrentBackBufferIndex()].Get();
 
 	{
@@ -242,11 +242,11 @@ void Renderer::OnRender()
 	}
 
 	ThrowIfFailed(m_commandList->Close());
-	m_commandQueue->Wait(m_lightingPipeline->getFence(), m_lightingPipeline->getFenceValue());
+	m_commandQueue->Wait(m_lightingPass->getFence(), m_lightingPass->getFenceValue());
 	ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
 	m_commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
 	WaitForCommandQueueExecute();
-	ThrowIfFailed(m_swapChain->Present(1, 0));
+	ThrowIfFailed(m_swapChain->Present(0, 0));
 }
 
 void Renderer::OnDestroy()
@@ -289,8 +289,8 @@ void Renderer::PopulateCommandList()
 		m_cameraBuffer->Unmap(0, nullptr);
 	}
 
-	m_gbufferPipeline->renderGBuffers(m_scene, m_cameraBuffer.Get());
-	m_lightingPipeline->computeLighting(m_gbufferPipeline.get(), m_cameraBuffer.Get());
+	m_gbufferPass->renderGBuffers(m_scene, m_cameraBuffer.Get());
+	m_lightingPass->computeLighting(m_gbufferPass.get(), m_cameraBuffer.Get());
 
 }
 

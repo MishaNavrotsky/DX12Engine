@@ -10,8 +10,8 @@
 #include "descriptors/BindlessHeapDescriptor.h"
 #include "Device.h"
 #include "pipelines/PSOShader.h"
-#include "pipelines/GBufferPipeline.h"
-#include "pipelines/LightingPipeline.h"
+#include "pipelines/GBufferPass.h"
+#include "pipelines/LightingPass.h"
 
 
 
@@ -68,8 +68,8 @@ private:
 
 	ComPtr<ID3D12Resource> m_cameraBuffer;
 
-    std::unique_ptr<Engine::GBufferPipeline> m_gbufferPipeline;
-    std::unique_ptr<Engine::LightingPipeline> m_lightingPipeline;
+    std::unique_ptr<Engine::GBufferPass> m_gbufferPass;
+    std::unique_ptr<Engine::LightingPass> m_lightingPass;
 
     float yaw = 0;
     float pitch = 0;

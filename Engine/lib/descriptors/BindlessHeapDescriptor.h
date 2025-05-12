@@ -6,8 +6,8 @@
 #include "../mesh/helpers.h"
 #include <numeric>
 
-const uint32_t N_SRV_DESCRIPTORS = 500000;
-const uint32_t N_CBV_DESCRIPTORS = 500000;
+const uint32_t N_SRV_DESCRIPTORS = 1000;
+const uint32_t N_CBV_DESCRIPTORS = 1000;
 const uint32_t N_SAMPLERS = 2048;
 
 inline D3D12_SAMPLER_DESC GetSamplerDescForTexture(Engine::TextureType textureType)

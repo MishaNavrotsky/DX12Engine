@@ -156,8 +156,8 @@
     <ClInclude Include="lib\mesh\CPUTexture.h" />
     <ClInclude Include="lib\mesh\ModelHeaps.h" />
     <ClInclude Include="lib\mesh\Model.h" />
-    <ClInclude Include="lib\pipelines\LightingPipeline.h" />
-    <ClInclude Include="lib\pipelines\GBufferPipeline.h" />
+    <ClInclude Include="lib\pipelines\LightingPass.h" />
+    <ClInclude Include="lib\pipelines\GBufferPass.h" />
     <ClInclude Include="lib\pipelines\PSOShader.h" />
     <ClInclude Include="lib\queues\GPUUploadQueue.h" />
     <ClInclude Include="lib\renderable\MeshRenderable.h" />
