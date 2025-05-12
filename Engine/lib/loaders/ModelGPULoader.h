@@ -294,6 +294,7 @@ namespace Engine {
 			D3D12_HEAP_PROPERTIES texUploadHeapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
 			D3D12_RESOURCE_DESC texUploadHeapDesc = CD3DX12_RESOURCE_DESC::Buffer(totalTextureUploadBufferSize);
 			auto& texUploadHeap = modelHeaps.get()->getTexturesUploadHeap();
+			if (totalTextureUploadBufferSize > 0)
 			ThrowIfFailed(m_device->CreateCommittedResource(
 				&texUploadHeapProps,
 				D3D12_HEAP_FLAG_NONE,

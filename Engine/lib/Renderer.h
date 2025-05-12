@@ -14,8 +14,6 @@
 #include "pipelines/LightingPass.h"
 
 
-
-
 using namespace DirectX;
 
 // Note that while ComPtr is used to manage the lifetime of resources on the CPU,

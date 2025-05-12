@@ -163,6 +163,10 @@ namespace Engine {
 			return resourcePtrs;
 		}
 
+		ID3D12Resource* getDepthStencilResource() const {
+			return m_depthStencilBuffer.Get();
+		}
+
 	private:
 		ID3D12RootSignature* getRootSignature() const {
 			return m_rootSignature.Get();

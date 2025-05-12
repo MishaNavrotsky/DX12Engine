@@ -158,8 +158,15 @@ void Renderer::LoadPipeline()
 void Renderer::LoadAssets()
 {
 	{
+		const wchar_t* strings[] = { L"brick_wall.glb", L"cute_anime_girl_mage.glb", L"furniture_decor_sculpture_8mb.glb", L"hand_low_poly.glb", L"star_wars_galaxies_-_eta-2_actis_interceptor.glb", L"su-33_flanker-d.glb" };
+		//for (uint32_t i = 0; i < std::size(strings); i++) {
+		//	std::wstring prefix = L"assets\\models\\";
+		//	auto result = prefix + strings[i];
+		//	m_scene.addObject(std::make_unique<Engine::GLTFSceneObject>(result));
+		//}
+
 		m_scene.addObject(std::make_unique<Engine::GLTFSceneObject>(L"assets\\models\\alicev2rigged.glb"));
-		auto o = std::make_unique<Engine::GLTFSceneObject>(L"assets\\models\\alicev2rigged.glb");
+		auto o = std::make_unique<Engine::GLTFSceneObject>(L"assets\\models\\alicev2rigged_c.glb");
 		o.get()->modelMatrix.setPosition(8000, 0, 0);
 		m_scene.addObject(std::move(o));
 
@@ -291,7 +298,6 @@ void Renderer::PopulateCommandList()
 
 	m_gbufferPass->renderGBuffers(m_scene, m_cameraBuffer.Get());
 	m_lightingPass->computeLighting(m_gbufferPass.get(), m_cameraBuffer.Get());
-
 }
 
 void Renderer::WaitForCommandQueueExecute()
