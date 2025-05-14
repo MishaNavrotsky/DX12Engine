@@ -20,7 +20,6 @@
 #include "../mesh/Sampler.h"
 
 
-#include "stb_image.h"
 #include "DirectXTex.h"
 #include <future>
 #include <atomic>

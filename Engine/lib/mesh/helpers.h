@@ -66,5 +66,7 @@ namespace Engine {
 		GUID getID() const {
 			return m_id;
 		}
+
+		virtual ~IID() = default;
 	};
 }

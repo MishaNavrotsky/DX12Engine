@@ -1,24 +1,9 @@
 #include "stdafx.h"
 #include "Renderer.h"
 
-struct CBVCameraData {
-	XMFLOAT4X4 projectionMatrix;
-	XMFLOAT4X4 projectionReverseDepthMatrix;
-	XMFLOAT4X4 viewMatrix;
-	XMFLOAT4X4 viewProjectionReverseDepthMatrix;
-
-	XMFLOAT4X4 prevProjectionMatrix;
-	XMFLOAT4X4 prevProjectionReverseDepthMatrix;
-	XMFLOAT4X4 prevViewMatrix;
-	XMFLOAT4X4 prevViewProjectionReverseDepthMatrix;
-	XMFLOAT4 position;
-	XMUINT4 screenDimensions;
-};
-
 Renderer::Renderer(UINT width, UINT height, std::wstring name) :
 	DXSample(width, height, name),
-	m_rtvDescriptorSize(0),
-	m_camera(XMConvertToRadians(60.0f), width, height, 0.1f, 100000.0f)
+	m_rtvDescriptorSize(0)
 {
 }
 
@@ -75,6 +60,9 @@ void Renderer::LoadPipeline()
 	Engine::Device::SetDevice(m_device);
 	m_gbufferPass = std::unique_ptr<Engine::GBufferPass>(new Engine::GBufferPass(m_device, m_width, m_height));
 	m_lightingPass = std::unique_ptr<Engine::LightingPass>(new Engine::LightingPass(m_device, m_width, m_height));
+	m_gizmosPass = std::unique_ptr<Engine::GizmosPass>(new Engine::GizmosPass(m_device, m_width, m_height));
+
+	m_camera = std::unique_ptr<Engine::Camera>(new Engine::Camera(XMConvertToRadians(60.0f), m_width, m_height, 0.1f, 100000.0f));
 
 
 
@@ -114,26 +102,9 @@ void Renderer::LoadPipeline()
 
 		m_rtvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 	}
-	{
-		auto sizeInBytesWithAlignment = (static_cast<UINT>(sizeof(CBVCameraData)) + 255) & ~255;
-
-		D3D12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(sizeInBytesWithAlignment);
-		bufferDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-		D3D12_HEAP_PROPERTIES heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-
-		ThrowIfFailed(m_device->CreateCommittedResource(
-			&heapProps,
-			D3D12_HEAP_FLAG_NONE,
-			&bufferDesc,
-			D3D12_RESOURCE_STATE_GENERIC_READ,
-			nullptr,
-			IID_PPV_ARGS(&m_cameraBuffer)));
-		m_cameraBuffer->SetName(L"Camera Buffer");
-	}
 
 	{
 		CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart());
-
 		for (UINT n = 0; n < FrameCount; n++)
 		{
 			ThrowIfFailed(m_swapChain->GetBuffer(n, IID_PPV_ARGS(&m_renderTargets[n])));
@@ -162,13 +133,16 @@ void Renderer::LoadAssets()
 		//for (uint32_t i = 0; i < std::size(strings); i++) {
 		//	std::wstring prefix = L"assets\\models\\";
 		//	auto result = prefix + strings[i];
-		//	m_scene.addObject(std::make_unique<Engine::GLTFSceneObject>(result));
+		//	m_scene.addNode(Engine::GLTFModelSceneNode::ReadFromFile(result));
 		//}
 
-		m_scene.addObject(std::make_unique<Engine::GLTFSceneObject>(L"assets\\models\\alicev2rigged.glb"));
-		auto o = std::make_unique<Engine::GLTFSceneObject>(L"assets\\models\\alicev2rigged_c.glb");
-		o.get()->modelMatrix.setPosition(8000, 0, 0);
-		m_scene.addObject(std::move(o));
+		m_scene.addNode(Engine::GLTFModelSceneNode::ReadFromFile(L"assets\\models\\alicev2rigged.glb"));
+		auto o = Engine::GLTFModelSceneNode::ReadFromFile(L"assets\\models\\alicev2rigged_c.glb");
+		Engine::ModelMatrix modelMatrix;
+		modelMatrix.setPosition(8000, 0, 0);
+		modelMatrix.update();
+		o.get()->setLocalModelMatrix(modelMatrix);
+		m_scene.addNode(o);
 
 		m_modelLoader.waitForQueueEmpty();
 		m_uploadQueue.execute().get();
@@ -220,7 +194,7 @@ void Renderer::OnRender()
 	{
 		this->OnKeyDown();
 	}
-	m_camera.update();
+	m_camera->update();
 	PopulateCommandList();
 
 
@@ -265,39 +239,12 @@ void Renderer::OnDestroy()
 
 void Renderer::PopulateCommandList()
 {
+	m_gbufferPass->renderGBuffers(&m_scene, m_camera.get());
+	m_lightingPass->computeLighting(m_gbufferPass.get(), m_camera.get());
 	{
-		CBVCameraData cbvData;
-		auto cameraProjection = m_camera.getProjectionMatrix();
-		auto cameraProjectionReverseDepth = m_camera.getProjectionMatrixForReverseDepth();
-		auto cameraView = m_camera.getViewMatrix();
-		XMStoreFloat4x4(&cbvData.projectionMatrix, cameraProjection);
-		XMStoreFloat4x4(&cbvData.projectionReverseDepthMatrix, cameraProjectionReverseDepth);
-		XMStoreFloat4x4(&cbvData.viewMatrix, cameraView);
-		XMStoreFloat4x4(&cbvData.viewProjectionReverseDepthMatrix, XMMatrixTranspose(cameraView * cameraProjectionReverseDepth));
-
-		auto cameraPrevProjection = m_camera.getPrevProjectionMatrix();
-		auto cameraPrevProjectionReverseDepth = m_camera.getPrevProjectionMatrixForReverseDepth();
-		auto cameraPrevView = m_camera.getPrevViewMatrix();
-		XMStoreFloat4x4(&cbvData.prevProjectionMatrix, cameraPrevProjection);
-		XMStoreFloat4x4(&cbvData.prevProjectionReverseDepthMatrix, cameraPrevProjectionReverseDepth);
-		XMStoreFloat4x4(&cbvData.prevViewMatrix, cameraPrevView);
-		XMStoreFloat4x4(&cbvData.prevViewProjectionReverseDepthMatrix, XMMatrixTranspose(cameraPrevView * cameraPrevProjectionReverseDepth));
-
-		XMStoreFloat4(&cbvData.position, m_camera.getPosition());
-		XMVECTOR dimensions = XMVectorSetInt(m_width, m_height, 0, 0);
-		XMStoreUInt4(&cbvData.screenDimensions, dimensions);
-
-
-		void* mappedData = nullptr;
-		m_cameraBuffer->Map(0, nullptr, &mappedData);
-
-		memcpy(mappedData, &cbvData, sizeof(CBVCameraData));
-
-		m_cameraBuffer->Unmap(0, nullptr);
+		m_lightingPass->waitForGPU();
+		m_gizmosPass->renderGizmos(&m_scene, m_camera.get(), m_gbufferPass->getDepthStencilResource());
 	}
-
-	m_gbufferPass->renderGBuffers(m_scene, m_cameraBuffer.Get());
-	m_lightingPass->computeLighting(m_gbufferPass.get(), m_cameraBuffer.Get());
 }
 
 void Renderer::WaitForCommandQueueExecute()
@@ -319,8 +266,8 @@ void Renderer::OnKeyDown()
 	HWND hWnd = GetFocus();
 	if (!hWnd) return;
 
-	auto cameraPos = m_camera.getPosition();
-	auto cameraLookAt = m_camera.getLookAt();
+	auto cameraPos = m_camera->getPosition();
+	auto cameraLookAt = m_camera->getLookAt();
 	auto cameraSpeed = 10.0f;
 
 	if (GetAsyncKeyState(VK_SHIFT) & 0x8000) { // Shift key
@@ -346,7 +293,7 @@ void Renderer::OnKeyDown()
 		cameraPos -= XMVector3Normalize(XMVector3Cross(cameraLookAt, XMVectorSet(0, 1, 0, 0))) * cameraSpeed;;
 	}
 
-	m_camera.setPosition(cameraPos);
+	m_camera->setPosition(cameraPos);
 }
 
 void Renderer::OnMouseMove()
@@ -380,7 +327,7 @@ void Renderer::OnMouseMove()
 	if (pitch < -89.0f) {
 		pitch = -89.0f;
 	}
-	XMVECTOR cameraPos = m_camera.getPosition();
+	XMVECTOR cameraPos = m_camera->getPosition();
 
 	XMVECTOR direction = XMVectorSet(
 		cosf(XMConvertToRadians(yaw)) * cosf(XMConvertToRadians(pitch)),
@@ -389,7 +336,7 @@ void Renderer::OnMouseMove()
 		1.0f);
 	direction = XMVector3Normalize(direction);
 
-	m_camera.setLookAt(direction);
+	m_camera->setLookAt(direction);
 
 	setCursorToCenterOfTheWindow();
 }

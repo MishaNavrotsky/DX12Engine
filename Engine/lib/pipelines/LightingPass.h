@@ -6,6 +6,7 @@
 #include "../DXSampleHelper.h"
 #include "GBufferPass.h"
 #include "PSOShader.h"
+#include "../camera/Camera.h"
 
 namespace Engine {
 	using namespace Microsoft::WRL;
@@ -36,14 +37,14 @@ namespace Engine {
 			createRWTex();
 		}
 
-		void computeLighting(GBufferPass* gbufferPass, ID3D12Resource* cameraBuffer) {
+		void computeLighting(GBufferPass* gbufferPass, Camera* camera) {
 			createDescriptorHeap(gbufferPass->getRtvResources());
 
 			ThrowIfFailed(m_commandAllocator->Reset());
 			ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), m_pso.Get()));
 			m_commandList->SetPipelineState(m_pso.Get());
 			m_commandList->SetComputeRootSignature(m_rootSignature.Get());
-			m_commandList->SetComputeRootConstantBufferView(0, cameraBuffer->GetGPUVirtualAddress());
+			m_commandList->SetComputeRootConstantBufferView(0, camera->getResource()->GetGPUVirtualAddress());
 
 			ID3D12DescriptorHeap* descriptorHeaps[] = { m_descriptorHeap.Get()};
 			m_commandList->SetDescriptorHeaps(1, descriptorHeaps);

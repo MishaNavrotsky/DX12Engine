@@ -4,14 +4,21 @@
 
 #include "helpers.h"
 #include "../geometry/ModelMatrix.h"
+#include "../DXSampleHelper.h"
 
 namespace Engine {
 	using namespace Microsoft::WRL;
+	using namespace DirectX;
+	struct AABB {
+		XMVECTOR min;
+		XMVECTOR max;
+	};
 
 	class CPUMesh: public IID {
 	public:
 		void setVertices(std::vector<float>&& v) noexcept {
 			m_vertices = std::move(v);
+			computeAABB();
 		}
 
 		void setNormals(std::vector<float>&& v) noexcept {
@@ -55,12 +62,29 @@ namespace Engine {
 		void setMaterialId(GUID materialId) {
 			m_materialId = materialId;
 		}
+
+		AABB& getAABB() {
+			return m_aabb;
+		}
 	private:
 		std::vector<float> m_vertices;
 		std::vector<float> m_normals = std::vector<float>(3, 0.f);
 		std::vector<float> m_texCoords = std::vector<float>(2, 0.f);
 		std::vector<float> m_tangents = std::vector<float>(4, 0.f);
 		std::vector<uint32_t> m_indices;
+		AABB m_aabb;
 		GUID m_materialId = GUID_NULL;
+
+		void computeAABB() {
+			m_aabb.min = XMVectorReplicate(std::numeric_limits<float>::max());
+			m_aabb.max = XMVectorReplicate(std::numeric_limits<float>::lowest());
+
+			auto xmv = convertToXMVectors(m_vertices);
+
+			for (const auto& v : xmv) {
+				m_aabb.min = XMVectorMin(m_aabb.min, v);
+				m_aabb.max = XMVectorMax(m_aabb.max, v);
+			}
+		}
 	};
 }

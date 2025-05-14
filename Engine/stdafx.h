@@ -18,11 +18,14 @@
 #include <vector>
 #include "external/BS_thread_pool.hpp"
 #include <functional>
+#include <filesystem>
 #include <thread>
 #include <mutex>
 #include <atomic>
 #include <future>
 #include <iostream>
+#include <set>
+#include <span>
 
 #include <string>
 #include <wrl.h>

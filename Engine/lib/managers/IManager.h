@@ -68,6 +68,8 @@ namespace Engine {
 			}
 			return results;
 		}
+
+		virtual ~IManager() = default;
 	protected:
 		std::mutex m_mutex;
 		std::unordered_map<GUID, std::unique_ptr<V>, GUIDHash, GUIDEqual> v;

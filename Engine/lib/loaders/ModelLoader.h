@@ -20,7 +20,7 @@ namespace Engine {
 			return instance;
 		}
 
-		GUID queueGLTF(std::filesystem::path& path) {
+		GUID queueGLTF(const std::filesystem::path& path) {
 			auto model = std::make_unique<Model>();
 			auto guid = m_modelManager.add(std::move(model));
 			m_threadPool.detach_task(std::bind(&ModelLoader::processGLTF, this, guid, path));

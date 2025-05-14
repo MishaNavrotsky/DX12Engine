@@ -71,7 +71,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories);C:\Users\Misha\glTF-SDK\GLTFSDK\Inc;C:\Users\Misha\stb;C:\Users\Misha\DirectXTex\DirectXTex;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories);C:\Users\Misha\glTF-SDK\GLTFSDK\Inc;C:\Users\Misha\DirectXTex\DirectXTex;</AdditionalIncludeDirectories>
       <CompileAsWinRT>false</CompileAsWinRT>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp20</LanguageStandard>
@@ -131,9 +131,18 @@
     <ClInclude Include="lib\camera\Camera.h" />
     <ClInclude Include="lib\descriptors\BindlessHeapDescriptor.h" />
     <ClInclude Include="lib\Device.h" />
+    <ClInclude Include="lib\geometry\ArrowGeometry.h" />
+    <ClInclude Include="lib\geometry\CapsuleGeometry.h" />
+    <ClInclude Include="lib\geometry\ConeGeometry.h" />
+    <ClInclude Include="lib\geometry\CubeGeometry.h" />
+    <ClInclude Include="lib\geometry\CylinderGeometry.h" />
     <ClInclude Include="lib\geometry\ModelMatrix.h" />
-    <ClInclude Include="lib\gltf\GLTFSceneObject.h" />
+    <ClInclude Include="lib\geometry\PlaneGeometry.h" />
+    <ClInclude Include="lib\geometry\SphereGeometry.h" />
+    <ClInclude Include="lib\gltf\GLTFMeshSceneNode.h" />
+    <ClInclude Include="lib\gltf\GLTFModelSceneNode.h" />
     <ClInclude Include="lib\gltf\GLTFStreamReader.h" />
+    <ClInclude Include="lib\helpers.h" />
     <ClInclude Include="lib\loaders\ModelGPULoader.h" />
     <ClInclude Include="lib\loaders\ModelLoader.h" />
     <ClInclude Include="lib\managers\CPUMaterialManager.h" />
@@ -156,13 +165,15 @@
     <ClInclude Include="lib\mesh\CPUTexture.h" />
     <ClInclude Include="lib\mesh\ModelHeaps.h" />
     <ClInclude Include="lib\mesh\Model.h" />
+    <ClInclude Include="lib\pipelines\gizmos\GizmosPass.h" />
     <ClInclude Include="lib\pipelines\LightingPass.h" />
     <ClInclude Include="lib\pipelines\GBufferPass.h" />
+    <ClInclude Include="lib\pipelines\OverlayPass.h" />
     <ClInclude Include="lib\pipelines\PSOShader.h" />
     <ClInclude Include="lib\queues\GPUUploadQueue.h" />
     <ClInclude Include="lib\renderable\MeshRenderable.h" />
+    <ClInclude Include="lib\scene\SceneNode.h" />
     <ClInclude Include="lib\scene\Scene.h" />
-    <ClInclude Include="lib\scene\ISceneObject.h" />
     <ClInclude Include="lib\Win32Application.h" />
     <ClInclude Include="lib\Renderer.h" />
     <ClInclude Include="lib\DXSample.h" />
@@ -172,7 +183,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="lib\Device.cpp" />
-    <ClCompile Include="lib\gltf\GLTFSceneObject.cpp" />
     <ClCompile Include="lib\gltf\GLTFStreamReader.cpp" />
     <ClCompile Include="lib\pipelines\PSOShader.cpp" />
     <ClCompile Include="lib\renderable\MeshRenderable.cpp" />
@@ -255,6 +265,13 @@
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">4.0</ShaderModel>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">4.0</ShaderModel>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <FileType>Document</FileType>
+      <DestinationFolders Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)/assets/shaders</DestinationFolders>
+    </CopyFileToFolders>
+  </ItemGroup>
+  <ItemGroup>
+    <CopyFileToFolders Include="assets\shaders\gizmos.hlsl">
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
       <FileType>Document</FileType>
       <DestinationFolders Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)/assets/shaders</DestinationFolders>

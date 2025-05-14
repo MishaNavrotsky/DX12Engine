@@ -12,20 +12,20 @@ namespace Engine {
 		}
 		void setPosition(float x, float y, float z) {
 			m_position = XMVectorSet(x, y, z, 0.0f);
-			updateMatrix();
+			isDirty = true;
 		}
 		void setRotation(float pitch, float yaw, float roll) {
 			XMMATRIX rotationMatrix = XMMatrixRotationRollPitchYaw(pitch, yaw, roll);
 			m_quaternion = XMQuaternionRotationMatrix(rotationMatrix);
-			updateMatrix();
+			isDirty = true;
 		}
 		void setQuaternion(float x, float y, float z, float w) {
 			m_quaternion = XMVectorSet(x, y, z, w);
-			updateMatrix();
+			isDirty = true;
 		}
 		void setScale(float x, float y, float z) {
 			m_scale = XMVectorSet(x, y, z, 0.0f);
-			updateMatrix();
+			isDirty = true;
 		}
 
 		const XMMATRIX& getModelMatrix() const {
@@ -35,13 +35,20 @@ namespace Engine {
 		const XMMATRIX& getPrevModelMatrix() const {
 			return m_prevModel;
 		}
+
+		void update() {
+			if (!isDirty) return;
+			updateMatrix();
+		}
 	private:
+		bool isDirty = false;
 		void updateMatrix() {
 			m_prevModel = m_model;
 			XMMATRIX translationMatrix = XMMatrixTranslationFromVector(m_position);
 			XMMATRIX rotationMatrix = XMMatrixRotationQuaternion(m_quaternion);
 			XMMATRIX scalingMatrix = XMMatrixScalingFromVector(m_scale);
 			m_model = XMMatrixMultiply(scalingMatrix, XMMatrixMultiply(rotationMatrix, translationMatrix));
+			isDirty = false;
 		}
 		XMMATRIX m_model;
 		XMMATRIX m_prevModel;

@@ -436,3 +436,52 @@ inline DefaultPBRTextures CreateDefaultPBRTextures(ID3D12Device* m_device)
 
 	return textures;
 }
+
+
+inline void TransformAABB(
+	const DirectX::XMVECTOR& localMin,     // Object space AABB min (x, y, z, 0)
+	const DirectX::XMVECTOR& localMax,     // Object space AABB max (x, y, z, 0)
+	const DirectX::XMMATRIX& worldMatrix,  // 4x4 world transform
+	DirectX::XMVECTOR& outWorldMin,        // Output world AABB min
+	DirectX::XMVECTOR& outWorldMax         // Output world AABB max
+) {
+	DirectX::XMVECTOR corners[8] = {
+		DirectX::XMVectorSet(localMin.m128_f32[0], localMin.m128_f32[1], localMin.m128_f32[2], 1.0f),
+		DirectX::XMVectorSet(localMin.m128_f32[0], localMin.m128_f32[1], localMax.m128_f32[2], 1.0f),
+		DirectX::XMVectorSet(localMin.m128_f32[0], localMax.m128_f32[1], localMin.m128_f32[2], 1.0f),
+		DirectX::XMVectorSet(localMin.m128_f32[0], localMax.m128_f32[1], localMax.m128_f32[2], 1.0f),
+		DirectX::XMVectorSet(localMax.m128_f32[0], localMin.m128_f32[1], localMin.m128_f32[2], 1.0f),
+		DirectX::XMVectorSet(localMax.m128_f32[0], localMin.m128_f32[1], localMax.m128_f32[2], 1.0f),
+		DirectX::XMVectorSet(localMax.m128_f32[0], localMax.m128_f32[1], localMin.m128_f32[2], 1.0f),
+		DirectX::XMVectorSet(localMax.m128_f32[0], localMax.m128_f32[1], localMax.m128_f32[2], 1.0f),
+	};
+
+	for (int i = 0; i < 8; ++i) {
+		corners[i] = DirectX::XMVector3Transform(corners[i], worldMatrix);
+	}
+
+	outWorldMin = corners[0];
+	outWorldMax = corners[0];
+
+	for (int i = 1; i < 8; ++i) {
+		outWorldMin = DirectX::XMVectorMin(outWorldMin, corners[i]);
+		outWorldMax = DirectX::XMVectorMax(outWorldMax, corners[i]);
+	}
+}
+
+inline std::vector<DirectX::XMVECTOR> convertToXMVectors(const std::vector<float>& vertices) {
+	size_t count = vertices.size() / 3;
+	std::vector<DirectX::XMVECTOR> result;
+	result.reserve(count);
+
+	for (size_t i = 0; i < count; ++i) {
+		result.push_back(DirectX::XMVectorSet(
+			vertices[i * 3 + 0],
+			vertices[i * 3 + 1],
+			vertices[i * 3 + 2],
+			1.0f  // default w for position
+		));
+	}
+
+	return result;
+}
