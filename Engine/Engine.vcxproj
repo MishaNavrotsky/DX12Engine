@@ -139,8 +139,8 @@
     <ClInclude Include="lib\geometry\ModelMatrix.h" />
     <ClInclude Include="lib\geometry\PlaneGeometry.h" />
     <ClInclude Include="lib\geometry\SphereGeometry.h" />
-    <ClInclude Include="lib\gltf\GLTFMeshSceneNode.h" />
-    <ClInclude Include="lib\gltf\GLTFModelSceneNode.h" />
+    <ClInclude Include="lib\managers\CPUGPUManager.h" />
+    <ClInclude Include="lib\nodes\MeshSceneNode.h" />
     <ClInclude Include="lib\gltf\GLTFStreamReader.h" />
     <ClInclude Include="lib\helpers.h" />
     <ClInclude Include="lib\loaders\ModelGPULoader.h" />
@@ -165,6 +165,7 @@
     <ClInclude Include="lib\mesh\CPUTexture.h" />
     <ClInclude Include="lib\mesh\ModelHeaps.h" />
     <ClInclude Include="lib\mesh\Model.h" />
+    <ClInclude Include="lib\nodes\ModelSceneNode.h" />
     <ClInclude Include="lib\pipelines\gizmos\GizmosPass.h" />
     <ClInclude Include="lib\pipelines\LightingPass.h" />
     <ClInclude Include="lib\pipelines\GBufferPass.h" />

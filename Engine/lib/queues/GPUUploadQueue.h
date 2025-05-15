@@ -14,8 +14,7 @@ namespace Engine {
 	struct GPUUploadQueueTask {
 
 		std::vector<GUID> modelIds;
-		std::atomic<bool> isRunning = false;
-		bool isDirty = false;
+		std::mutex mutex;
 		ComPtr<ID3D12CommandAllocator> commandAllocator;
 		ComPtr<ID3D12GraphicsCommandList> commandList;
 	};
@@ -47,45 +46,99 @@ namespace Engine {
 			}
 		}
 
-		std::future<void> queueModel(GUID& modelId) {
+		std::future<void> queueModel(GUID modelId) {
+			//auto lambda = [&, modelId] {
+			//	std::vector<GPUUploadQueueTask*> taskPtrs;
+			//	{
+			//		std::lock_guard lock(m_mutex);
+			//		for (auto& task : m_tasks) {
+			//			taskPtrs.push_back(task.get());
+			//		}
+			//		std::sort(taskPtrs.begin(), taskPtrs.end(), [](const GPUUploadQueueTask* a, const GPUUploadQueueTask* b) {
+			//			return a->modelIds.size() < b->modelIds.size();
+			//			});
+			//	}
+
+			//	GPUUploadQueueTask* m = nullptr;
+			//	for (auto& t : taskPtrs) {
+			//		if (t->mutex.try_lock()) {
+			//			m = t;
+			//			break;
+			//		}
+			//	}
+
+			//	if (m == nullptr) {
+			//		std::cerr << "[Warning] No free task, falling back to blocking lock.\n";
+			//		taskPtrs[0]->mutex.lock();
+			//		m = taskPtrs[0];
+			//	}
+
+			//	std::lock_guard<std::mutex> taskLock(m->mutex, std::adopt_lock);
+			//	{
+			//		std::lock_guard lock(m_mutex);
+			//		m->modelIds.push_back(modelId);
+			//	}
+			//	ModelGPULoader modelGPULoader(m_device.Get(), m->commandList.Get(), modelId);
+			//	};
+			//return m_threadPool.submit_task(lambda);
 			auto lambda = [&, modelId] {
+				std::osyncstream(std::cout) << "[GPUUploadQueue] Queue geometry for model: " << modelId.Data1 << std::endl;
+				const int maxAttempts = 5;
 				GPUUploadQueueTask* task = nullptr;
-				std::vector<GPUUploadQueueTask*> taskPtrs;
-				{
-					std::lock_guard lock(m_mutex);
-					for (auto& task : m_tasks) {
-						taskPtrs.push_back(task.get()); // Extract raw pointer for sorting
+
+				for (int attempt = 0; attempt < maxAttempts && !task; ++attempt) {
+					std::vector<GPUUploadQueueTask*> taskPtrs;
+
+					{
+						std::lock_guard lock(m_mutex);
+						for (auto& t : m_tasks)
+							taskPtrs.push_back(t.get());
+
+						std::sort(taskPtrs.begin(), taskPtrs.end(),
+							[](const GPUUploadQueueTask* a, const GPUUploadQueueTask* b) {
+								return a->modelIds.size() < b->modelIds.size();
+							});
 					}
-					std::sort(taskPtrs.begin(), taskPtrs.end(), [](const GPUUploadQueueTask* a, const GPUUploadQueueTask* b) {
-						return a->modelIds.size() < b->modelIds.size();
-						});
-				}
-				for (auto& t : taskPtrs) {
-					bool expected = false;
-					if (t->isRunning.compare_exchange_strong(expected, true)) {
-						{
-							std::lock_guard lock(m_mutex);
-							t->modelIds.push_back(modelId);
+
+					for (auto& t : taskPtrs) {
+						if (t->mutex.try_lock()) {
+							task = t;
+							break;
 						}
-						task = t;
-						break;
+					}
+
+					if (!task) {
+						std::this_thread::sleep_for(std::chrono::milliseconds(1 << attempt)); // exponential backoff
 					}
 				}
 
 				if (!task) {
-					std::cerr << "No task is free" << '\n';
-					throw std::runtime_error("No task is free");
+					std::osyncstream(std::cout) << "[GPUUploadQueue] Queue for model error: " << modelId.Data1 << std::endl;
+					throw std::runtime_error("[GPUUploadQueue] All GPU upload tasks are busy — retry later.");
 				}
 
-				ModelGPULoader modelGPULoader(m_device.Get(), task->commandList.Get(), modelId);
-				task->isDirty = true;
-				task->isRunning = false;
+				std::lock_guard<std::mutex> taskLock(task->mutex, std::adopt_lock);
+
+				{
+					std::lock_guard lock(m_mutex);
+					task->modelIds.push_back(modelId);
+				}
+				try {
+					ModelGPULoader modelGPULoader(m_device.Get(), task->commandList.Get(), modelId);
+				}
+				catch (const std::exception& e) {
+					std::osyncstream(std::cout) << "[GPUUploadQueue] ModelGPULoader error " << modelId.Data1 << ": " <<  e.what() << std::endl;
+					throw std::runtime_error("[GPUUploadQueue] ModelGPULoader error");
+				}
+				std::osyncstream(std::cout) << "[GPUUploadQueue] Queue for model success: " << modelId.Data1 << std::endl;
 				};
+
 			return m_threadPool.submit_task(lambda);
 		}
 
 		std::future<void> execute() {
 			return std::async(std::launch::async, [&] {
+				std::osyncstream(std::cout) << "[GPUUploadQueue] Queue execute" << std::endl;
 				m_threadPool.pause();
 				m_threadPool.wait();
 
@@ -93,7 +146,7 @@ namespace Engine {
 				std::vector<ID3D12CommandAllocator*> commandAllocators;
 
 				for (auto& task : m_tasks) {
-					if (task->isDirty == true) {
+					if (task->modelIds.size()) {
 						task->commandList->Close();
 						commandLists.push_back(task->commandList.Get());
 						commandAllocators.push_back(task->commandAllocator.Get());
@@ -117,17 +170,15 @@ namespace Engine {
 
 
 				for (auto& task : m_tasks) {
-					if (task->isDirty == true) {
-						for (auto& modelId : task->modelIds) {
-							m_modelManager.get(modelId).setIsLoaded();
-							m_modelHeapsManager.get(modelId).releaseUploadHeaps();
-						}
-						task->isDirty = false;
-						task->modelIds.clear();
+					for (auto& modelId : task->modelIds) {
+						m_modelManager.get(modelId).setIsLoaded();
+						m_modelHeapsManager.get(modelId).releaseUploadHeaps();
 					}
+					task->modelIds.clear();
 				}
 
 				m_threadPool.unpause();
+				std::osyncstream(std::cout) << "[GPUUploadQueue] Queue execute finish" << std::endl;
 				});
 		}
 	private:

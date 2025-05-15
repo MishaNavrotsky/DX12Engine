@@ -2,7 +2,7 @@
 
 #include "DXSample.h"
 #include "./camera/Camera.h"
-#include "gltf/GLTFModelSceneNode.h"
+#include "nodes/ModelSceneNode.h"
 #include "scene/Scene.h"
 #include "queues/GPUUploadQueue.h"
 #include "loaders/ModelLoader.h"

@@ -7,9 +7,17 @@
 #include "../PSOShader.h"
 #include "../../camera/Camera.h"
 #include "../../mesh/CPUMesh.h"
+#include "../../mesh/CPUMaterial.h"
 #include "../../mesh/GPUMesh.h"
 #include "../../scene/SceneNode.h"
 #include "../../scene/Scene.h"
+#include "../../geometry/CubeGeometry.h"
+#include "../../helpers.h"
+
+#include "../../managers/CPUMaterialManager.h"
+#include "../../managers/CPUMeshManager.h"
+#include "../../managers/ModelManager.h"
+
 
 namespace Engine {
 	using namespace Microsoft::WRL;
@@ -49,6 +57,7 @@ namespace Engine {
 			queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
 			queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
 			ThrowIfFailed(m_device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&m_commandQueue)));
+			m_commandQueue->SetName(L"GizmosPass Command Queue");
 			ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_commandAllocator)));
 			ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_commandAllocatorBarrier)));
 
@@ -78,6 +87,31 @@ namespace Engine {
 				m_commandList->ResourceBarrier(1, &barrierBack);
 			}
 			cloneDepthBuffer(srcDepthBuffer);
+			m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
+			m_commandList->SetGraphicsRootConstantBufferView(0, camera->getResource()->GetGPUVirtualAddress());
+
+			//ID3D12DescriptorHeap* heaps[] = { m_bindlessHeapDescriptor.getSrvDescriptorHeap(), m_bindlessHeapDescriptor.getSamplerDescriptorHeap() };
+			//m_commandList->SetDescriptorHeaps(_countof(heaps), heaps);
+			//m_commandList->SetGraphicsRootDescriptorTable(2, m_bindlessHeapDescriptor.getSrvDescriptorHeap()->GetGPUDescriptorHandleForHeapStart());
+			//m_commandList->SetGraphicsRootDescriptorTable(3, m_bindlessHeapDescriptor.getSamplerDescriptorHeap()->GetGPUDescriptorHandleForHeapStart());
+
+			m_commandList->RSSetViewports(1, &m_viewport);
+			m_commandList->RSSetScissorRects(1, &m_scissorRect);
+
+			auto rtvHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(m_rtvHeap.Get()->GetCPUDescriptorHandleForHeapStart());
+			auto dsvHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(m_dsvHeap.Get()->GetCPUDescriptorHandleForHeapStart());
+			m_commandList->OMSetRenderTargets(1, &rtvHandle, TRUE, &dsvHandle);
+			m_commandList->ClearRenderTargetView(rtvHandle, m_rtvClearValue.Color, 0, nullptr);
+
+			populateScene(scene);
+
+			m_scene->draw(m_commandList.Get(), camera, false, [&](CPUMesh& mesh, CPUMaterial& material, SceneNode* node) {
+				m_commandList->IASetPrimitiveTopology(mesh.topology);
+				m_commandList->SetPipelineState(getPso({ material.cullMode, mesh.topologyType }));
+				m_commandList->SetGraphicsRootConstantBufferView(1, node->getResource()->GetGPUVirtualAddress());
+				return false;
+				});
+
 
 			ThrowIfFailed(m_commandList->Close());
 
@@ -128,6 +162,50 @@ namespace Engine {
 			return m_depthStencilBuffer.Get();
 		}
 	private:
+
+		void populateScene(Scene* oScene) {
+			static auto& cpuMaterialManager = CPUMaterialManager::GetInstance();
+			static auto& cpuMeshManager = CPUMeshManager::GetInstance();
+			static auto& modelLoader = Engine::ModelLoader::GetInstance();
+			static auto& uploadQueue = Engine::GPUUploadQueue::GetInstance();
+
+			auto meshNodes = oScene->getAllMeshNodes();
+
+			std::vector<GUID> meshGUIDs;
+
+			for (auto& meshNode : meshNodes) {
+				auto worldSpace = *(&meshNode->getWorldSpaceAABB());
+				DirectX::XMFLOAT3 min;
+				DirectX::XMStoreFloat3(&min, worldSpace.min);
+				DirectX::XMFLOAT3 max;
+				DirectX::XMStoreFloat3(&max, worldSpace.min);
+
+
+
+				auto cube = Geometry::GenerateCubeFromPoints(min, max);
+				auto cpuMesh = std::make_unique<CPUMesh>();
+				cpuMesh->setIndices(std::vector<uint32_t>(cube.indices.begin(), cube.indices.end())); 
+				cpuMesh->setVertices(Helpers::FlattenXMFLOAT3Array(cube.vertices));
+				cpuMesh->setNormals(Helpers::FlattenXMFLOAT3Array(cube.normals));
+
+				auto cpuMaterial = std::make_unique<CPUMaterial>();
+				cpuMaterial->cullMode = D3D12_CULL_MODE_NONE;
+
+				cpuMesh->topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+				cpuMesh->topologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+
+				auto cpuMaterialGUID = cpuMaterialManager.add(std::move(cpuMaterial));
+				cpuMesh->setMaterialId(cpuMaterialGUID);
+
+				meshGUIDs.push_back(cpuMeshManager.add(std::move(cpuMesh)));
+			}
+
+			//auto modelGUID = modelLoader.queueGeometry(meshGUIDs);
+			//modelLoader.waitForQueueEmpty();
+			//uploadQueue.execute().wait();
+
+
+		}
 		void cloneDepthBuffer(ID3D12Resource* srcDepthBuffer) {
 			auto b = CD3DX12_RESOURCE_BARRIER::Transition(
 				srcDepthBuffer, D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_COPY_SOURCE);
@@ -240,7 +318,10 @@ namespace Engine {
 				m_dsvHeap->GetCPUDescriptorHandleForHeapStart()
 			);
 		}
-
+		ID3D12PipelineState* getPso(const EnumKey key) {
+			if (m_psos.find(key) != m_psos.end()) return m_psos.at(key).Get();
+			return createPso(key).Get();
+		}
 		ComPtr<ID3D12PipelineState> createPso(const EnumKey key) {
 			CD3DX12_DEPTH_STENCIL_DESC depthStencilDesc = {};
 			depthStencilDesc.DepthEnable = TRUE;
@@ -274,30 +355,7 @@ namespace Engine {
 			return pso;
 		}
 		void createRootSignature() {
-			D3D12_DESCRIPTOR_RANGE descriptorRanges[3] = {};
-
-			descriptorRanges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-			descriptorRanges[0].NumDescriptors = N_SRV_DESCRIPTORS;
-			descriptorRanges[0].BaseShaderRegister = 0; // t0
-			descriptorRanges[0].RegisterSpace = 0;
-			descriptorRanges[0].OffsetInDescriptorsFromTableStart = 0;
-
-			descriptorRanges[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-			descriptorRanges[1].NumDescriptors = N_CBV_DESCRIPTORS;
-			descriptorRanges[1].BaseShaderRegister = 2; // b2 (b0 and b1 are non-bindless)
-			descriptorRanges[1].RegisterSpace = 0;
-			descriptorRanges[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-
-			descriptorRanges[2].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
-			descriptorRanges[2].NumDescriptors = N_SAMPLERS;
-			descriptorRanges[2].BaseShaderRegister = 0; // s0
-			descriptorRanges[2].RegisterSpace = 0;
-			descriptorRanges[2].OffsetInDescriptorsFromTableStart = 0;
-
-
-
-
-			D3D12_ROOT_PARAMETER rootParameters[4] = {};
+			D3D12_ROOT_PARAMETER rootParameters[2] = {};
 
 			// Non-bindless CBV (b0)
 			rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
@@ -311,21 +369,9 @@ namespace Engine {
 			rootParameters[1].Descriptor.RegisterSpace = 0;
 			rootParameters[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
-			// Bindless Descriptor Table (SRVs + CBVs)
-			rootParameters[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-			rootParameters[2].DescriptorTable.NumDescriptorRanges = _countof(descriptorRanges) - 1; // Excluding sampler range
-			rootParameters[2].DescriptorTable.pDescriptorRanges = descriptorRanges;
-			rootParameters[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-
-			// Separate Descriptor Table for Dynamic Samplers
-			rootParameters[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-			rootParameters[3].DescriptorTable.NumDescriptorRanges = 1;
-			rootParameters[3].DescriptorTable.pDescriptorRanges = &descriptorRanges[2]; // Sampler range
-			rootParameters[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-
 
 			D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc = {};
-			rootSignatureDesc.NumParameters = _countof(rootParameters);
+			rootSignatureDesc.NumParameters = std::size(rootParameters);
 			rootSignatureDesc.pParameters = rootParameters;
 			rootSignatureDesc.NumStaticSamplers = 0;
 			rootSignatureDesc.pStaticSamplers = nullptr;
@@ -348,9 +394,12 @@ namespace Engine {
 		std::unordered_map<EnumKey, ComPtr<ID3D12PipelineState>, EnumKeyHash> m_psos;
 		ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
 		ComPtr<ID3D12RootSignature> m_rootSignature;
-		D3D12_INPUT_ELEMENT_DESC m_inputElementDescs[1] =
+		D3D12_INPUT_ELEMENT_DESC m_inputElementDescs[4] =
 		{
 			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+			{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 1, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 2, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+			{ "TANGENT", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 3, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		};
 
 		ComPtr<ID3D12Resource> m_depthStencilBuffer;
@@ -375,5 +424,7 @@ namespace Engine {
 		UINT64 m_fenceValue = 0;
 
 		UINT m_rtvDescriptorSize = 0;
+
+		std::unique_ptr<Scene> m_scene = std::make_unique<Engine::Scene>();
 	};
 }

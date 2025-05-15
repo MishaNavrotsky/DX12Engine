@@ -3,6 +3,7 @@
 #pragma once
 
 #include "helpers.h"
+#include "../managers/helpers.h"
 
 namespace Engine {
 	using namespace Microsoft::WRL;
@@ -58,6 +59,10 @@ namespace Engine {
 			return m_cbvDataBindlessHeapSlot;
 		}
 
+		AlphaMode alphaMode = AlphaMode::Opaque;
+		D3D12_CULL_MODE cullMode = D3D12_CULL_MODE_BACK;
+		float alphaCutoff = 0.5f;
+
 		static void PrintCBVData(Engine::CPUMaterial& data)
 		{
 			auto& cbvData = data.getCBVData();
@@ -104,10 +109,28 @@ namespace Engine {
 
 			std::cout << "m_cbvDataBindlessHeapSlot: " << data.getCBVDataBindlessHeapSlot() << '\n';
 		}
+
+		std::unordered_set<GUID, GUIDHash, GUIDEqual>& getCPUMeshIds() {
+			return m_cpuMeshesIds;
+		}
+		void setCPUMeshIds(std::unordered_set<GUID, GUIDHash, GUIDEqual>&& cpuMeshIds) noexcept {
+			m_cpuMeshesIds = std::move(cpuMeshIds);
+		}
+		void addCPUMeshId(GUID cpuMeshId) noexcept {
+			m_cpuMeshesIds.insert(cpuMeshId);
+		}
+		void removeCPUMeshId(GUID cpuMeshId) noexcept {
+			m_cpuMeshesIds.erase(cpuMeshId);
+		}
+		void clearCPUMeshIds() noexcept {
+			m_cpuMeshesIds.clear();
+		}
 	private:
+		std::unordered_set<GUID, GUIDHash, GUIDEqual> m_cpuMeshesIds;
 		std::vector<GUID> m_textureIds;
 		std::vector<GUID> m_samplerIds;
 		CPUMaterialCBVData m_cbvData;
+
 		uint32_t m_cbvDataBindlessHeapSlot;
 	};
 }

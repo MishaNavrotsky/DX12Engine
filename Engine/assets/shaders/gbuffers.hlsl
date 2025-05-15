@@ -100,7 +100,7 @@ PSOutput PSMain(PSInput input)
 {
     PSOutput output;
 
-    ConstantBuffer<CPUMaterialCBVData> cbvMat = g_cbvs[cbvDataBindlessHeapSlot.x - 1000];
+    ConstantBuffer<CPUMaterialCBVData> cbvMat = g_cbvs[cbvDataBindlessHeapSlot.x];
     Texture2D<float4> diffuseTex = g_textures[cbvMat.diffuseEmissiveNormalOcclusionTexSlots.x];
     Texture2D<float4> emissiveTex = g_textures[cbvMat.diffuseEmissiveNormalOcclusionTexSlots.y];
     Texture2D<float4> normalTex = g_textures[cbvMat.diffuseEmissiveNormalOcclusionTexSlots.z];

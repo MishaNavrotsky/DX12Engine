@@ -5,6 +5,7 @@
 #include "helpers.h"
 #include "../geometry/ModelMatrix.h"
 #include "../DXSampleHelper.h"
+#include "../managers/helpers.h"
 
 namespace Engine {
 	using namespace Microsoft::WRL;
@@ -52,9 +53,9 @@ namespace Engine {
 			return m_indices;
 		}
 
-		AlphaMode alphaMode = AlphaMode::Opaque;
-		D3D12_CULL_MODE cullMode = D3D12_CULL_MODE_BACK;
-		float alphaCutoff = 0.5f;
+		D3D12_PRIMITIVE_TOPOLOGY_TYPE topologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+		D3D12_PRIMITIVE_TOPOLOGY topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+
 
 		GUID& getMaterialId() {
 			return m_materialId;
@@ -66,6 +67,22 @@ namespace Engine {
 		AABB& getAABB() {
 			return m_aabb;
 		}
+
+		std::unordered_set<GUID, GUIDHash, GUIDEqual>& getModelsIds() {
+			return m_modelsIds;
+		}
+		void setModelsIds(std::unordered_set<GUID, GUIDHash, GUIDEqual>&& modelsIds) {
+			m_modelsIds = std::move(modelsIds);
+		}
+		void addModelId(GUID modelId) {
+			m_modelsIds.insert(modelId);
+		}
+		void removeModelId(GUID modelId) {
+			m_modelsIds.erase(modelId);
+		}
+		void clearModelsIds() {
+			m_modelsIds.clear();
+		}
 	private:
 		std::vector<float> m_vertices;
 		std::vector<float> m_normals = std::vector<float>(3, 0.f);
@@ -74,6 +91,7 @@ namespace Engine {
 		std::vector<uint32_t> m_indices;
 		AABB m_aabb;
 		GUID m_materialId = GUID_NULL;
+		std::unordered_set<GUID, GUIDHash, GUIDEqual> m_modelsIds;
 
 		void computeAABB() {
 			m_aabb.min = XMVectorReplicate(std::numeric_limits<float>::max());

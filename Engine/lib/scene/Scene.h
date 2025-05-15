@@ -3,7 +3,7 @@
 #include "SceneNode.h"
 
 #include "../mesh/CPUMesh.h"
-#include "../mesh/GPUMesh.h"
+#include "../mesh/CPUMaterial.h"
 
 
 #include "../Device.h"
@@ -17,14 +17,35 @@ namespace Engine {
 			return m_idIncreemntal++;
 		}
 
-		void draw(ID3D12GraphicsCommandList* commandList, Camera* camera, const std::function<bool(CPUMesh&, GPUMesh&, SceneNode* node)>& callback) {
+		void draw(ID3D12GraphicsCommandList* commandList, Camera* camera, bool enableFrustumCulling, const std::function<bool(CPUMesh&, CPUMaterial&, SceneNode* node)>& callback) {
 			handleSceneNodesShouldUpdate();
 			for (auto& sceneNode : m_scene) {
-				sceneNode->draw(commandList, camera, callback);
+				sceneNode->draw(commandList, camera, enableFrustumCulling, callback);
 			}
 		}
 
+		std::vector<std::shared_ptr<SceneNode>>& getSceneRootNodes() {
+			return m_scene;
+		}
+
+		std::vector<std::shared_ptr<SceneNode>> getAllMeshNodes() {
+			std::vector<std::shared_ptr<SceneNode>> sceneMeshNodes;
+			for (auto& node : m_scene) {
+				getMeshNodesRec(node, sceneMeshNodes);
+			}
+			return sceneMeshNodes;
+		}
 	private:
+		void getMeshNodesRec(std::shared_ptr<SceneNode> node, std::vector<std::shared_ptr<SceneNode>>& sceneMeshNodes) {
+			auto& children = node->getChildren();
+			for (auto& child : children) {
+				if (child->getType() == SceneNodeType::Mesh) {
+					sceneMeshNodes.push_back(child);
+				}
+				getMeshNodesRec(child, sceneMeshNodes);
+			}
+		}
+
 		void updateNodeBranch(std::shared_ptr<SceneNode>& node, const XMMATRIX& parentWorldMatrix = XMMatrixIdentity()) {
 			if (node->getShouldUpdate()) {
 				node->update(parentWorldMatrix);
@@ -44,7 +65,6 @@ namespace Engine {
 			}
 		}
 		std::vector<std::shared_ptr<SceneNode>> m_scene;
-		std::vector<std::shared_ptr<SceneNode>> m_frustrum;
 		uint64_t m_idIncreemntal = 0;
 	};
 }

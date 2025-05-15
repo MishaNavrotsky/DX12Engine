@@ -20,10 +20,21 @@ namespace Engine {
 			return instance;
 		}
 
-		GUID queueGLTF(const std::filesystem::path& path) {
+		GUID queueGLTF(const std::filesystem::path path) {
 			auto model = std::make_unique<Model>();
 			auto guid = m_modelManager.add(std::move(model));
-			m_threadPool.detach_task(std::bind(&ModelLoader::processGLTF, this, guid, path));
+			m_threadPool.detach_task([this, guid, path]() {
+				processGLTF(guid, std::move(path));
+				});
+			return guid;
+		}
+
+		GUID queueGeometry(std::vector<GUID> cpuMeshGUIDs) {
+			auto model = std::make_unique<Model>();
+			auto guid = m_modelManager.add(std::move(model));
+			m_threadPool.detach_task([this, guid, cpuMeshGUIDs = std::move(cpuMeshGUIDs)]() {
+				processGeometry(guid, std::move(cpuMeshGUIDs));
+				});
 			return guid;
 		}
 
@@ -39,12 +50,18 @@ namespace Engine {
 		GPUUploadQueue& m_gpuUploadQueue = GPUUploadQueue::GetInstance();
 
 
-		BS::thread_pool<> m_threadPool;
-		void processGLTF(GUID guid, std::filesystem::path& path) {
+		BS::pause_thread_pool m_threadPool;
+		void processGLTF(GUID guid, std::filesystem::path path) {
+			std::osyncstream(std::cout) << "[ModelLoader] Processing gltf for model: " << guid.Data1 << std::endl;
 			auto& model = m_modelManager.get(guid);
 			model.setCPUMeshIds(std::move(GLTFLocal::GetMeshesInfo(path)));
-			m_gpuUploadQueue.queueModel(guid).get();
-
+			m_gpuUploadQueue.queueModel(guid).wait();
+		}
+		void processGeometry(GUID guid, std::vector<GUID> cpuMeshGUIDs) {
+			std::osyncstream(std::cout) << "[ModelLoader] Processing geometry for model: " << guid.Data1 << std::endl;
+			auto& model = m_modelManager.get(guid);
+			model.setCPUMeshIds(std::move(cpuMeshGUIDs));
+			m_gpuUploadQueue.queueModel(guid).wait();
 		}
 	};
 }

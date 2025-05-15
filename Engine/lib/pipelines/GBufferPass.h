@@ -7,7 +7,7 @@
 #include "PSOShader.h"
 #include "../camera/Camera.h"
 #include "../mesh/CPUMesh.h"
-#include "../mesh/GPUMesh.h"
+#include "../mesh/CPUMaterial.h"
 #include "../scene/SceneNode.h"
 
 
@@ -50,6 +50,7 @@ namespace Engine {
 			queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
 			queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
 			ThrowIfFailed(m_device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&m_commandQueue)));
+			m_commandQueue->SetName(L"GBufferPass Command Queue");
 			ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_commandAllocator)));
 			ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_commandAllocatorBarrier)));
 
@@ -104,16 +105,16 @@ namespace Engine {
 				rtvHandle.Offset(1, rtvDescriptorSize);
 			}
 			m_commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 0.0f, 0, 0, nullptr);
-			m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 			m_commandList->SetGraphicsRootConstantBufferView(0, camera->getResource()->GetGPUVirtualAddress());
-			auto lambda = std::function([&](CPUMesh& mesh, GPUMesh&, SceneNode* node) {
-				m_commandList->SetPipelineState(getPso({ mesh.cullMode, D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE }));
+			auto lambda = std::function([&](CPUMesh& mesh, CPUMaterial& material, SceneNode* node) {
+				m_commandList->IASetPrimitiveTopology(mesh.topology);
+				m_commandList->SetPipelineState(getPso({ material.cullMode, mesh.topologyType }));
 				m_commandList->SetGraphicsRootConstantBufferView(1, node->getResource()->GetGPUVirtualAddress());
 				return false;
 			});
 
-			scene->draw(m_commandList.Get(), camera, lambda);
+			scene->draw(m_commandList.Get(), camera, true, lambda);
 
 			ThrowIfFailed(m_commandList->Close());
 

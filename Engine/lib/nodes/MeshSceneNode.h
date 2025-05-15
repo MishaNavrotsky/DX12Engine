@@ -20,17 +20,17 @@ namespace Engine {
 
 		XMUINT4 cbvDataBindlessHeapSlot;
 	};
-	class GLTFMeshSceneNode : public SceneNode {
+	class MeshSceneNode : public SceneNode {
 	public:
-		static std::shared_ptr<GLTFMeshSceneNode> CreateFromMesh(CPUMesh& cpuMesh, GPUMesh& gpuMesh, CPUMaterial& cpuMaterial, GPUMaterial& gpuMaterial) {
-			return std::shared_ptr<GLTFMeshSceneNode>(new GLTFMeshSceneNode(cpuMesh, gpuMesh, cpuMaterial, gpuMaterial));
+		static std::shared_ptr<MeshSceneNode> CreateFromMesh(CPUMesh& cpuMesh, GPUMesh& gpuMesh, CPUMaterial& cpuMaterial, GPUMaterial& gpuMaterial) {
+			return std::shared_ptr<MeshSceneNode>(new MeshSceneNode(cpuMesh, gpuMesh, cpuMaterial, gpuMaterial));
 		}
 
 		ID3D12Resource* getResource() override {
 			return res.Get();
 		}
 
-		void draw(ID3D12GraphicsCommandList* commandList, Camera* camera, const std::function<bool(CPUMesh&, GPUMesh&, SceneNode* node)>& callback) override {
+		void draw(ID3D12GraphicsCommandList* commandList, Camera* camera, bool enableFrustumCulling, const std::function<bool(CPUMesh&, CPUMaterial&, SceneNode* node)>& callback) override {
 			CBVMeshData cbvData = {};
 			cbvData.cbvDataBindlessHeapSlot.x = m_cpuMaterial.getCBVDataBindlessHeapSlot();
 			XMStoreFloat4x4(&cbvData.modelMatrix, XMMatrixTranspose(m_worldMatrix));
@@ -43,10 +43,12 @@ namespace Engine {
 				res->Unmap(0, nullptr);
 			}
 
-			//auto& cameraFrustum = camera->getFrustum();
-			//if (!Helpers::IsAABBInFrustum(cameraFrustum, m_worldSpaceAABB.min, m_worldSpaceAABB.max)) return;
+			if (enableFrustumCulling) {
+				//auto& cameraFrustum = camera->getFrustum();
+				//if (!Helpers::IsAABBInFrustum(cameraFrustum, m_worldSpaceAABB.min, m_worldSpaceAABB.max)) return;
+			}
 
-			if(callback(m_cpuMesh, m_gpuMesh, this)) return;
+			if (callback(m_cpuMesh, m_cpuMaterial, this)) return;
 
 			m_meshRenderable->render(commandList);
 		}
@@ -54,7 +56,7 @@ namespace Engine {
 		SceneNodeType getType() const override {
 			return SceneNodeType::Mesh;
 		}
-		
+
 		AABB& getWorldSpaceAABB() override {
 			return m_worldSpaceAABB;
 		}
@@ -66,13 +68,13 @@ namespace Engine {
 			if (oldShouldUpdate) {
 				Helpers::TransformAABB_ObjectToWorld(m_cpuMesh.getAABB(), m_worldMatrix, m_worldSpaceAABB);
 			}
-			 
+
 		}
 	private:
-		GLTFMeshSceneNode(CPUMesh& cpuMesh, GPUMesh& gpuMesh, CPUMaterial& cpuMaterial, GPUMaterial& gpuMaterial): m_cpuMesh(cpuMesh), m_gpuMesh(gpuMesh), m_cpuMaterial(cpuMaterial), m_gpuMaterial(gpuMaterial) {
+		MeshSceneNode(CPUMesh& cpuMesh, GPUMesh& gpuMesh, CPUMaterial& cpuMaterial, GPUMaterial& gpuMaterial) : m_cpuMesh(cpuMesh), m_gpuMesh(gpuMesh), m_cpuMaterial(cpuMaterial), m_gpuMaterial(gpuMaterial) {
 			m_meshRenderable = std::make_unique<MeshRenderable>(cpuMesh, gpuMesh, cpuMaterial, gpuMaterial);
 
-			D3D12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(Align(sizeof(CBVMeshData), 256));
+			D3D12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(Helpers::Align(sizeof(CBVMeshData), 256));
 			D3D12_HEAP_PROPERTIES heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
 			auto device = Device::GetDevice();
 

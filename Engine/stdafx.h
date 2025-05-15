@@ -18,6 +18,7 @@
 #include <vector>
 #include "external/BS_thread_pool.hpp"
 #include <functional>
+#include <syncstream>
 #include <filesystem>
 #include <thread>
 #include <mutex>
@@ -25,6 +26,7 @@
 #include <future>
 #include <iostream>
 #include <set>
+#include <unordered_set>
 #include <span>
 
 #include <string>

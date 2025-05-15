@@ -6,7 +6,7 @@
 #include "../geometry/ModelMatrix.h"
 #include "../camera/Camera.h"
 #include "../mesh/CPUMesh.h"
-#include "../mesh/GPUMesh.h"
+#include "../mesh/CPUMaterial.h"
 
 namespace Engine {
 	enum class SceneNodeType {
@@ -48,9 +48,9 @@ namespace Engine {
 		const XMMATRIX& getWorldMatrix() const { return m_worldMatrix; }
 		const XMMATRIX& getPrevWorldMatrix() const { return m_prevWorldMatrix; }
 
-		virtual void draw(ID3D12GraphicsCommandList* commandList, Camera* camera, const std::function<bool(CPUMesh&, GPUMesh&, SceneNode* node)>& callback) {
+		virtual void draw(ID3D12GraphicsCommandList* commandList, Camera* camera, bool enableFrustumCulling, const std::function<bool(CPUMesh&, CPUMaterial&, SceneNode* node)>& callback) {
 			for (auto& child : m_children) {
-				child->draw(commandList, camera, callback);
+				child->draw(commandList, camera, enableFrustumCulling, callback);
 			}
 		}
 

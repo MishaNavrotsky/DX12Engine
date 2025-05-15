@@ -5,6 +5,7 @@
 #include "DirectXTex.h"
 #include "../DXSampleHelper.h"
 #include "helpers.h"
+#include "../managers/helpers.h"
 
 namespace Engine {
 	using namespace Microsoft::WRL;
@@ -41,9 +42,26 @@ namespace Engine {
 		virtual TextureType getType() const {
 			return TextureType::DEFAULT;
 		}
+
+		std::unordered_set<GUID, GUIDHash, GUIDEqual>& getCpuMaterialsIds() {
+			return m_cpuMaterialsIds;
+		}
+		void addCpuMaterialId(const GUID& id) {
+			m_cpuMaterialsIds.insert(id);
+		}
+		void removeCpuMaterialId(const GUID& id) {
+			m_cpuMaterialsIds.erase(id);
+		}
+		void clearCpuMaterialIds() {
+			m_cpuMaterialsIds.clear();
+		}
+		void setCpuMaterialIds(std::unordered_set<GUID, GUIDHash, GUIDEqual>&& ids) {
+			m_cpuMaterialsIds = std::move(ids);
+		}
 	protected:
 		std::unique_ptr<DirectX::ScratchImage> m_scratchImage = std::make_unique<DirectX::ScratchImage>();
 		bool m_isDefaultScratchImage = true;
+		std::unordered_set<GUID, GUIDHash, GUIDEqual> m_cpuMaterialsIds;
 	};
 
 	class CPUEmissiveTexture : public CPUTexture {

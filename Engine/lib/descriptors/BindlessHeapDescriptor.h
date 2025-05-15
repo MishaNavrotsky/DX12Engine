@@ -206,7 +206,7 @@ namespace Engine {
 
 			m_device->CreateConstantBufferView(&cbvDesc, cbvHandle);
 
-			return slot;
+			return slot - N_SRV_DESCRIPTORS;
 		}
 
 		void removeTexture(uint32_t slot) {

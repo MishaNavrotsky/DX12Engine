@@ -55,6 +55,8 @@ void Renderer::LoadPipeline()
 		));
 	}
 
+	m_device->SetStablePowerState(TRUE);
+
 	m_uploadQueue.registerDevice(m_device);
 	m_bindlessHeapDescriptor.registerDevice(m_device);
 	Engine::Device::SetDevice(m_device);
@@ -136,16 +138,66 @@ void Renderer::LoadAssets()
 		//	m_scene.addNode(Engine::GLTFModelSceneNode::ReadFromFile(result));
 		//}
 
-		m_scene.addNode(Engine::GLTFModelSceneNode::ReadFromFile(L"assets\\models\\alicev2rigged.glb"));
-		auto o = Engine::GLTFModelSceneNode::ReadFromFile(L"assets\\models\\alicev2rigged_c.glb");
+		m_scene.addNode(Engine::ModelSceneNode::CreateFromGLTFFile(L"assets\\models\\alicev2rigged.glb"));
+		auto o = Engine::ModelSceneNode::CreateFromGLTFFile(L"assets\\models\\alicev2rigged_c.glb");
 		Engine::ModelMatrix modelMatrix;
 		modelMatrix.setPosition(8000, 0, 0);
 		modelMatrix.update();
 		o.get()->setLocalModelMatrix(modelMatrix);
 		m_scene.addNode(o);
 
+		//auto cpuMesh = std::make_unique<Engine::CPUMesh>();
+		//auto cpuMaterial = std::make_unique <Engine::CPUMaterial>();
+		//cpuMaterial->cullMode = D3D12_CULL_MODE_NONE;
+		//auto cpuMaterialGuid = Engine::CPUMaterialManager::GetInstance().add(std::move(cpuMaterial));
+		//cpuMesh->setMaterialId(cpuMaterialGuid);
+		//cpuMesh->topologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
+		//cpuMesh->topology = D3D_PRIMITIVE_TOPOLOGY_LINESTRIP;
+
+		//std::vector<float> cubeVertices = {
+		//	-100.0f, -100.0f, -100.0f, // 0
+		//	 100.0f, -100.0f, -100.0f, // 1
+		//	 100.0f,  100.0f, -100.0f, // 2
+		//	-100.0f,  100.0f, -100.0f, // 3
+		//	-100.0f, -100.0f,  100.0f, // 4
+		//	 100.0f, -100.0f,  100.0f, // 5
+		//	 100.0f,  100.0f,  100.0f, // 6
+		//	-100.0f,  100.0f,  100.0f  // 7
+		//};
+		//// Indices for 12 triangles (2 per face × 6 faces)
+		//std::vector<unsigned int> cubeIndices = {
+		//	// Back face
+		//	0, 1, 2,
+		//	2, 3, 0,
+
+		//	// Front face
+		//	4, 5, 6,
+		//	6, 7, 4,
+
+		//	// Left face
+		//	0, 3, 7,
+		//	7, 4, 0,
+
+		//	// Right face
+		//	1, 5, 6,
+		//	6, 2, 1,
+
+		//	// Bottom face
+		//	0, 1, 5,
+		//	5, 4, 0,
+
+		//	// Top face
+		//	3, 2, 6,
+		//	6, 7, 3
+		//};
+		//cpuMesh->setVertices(std::move(cubeVertices));
+		//cpuMesh->setIndices(std::move(cubeIndices));
+
+		//auto cpuMeshGuid = Engine::CPUMeshManager::GetInstance().add(std::move(cpuMesh));
+		//m_scene.addNode(Engine::ModelSceneNode::CreateFromGeometry({ cpuMeshGuid }));
+
 		m_modelLoader.waitForQueueEmpty();
-		m_uploadQueue.execute().get();
+		m_uploadQueue.execute().wait();
 		WaitForCommandQueueExecute();
 	}
 
@@ -244,6 +296,7 @@ void Renderer::PopulateCommandList()
 	{
 		m_lightingPass->waitForGPU();
 		m_gizmosPass->renderGizmos(&m_scene, m_camera.get(), m_gbufferPass->getDepthStencilResource());
+		m_gizmosPass->waitForGPU();
 	}
 }
 

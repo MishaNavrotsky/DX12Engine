@@ -6,7 +6,12 @@
 namespace GLTFLocal {
 	BS::thread_pool<> m_threadPool;
 	BS::thread_pool<> m_texturesThreadPool;
-	std::mutex m_consoleMutex;
+
+	struct D3DTopologyMapping {
+		D3D12_PRIMITIVE_TOPOLOGY_TYPE type;
+		D3D_PRIMITIVE_TOPOLOGY topology;
+		bool supported;
+	};
 
 	static D3D12_FILTER ConvertToD3D12Filter(MagFilterMode magFilter, MinFilterMode minFilter)
 	{
@@ -32,6 +37,26 @@ namespace GLTFLocal {
 
 		default:
 			return D3D12_FILTER_MIN_MAG_MIP_LINEAR; // Safe default
+		}
+	}
+
+	static D3DTopologyMapping ConvertMeshMode(MeshMode mode) {
+		switch (mode) {
+		case MESH_POINTS:
+			return { D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT, D3D_PRIMITIVE_TOPOLOGY_POINTLIST, true };
+		case MESH_LINES:
+			return { D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE, D3D_PRIMITIVE_TOPOLOGY_LINELIST, true };
+		case MESH_LINE_STRIP:
+			return { D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE, D3D_PRIMITIVE_TOPOLOGY_LINESTRIP, true };
+		case MESH_TRIANGLES:
+			return { D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE, D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST, true };
+		case MESH_TRIANGLE_STRIP:
+			return { D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE, D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP, true };
+		case MESH_LINE_LOOP:
+		case MESH_TRIANGLE_FAN:
+			return { D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED, D3D_PRIMITIVE_TOPOLOGY_UNDEFINED, false };
+		default:
+			return { D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED, D3D_PRIMITIVE_TOPOLOGY_UNDEFINED, false };
 		}
 	}
 }
@@ -147,24 +172,34 @@ std::vector<GUID> GLTFLocal::GetMeshesInfo(const fs::path& path) {
 				streamMutex.lock();
 				meshData->setIndices(std::move(resourceReader.get()->ReadBinaryData<uint32_t>(document, indicesAccessor)));
 				streamMutex.unlock();
-				meshData->alphaCutoff = material.alphaCutoff;
+				meshMaterial->alphaCutoff = material.alphaCutoff;
 				auto alphaMode = material.alphaMode;
 				if (alphaMode == ALPHA_UNKNOWN || alphaMode == ALPHA_OPAQUE) {
-					meshData->alphaMode = Engine::AlphaMode::Opaque;
+					meshMaterial->alphaMode = Engine::AlphaMode::Opaque;
 				}
 				else if (alphaMode == ALPHA_MASK) {
-					meshData->alphaMode = Engine::AlphaMode::Mask;
+					meshMaterial->alphaMode = Engine::AlphaMode::Mask;
 				}
 				else if (alphaMode == ALPHA_BLEND) {
-					meshData->alphaMode = Engine::AlphaMode::Blend;
+					meshMaterial->alphaMode = Engine::AlphaMode::Blend;
 				}
-				meshData->cullMode = material.doubleSided ? D3D12_CULL_MODE_NONE : D3D12_CULL_MODE_BACK;
+				meshMaterial->cullMode = material.doubleSided ? D3D12_CULL_MODE_NONE : D3D12_CULL_MODE_BACK;
 				auto materialTextures = material.GetTextures();
 				auto futures = std::vector<std::future<void>>();
 				auto futuresAddMutex = std::mutex();
 				auto textureIdsAddMutex = std::mutex();
 				std::vector<GUID> textureIds;
 				std::vector<GUID> samplerIds;
+
+
+
+				auto mode = ConvertMeshMode(primitive.mode);
+				if (!mode.supported) {
+					std::cerr << "Mesh mode not supported" << '\n';
+					continue;
+				}
+				meshData->topologyType = mode.type;
+				meshData->topology = mode.topology;
 
 #ifdef DEBUG_MESHES_LOAD
 				auto startTime = std::chrono::high_resolution_clock::now();
@@ -213,19 +248,6 @@ std::vector<GUID> GLTFLocal::GetMeshesInfo(const fs::path& path) {
 						auto minFilter = sampler.minFilter.HasValue() ? sampler.minFilter.Get() : MinFilter_NEAREST;
 						auto wrapS = sampler.wrapS;
 						auto wrapT = sampler.wrapT;
-
-						//if (magFilter == MagFilter_NEAREST && minFilter == MinFilter_NEAREST) {
-						//	engineSampler->samplerDesc.Filter = D3D12_FILTER_COMPARISON_MIN_MAG_MIP_POINT;
-						//}
-						//else if (magFilter == MagFilter_LINEAR && minFilter == MinFilter_LINEAR) {
-						//	engineSampler->samplerDesc.Filter = D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT;
-						//}
-						//else if (magFilter == MagFilter_NEAREST && minFilter == MinFilter_LINEAR) {
-						//	engineSampler->samplerDesc.Filter = D3D12_FILTER_COMPARISON_MIN_LINEAR_MAG_MIP_POINT;
-						//}
-						//else if (magFilter == MagFilter_LINEAR && minFilter == MinFilter_NEAREST) {
-						//	engineSampler->samplerDesc.Filter = D3D12_FILTER_COMPARISON_MIN_POINT_MAG_LINEAR_MIP_POINT;
-						//}
 
 						engineSampler->samplerDesc.Filter = ConvertToD3D12Filter(magFilter, minFilter);
 
@@ -365,14 +387,12 @@ std::vector<GUID> GLTFLocal::GetMeshesInfo(const fs::path& path) {
 	m_threadPool.wait();
 
 #ifdef DEBUG_MESHES_LOAD
-	m_consoleMutex.lock();
 	auto endTime = std::chrono::high_resolution_clock::now();
 	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
-	std::cout << pathFile << " loading time: " << duration << "ms" << std::endl;
-	std::cout << pathFile << " mipmap creating time: " << mipMapCreatingTime << "ms" << std::endl;
-	std::cout << pathFile << " decode texture time: " << decodeTextureTime << "ms" << std::endl;
-	std::cout << pathFile << " textures loading time: " << textureLoadTime << "ms" << std::endl;
-	m_consoleMutex.unlock();
+	std::osyncstream(std::cout) << pathFile << " loading time: " << duration << "ms" << std::endl;
+	std::osyncstream(std::cout) << pathFile << " mipmap creating time: " << mipMapCreatingTime << "ms" << std::endl;
+	std::osyncstream(std::cout) << pathFile << " decode texture time: " << decodeTextureTime << "ms" << std::endl;
+	std::osyncstream(std::cout) << pathFile << " textures loading time: " << textureLoadTime << "ms" << std::endl;
 #endif // DEBUG_MESHES_LOAD
 
 	return meshDataList;
