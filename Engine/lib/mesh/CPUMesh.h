@@ -57,10 +57,10 @@ namespace Engine {
 		D3D12_PRIMITIVE_TOPOLOGY topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 
 
-		GUID& getMaterialId() {
+		GUID& getCPUMaterialId() {
 			return m_materialId;
 		}
-		void setMaterialId(GUID materialId) {
+		void setCPUMaterialId(GUID materialId) {
 			m_materialId = materialId;
 		}
 

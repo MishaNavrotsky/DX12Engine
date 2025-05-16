@@ -133,14 +133,14 @@ namespace Engine {
 			ThrowIfFailed(m_commandListBarrier->Close());
 
 
-			ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
-			m_commandQueue->ExecuteCommandLists(1, ppCommandLists);
+			ID3D12CommandList* ppCommandLists[] = { m_commandList.Get(), m_commandListBarrier.Get() };
+			m_commandQueue->ExecuteCommandLists(2, ppCommandLists);
 			ThrowIfFailed(m_commandQueue->Signal(m_fence.Get(), ++m_fenceValue));
-			ThrowIfFailed(m_commandQueue->Wait(m_fence.Get(), m_fenceValue));
+			//ThrowIfFailed(m_commandQueue->Wait(m_fence.Get(), m_fenceValue));
 
-			ID3D12CommandList* ppCommandListsBarrier[] = { m_commandListBarrier.Get() };
-			m_commandQueue->ExecuteCommandLists(1, ppCommandListsBarrier);
-			ThrowIfFailed(m_commandQueue->Signal(m_fence.Get(), ++m_fenceValue));
+			//ID3D12CommandList* ppCommandListsBarrier[] = { m_commandListBarrier.Get() };
+			//m_commandQueue->ExecuteCommandLists(1, ppCommandListsBarrier);
+			//ThrowIfFailed(m_commandQueue->Signal(m_fence.Get(), ++m_fenceValue));
 		}
 
 		ID3D12Fence* getFence() const {

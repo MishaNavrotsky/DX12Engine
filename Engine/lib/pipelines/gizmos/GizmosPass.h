@@ -18,6 +18,8 @@
 #include "../../managers/CPUMeshManager.h"
 #include "../../managers/ModelManager.h"
 
+#include "../../nodes/ModelSceneNode.h"
+
 
 namespace Engine {
 	using namespace Microsoft::WRL;
@@ -56,19 +58,12 @@ namespace Engine {
 			D3D12_COMMAND_QUEUE_DESC queueDesc = {};
 			queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
 			queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-			ThrowIfFailed(m_device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&m_commandQueue)));
-			m_commandQueue->SetName(L"GizmosPass Command Queue");
 			ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_commandAllocator)));
 			ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_commandAllocatorBarrier)));
 
 			ThrowIfFailed(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_commandAllocator.Get(), nullptr, IID_PPV_ARGS(&m_commandList)));
 			ThrowIfFailed(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_commandAllocatorBarrier.Get(), nullptr, IID_PPV_ARGS(&m_commandListBarrier)));
-			ThrowIfFailed(m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence)));
-			m_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-			if (m_fenceEvent == nullptr)
-			{
-				ThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
-			}
+
 			ThrowIfFailed(m_commandList->Close());
 			ThrowIfFailed(m_commandListBarrier->Close());
 
@@ -76,7 +71,7 @@ namespace Engine {
 			m_viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height));
 			m_scissorRect = CD3DX12_RECT(0, 0, static_cast<LONG>(width), static_cast<LONG>(height));
 		}
-		void renderGizmos(Scene* scene, Camera* camera, ID3D12Resource* srcDepthBuffer) {
+		std::array<ID3D12CommandList*, 2> renderGizmos(Scene* scene, Camera* camera, ID3D12Resource* srcDepthBuffer) {
 			ThrowIfFailed(m_commandAllocator->Reset());
 			ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), nullptr));
 			{
@@ -103,7 +98,7 @@ namespace Engine {
 			m_commandList->OMSetRenderTargets(1, &rtvHandle, TRUE, &dsvHandle);
 			m_commandList->ClearRenderTargetView(rtvHandle, m_rtvClearValue.Color, 0, nullptr);
 
-			populateScene(scene);
+			//populateScene(scene);
 
 			m_scene->draw(m_commandList.Get(), camera, false, [&](CPUMesh& mesh, CPUMaterial& material, SceneNode* node) {
 				m_commandList->IASetPrimitiveTopology(mesh.topology);
@@ -129,29 +124,7 @@ namespace Engine {
 			ThrowIfFailed(m_commandListBarrier->Close());
 
 
-			ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
-			m_commandQueue->ExecuteCommandLists(1, ppCommandLists);
-			ThrowIfFailed(m_commandQueue->Signal(m_fence.Get(), ++m_fenceValue));
-			ThrowIfFailed(m_commandQueue->Wait(m_fence.Get(), m_fenceValue));
-
-			ID3D12CommandList* ppCommandListsBarrier[] = { m_commandListBarrier.Get() };
-			m_commandQueue->ExecuteCommandLists(1, ppCommandListsBarrier);
-			ThrowIfFailed(m_commandQueue->Signal(m_fence.Get(), ++m_fenceValue));
-
-		}
-		ID3D12Fence* getFence() const {
-			return m_fence.Get();
-		}
-
-		UINT64 getFenceValue() const {
-			return m_fenceValue;
-		}
-
-		void waitForGPU() {
-			if (m_fence->GetCompletedValue() < m_fenceValue) {
-				ThrowIfFailed(m_fence->SetEventOnCompletion(m_fenceValue, m_fenceEvent));
-				WaitForSingleObject(m_fenceEvent, INFINITE);
-			}
+			return std::array<ID3D12CommandList*, 2>({ m_commandList.Get(), m_commandListBarrier.Get() });
 		}
 
 		ID3D12Resource* getRtvResource() const {
@@ -164,6 +137,7 @@ namespace Engine {
 	private:
 
 		void populateScene(Scene* oScene) {
+			m_scene->getSceneRootNodes().clear();
 			static auto& cpuMaterialManager = CPUMaterialManager::GetInstance();
 			static auto& cpuMeshManager = CPUMeshManager::GetInstance();
 			static auto& modelLoader = Engine::ModelLoader::GetInstance();
@@ -187,24 +161,19 @@ namespace Engine {
 				cpuMesh->setIndices(std::vector<uint32_t>(cube.indices.begin(), cube.indices.end())); 
 				cpuMesh->setVertices(Helpers::FlattenXMFLOAT3Array(cube.vertices));
 				cpuMesh->setNormals(Helpers::FlattenXMFLOAT3Array(cube.normals));
-
-				auto cpuMaterial = std::make_unique<CPUMaterial>();
-				cpuMaterial->cullMode = D3D12_CULL_MODE_NONE;
-
 				cpuMesh->topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 				cpuMesh->topologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-
-				auto cpuMaterialGUID = cpuMaterialManager.add(std::move(cpuMaterial));
-				cpuMesh->setMaterialId(cpuMaterialGUID);
+				cpuMesh->setCPUMaterialId(GUID_NULL);
 
 				meshGUIDs.push_back(cpuMeshManager.add(std::move(cpuMesh)));
 			}
 
-			//auto modelGUID = modelLoader.queueGeometry(meshGUIDs);
-			//modelLoader.waitForQueueEmpty();
-			//uploadQueue.execute().wait();
 
-
+			auto o = ModelSceneNode::CreateFromGeometry(meshGUIDs);
+			modelLoader.waitForQueueEmpty();
+			uploadQueue.execute();
+			o->waitUntilLoadComplete();
+			m_scene->addNode(std::move(o));
 		}
 		void cloneDepthBuffer(ID3D12Resource* srcDepthBuffer) {
 			auto b = CD3DX12_RESOURCE_BARRIER::Transition(
@@ -408,7 +377,6 @@ namespace Engine {
 		ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
 		std::unique_ptr<PSOShader> m_shaders;
 
-		ComPtr<ID3D12CommandQueue> m_commandQueue;
 		ComPtr<ID3D12CommandAllocator> m_commandAllocator;
 		ComPtr<ID3D12CommandAllocator> m_commandAllocatorBarrier;
 
@@ -418,10 +386,6 @@ namespace Engine {
 
 		CD3DX12_VIEWPORT m_viewport;
 		CD3DX12_RECT m_scissorRect;
-
-		HANDLE m_fenceEvent;
-		ComPtr<ID3D12Fence> m_fence;
-		UINT64 m_fenceValue = 0;
 
 		UINT m_rtvDescriptorSize = 0;
 

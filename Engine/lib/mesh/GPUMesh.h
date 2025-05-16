@@ -33,19 +33,11 @@ namespace Engine {
 		D3D12_VERTEX_BUFFER_VIEW* GetTangentsBufferView() { return &m_tangentsBufferView; }
 		D3D12_INDEX_BUFFER_VIEW* GetIndexBufferView() { return &m_indexBufferView; }
 
-		void setGPUMaterialId(GUID id) {
-			m_gpuMaterialId = id;
-		}
-		GUID& getGPUMaterialId() {
-			return m_gpuMaterialId;
-		}
 	private:
 		D3D12_VERTEX_BUFFER_VIEW m_vertexBufferView = {};
 		D3D12_VERTEX_BUFFER_VIEW m_normalsBufferView = {};
 		D3D12_VERTEX_BUFFER_VIEW m_texCoordsBufferView = {};
 		D3D12_VERTEX_BUFFER_VIEW m_tangentsBufferView = {};
 		D3D12_INDEX_BUFFER_VIEW m_indexBufferView = {};
-
-		GUID m_gpuMaterialId = GUID_NULL;
 	};
 }

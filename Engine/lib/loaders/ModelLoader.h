@@ -55,13 +55,21 @@ namespace Engine {
 			std::osyncstream(std::cout) << "[ModelLoader] Processing gltf for model: " << guid.Data1 << std::endl;
 			auto& model = m_modelManager.get(guid);
 			model.setCPUMeshIds(std::move(GLTFLocal::GetMeshesInfo(path)));
-			m_gpuUploadQueue.queueModel(guid).wait();
+			auto cpuMeshes = m_cpuMeshManager.getMany(model.getCPUMeshIds());
+			for (auto& cpuMesh : cpuMeshes) {
+				cpuMesh.get().addModelId(guid);
+			}
+			m_gpuUploadQueue.queueModel(guid).get();
 		}
 		void processGeometry(GUID guid, std::vector<GUID> cpuMeshGUIDs) {
 			std::osyncstream(std::cout) << "[ModelLoader] Processing geometry for model: " << guid.Data1 << std::endl;
 			auto& model = m_modelManager.get(guid);
 			model.setCPUMeshIds(std::move(cpuMeshGUIDs));
-			m_gpuUploadQueue.queueModel(guid).wait();
+			auto cpuMeshes = m_cpuMeshManager.getMany(model.getCPUMeshIds());
+			for (auto& cpuMesh : cpuMeshes) {
+				cpuMesh.get().addModelId(guid);
+			}
+			m_gpuUploadQueue.queueModel(guid).get();
 		}
 	};
 }

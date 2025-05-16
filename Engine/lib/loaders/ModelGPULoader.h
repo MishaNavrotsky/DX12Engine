@@ -12,6 +12,8 @@
 #include "../managers/GPUMaterialManager.h"
 #include "../managers/GPUMeshManager.h"
 #include "../managers/GPUTextureManager.h"
+#include "../managers/CPUGPUManager.h"
+
 
 #include "../mesh/Model.h"
 #include "../mesh/ModelHeaps.h"
@@ -32,232 +34,26 @@ namespace Engine {
 			auto meshes = m_cpuMeshManager.getMany(model.getCPUMeshIds());
 			auto modelHeaps = std::make_unique<ModelHeaps>();
 
+			std::unordered_set<GUID, GUIDHash, GUIDEqual> materialIds;
+			for (auto& mesh : meshes) {
+				materialIds.insert(mesh.get().getCPUMaterialId());
+			}
+			auto vMaterialIds = std::vector<GUID>(materialIds.begin(), materialIds.end());
+
+
+			std::vector<GUID> newMaterialIds;
+			auto gpuMaterials = m_gpuMaterialManager.try_getMany(vMaterialIds);
+			for (auto i = 0; i < vMaterialIds.size(); i++) {
+				if (!gpuMaterials[i].has_value()) {
+					newMaterialIds.push_back(vMaterialIds[i]);
+				}
+			}
+			auto cpuMaterials = m_cpuMaterialManager.getMany(newMaterialIds);
+
 			uploadGeometry(model, meshes, modelHeaps.get());
-
-			std::set<GUID, GUIDComparator> materialIds;
-			std::unordered_map<GUID, GUID, GUIDHash, GUIDEqual> cpuMaterialToGpuMeshId;
-			for (uint32_t i = 0; i < meshes.size(); i++) {
-				auto& materialId = meshes[i].get().getMaterialId();
-				if (!IsEqualGUID(materialId, GUID_NULL)) {
-					materialIds.insert(materialId);
-					cpuMaterialToGpuMeshId.insert(std::pair<GUID, GUID>(materialId, model.getGPUMeshIds()[i]));
-				}
-			}
-
-			auto materials = m_cpuMaterialManager.getMany(std::vector(materialIds.begin(), materialIds.end()));
-			std::vector<GUID> gpuTextureIds;
-			std::vector<GUID> gpuMaterialIds;
-			std::vector<std::vector<D3D12_SUBRESOURCE_DATA>> textureSubResources;
-			uint64_t totalTextureUploadBufferSize = 0;
-
-			for (auto& material : materials) {
-				auto textures = m_cpuTextureManager.getMany(material.get().getTextureIds());
-				auto gpuMaterial = std::make_unique<GPUMaterial>();
-				auto& samplerIds = material.get().getSamplerIds();
-				gpuMaterial->setSamplerIds(std::vector<GUID>(samplerIds));
-
-				auto& gpuMesh = m_gpuMeshManager.get(cpuMaterialToGpuMeshId.at(material.get().getID()));
-
-				for (auto& texture : textures) {
-					auto& tex = texture.get();
-					auto& image = tex.getScratchImage();
-
-					auto gpuTexture = std::make_unique<GPUTexture>();
-					ThrowIfFailed(CreateTexture(m_device, image.GetMetadata(), gpuTexture->getResource().GetAddressOf()));
-					{
-
-						CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
-							gpuTexture->getResource().Get(),
-							D3D12_RESOURCE_STATE_COMMON,
-							D3D12_RESOURCE_STATE_COPY_DEST
-						);
-						commandList->ResourceBarrier(1, &barrier);
-					}
-
-					std::vector<D3D12_SUBRESOURCE_DATA> subresources;
-					ThrowIfFailed(PrepareUpload(m_device, image.GetImages(), image.GetImageCount(), image.GetMetadata(), subresources));
-
-					totalTextureUploadBufferSize += Helpers::Align(
-						GetRequiredIntermediateSize(gpuTexture->getResource().Get(), 0, static_cast<UINT>(subresources.size())),
-						D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
-
-					auto gpuTextureId = m_gpuTextureManager.add(std::move(gpuTexture));
-					gpuTextureIds.push_back(gpuTextureId);
-					gpuMaterial.get()->getTextureIds().push_back(gpuTextureId);
-					textureSubResources.push_back(std::move(subresources));
-				}
-
-				auto gpuMaterialId = m_gpuMaterialManager.add(std::move(gpuMaterial));
-				gpuMesh.setGPUMaterialId(gpuMaterialId);
-				gpuMaterialIds.push_back(gpuMaterialId);
-			}
-
-			D3D12_HEAP_PROPERTIES texUploadHeapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-			D3D12_RESOURCE_DESC texUploadHeapDesc = CD3DX12_RESOURCE_DESC::Buffer(totalTextureUploadBufferSize);
-			auto& texUploadHeap = modelHeaps.get()->getTexturesUploadHeap();
-			if (totalTextureUploadBufferSize > 0)
-			ThrowIfFailed(m_device->CreateCommittedResource(
-				&texUploadHeapProps,
-				D3D12_HEAP_FLAG_NONE,
-				&texUploadHeapDesc,
-				D3D12_RESOURCE_STATE_GENERIC_READ,
-				nullptr,
-				IID_PPV_ARGS(&texUploadHeap)));
-
-			uint64_t currentOffset = 0;
-			auto gpuTextures = m_gpuTextureManager.getMany(gpuTextureIds);
-			for (size_t i = 0; i < gpuTextures.size(); ++i) {
-				auto& texture = gpuTextures[i].get();
-				auto& subresources = textureSubResources[i];
-
-				UpdateSubresources(
-					m_commandList,
-					texture.getResource().Get(),
-					texUploadHeap.Get(),
-					currentOffset,
-					0,
-					static_cast<UINT>(subresources.size()),
-					subresources.data()
-				);
-				CD3DX12_RESOURCE_BARRIER textureFinalBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
-					texture.getResource().Get(),                  // Texture resource
-					D3D12_RESOURCE_STATE_COPY_DEST,               // State after UpdateSubresources
-					D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE     // Final state for using in shaders
-				);
-				commandList->ResourceBarrier(1, &textureFinalBarrier);
-
-				uint64_t requiredSize = Helpers::Align(
-					GetRequiredIntermediateSize(texture.getResource().Get(), 0, static_cast<UINT>(subresources.size())),
-					D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
-
-				currentOffset += requiredSize;
-			}
-
-			auto gpuMeshes = m_gpuMeshManager.getMany(model.getGPUMeshIds());
-			std::vector<std::pair<std::pair<GUID, GUID>, CPUMaterialCBVData>> matCBVsData;
-			uint64_t cbvsUploadBufferSize = 0;
-
-			for (uint32_t i = 0; i < meshes.size(); i++) {
-				auto& m = meshes[i].get();
-				auto& gm = gpuMeshes[i].get();
-
-				auto& mat = m_cpuMaterialManager.get(m.getMaterialId());
-				auto& gmat = m_gpuMaterialManager.get(gm.getGPUMaterialId());
-
-				auto& matCBV = mat.getCBVData();
-
-				auto& cpuTextureIds = mat.getTextureIds();
-				auto& gpuTextureIds = gmat.getTextureIds();
-				auto& samplerIds = gmat.getSamplerIds();
-
-				for (uint32_t j = 0; j < gpuTextureIds.size(); j++) {
-					auto& gpuTexture = m_gpuTextureManager.get(gpuTextureIds[j]);
-					auto& cpuTexture = m_cpuTextureManager.get(cpuTextureIds[j]);
-
-					auto& sampler = m_samplerManager.get(samplerIds[j]);
-
-					auto slotTex = m_bindlessHeapDescriptor.addTexture(gpuTexture.getResource());
-					auto slotSam = m_bindlessHeapDescriptor.addSampler(sampler.samplerDesc);
-
-					if (cpuTexture.getType() == TextureType::BASE_COLOR) {
-						matCBV.diffuseEmissiveNormalOcclusionTexSlots.x = slotTex;
-						matCBV.diffuseEmissiveNormalOcclusionSamSlots.x = slotSam;
-					}
-					else if (cpuTexture.getType() == TextureType::EMISSIVE) {
-						matCBV.diffuseEmissiveNormalOcclusionTexSlots.y = slotTex;
-						matCBV.diffuseEmissiveNormalOcclusionSamSlots.y = slotSam;
-					}
-					else if (cpuTexture.getType() == TextureType::METALLIC_ROUGHNESS) {
-						matCBV.MrTexSlots.x = slotTex;
-						matCBV.MrSamSlots.x = slotSam;
-					}
-					else if (cpuTexture.getType() == TextureType::NORMAL) {
-						matCBV.diffuseEmissiveNormalOcclusionTexSlots.z = slotTex;
-						matCBV.diffuseEmissiveNormalOcclusionSamSlots.z = slotSam;
-					}
-					else if (cpuTexture.getType() == TextureType::OCCLUSION) {
-						matCBV.diffuseEmissiveNormalOcclusionTexSlots.w = slotTex;
-						matCBV.diffuseEmissiveNormalOcclusionSamSlots.w = slotSam;
-					}
-				}
-
-				cbvsUploadBufferSize += Helpers::Align(sizeof(CPUMaterialCBVData), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
-				matCBVsData.push_back(std::pair<std::pair<GUID, GUID>, CPUMaterialCBVData>(std::pair<GUID, GUID>(mat.getID(), gmat.getID()), matCBV));
-			}
-
-			D3D12_HEAP_PROPERTIES cbvsUploadBufferProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-			D3D12_RESOURCE_DESC cbvsUploadBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(cbvsUploadBufferSize);
-
-			auto& cbvsUploadBuffer = modelHeaps.get()->getCBVsUploadHeap();
-			ThrowIfFailed(m_device->CreateCommittedResource(
-				&cbvsUploadBufferProps,
-				D3D12_HEAP_FLAG_NONE,
-				&cbvsUploadBufferDesc,
-				D3D12_RESOURCE_STATE_GENERIC_READ,
-				nullptr,
-				IID_PPV_ARGS(&cbvsUploadBuffer)));
-
-			UINT8* cbvsMappedData = nullptr;
-			ThrowIfFailed(cbvsUploadBuffer->Map(0, nullptr, reinterpret_cast<void**>(&cbvsMappedData)));
-
-			size_t cbvsOffset = 0;
-			const size_t alignment = D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT;
-
-			for (const auto& [_, cbvData] : matCBVsData)
-			{
-				cbvsOffset = (cbvsOffset + alignment - 1) & ~(alignment - 1);
-				memcpy(cbvsMappedData + cbvsOffset, &cbvData, sizeof(CPUMaterialCBVData));
-				cbvsOffset += sizeof(CPUMaterialCBVData);
-			}
-			cbvsUploadBuffer->Unmap(0, nullptr);
-
-
-			const uint64_t cbSize = Helpers::Align(sizeof(CPUMaterialCBVData), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
-			uint64_t copyCBVsOffset = 0;
-
-			for (const auto& [guids, _] : matCBVsData) {
-				auto& mat = m_cpuMaterialManager.get(guids.first);
-				auto& gmat = m_gpuMaterialManager.get(guids.second);
-
-				auto& cbvRes = gmat.getCBVResource();
-				D3D12_HEAP_PROPERTIES cbvResProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-				D3D12_RESOURCE_DESC cbvResrDesc = CD3DX12_RESOURCE_DESC::Buffer(cbSize);
-				ThrowIfFailed(m_device->CreateCommittedResource(
-					&cbvResProps,
-					D3D12_HEAP_FLAG_NONE,
-					&cbvResrDesc,
-					D3D12_RESOURCE_STATE_COMMON,
-					nullptr,
-					IID_PPV_ARGS(&cbvRes)
-				));
-				{
-
-					CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
-						cbvRes.Get(),
-						D3D12_RESOURCE_STATE_COMMON,
-						D3D12_RESOURCE_STATE_COPY_DEST
-					);
-					commandList->ResourceBarrier(1, &barrier);
-				}
-				commandList->CopyBufferRegion(
-					cbvRes.Get(),       
-					0,                  
-					cbvsUploadBuffer.Get(), 
-					copyCBVsOffset,          
-					cbSize               
-				);
-				{
-
-					CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
-						cbvRes.Get(),
-						D3D12_RESOURCE_STATE_COPY_DEST,
-						D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER
-					);
-					commandList->ResourceBarrier(1, &barrier);
-				}
-
-				copyCBVsOffset += cbSize;
-				mat.setCBVDataBindlessHeapSlot(m_bindlessHeapDescriptor.addCBV(cbvRes, cbSize));
+			if (cpuMaterials.size()) {
+				uploadTexturesAndSamplers(cpuMaterials, modelHeaps.get());
+				uploadMaterials(cpuMaterials, modelHeaps.get());
 			}
 
 			m_uploadHeapManager.add(m_modelId, std::move(modelHeaps));
@@ -455,7 +251,245 @@ namespace Engine {
 				auto gpuMesh = std::make_unique<GPUMesh>(vertexBufferView, normalsBufferView, texCoordsBufferView, tangentsBufferView, indexBufferView);
 				gpuMeshIds.push_back(m_gpuMeshManager.add(std::move(gpuMesh)));
 			}
+			for (auto i = 0; i < gpuMeshIds.size(); i++) {
+				auto cpugpu = std::make_unique<CPUGPU>();
+				cpugpu.get()->gpuId = gpuMeshIds[i];
+				m_cpuGPUManager.add(meshes[i].get().getID(), std::move(cpugpu));
+			}
 			model.setGPUMeshIds(std::move(gpuMeshIds));
+		}
+
+		void uploadMaterials(std::vector<std::reference_wrapper<CPUMaterial>>& cpuMaterials, ModelHeaps* modelHeaps) {
+			const uint64_t cbSize = Helpers::Align(sizeof(CPUMaterialCBVData), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+
+			auto cbvsUploadBufferSize = cpuMaterials.size() * cbSize;
+			D3D12_HEAP_PROPERTIES cbvsUploadBufferProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+			D3D12_RESOURCE_DESC cbvsUploadBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(cbvsUploadBufferSize);
+
+			auto& cbvsUploadBuffer = modelHeaps->getCBVsUploadHeap();
+			ThrowIfFailed(m_device->CreateCommittedResource(
+				&cbvsUploadBufferProps,
+				D3D12_HEAP_FLAG_NONE,
+				&cbvsUploadBufferDesc,
+				D3D12_RESOURCE_STATE_GENERIC_READ,
+				nullptr,
+				IID_PPV_ARGS(&cbvsUploadBuffer)));
+
+			UINT8* cbvsMappedData = nullptr;
+			ThrowIfFailed(cbvsUploadBuffer->Map(0, nullptr, reinterpret_cast<void**>(&cbvsMappedData)));
+
+			size_t cbvsOffset = 0;
+			const size_t alignment = D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT;
+
+			for (auto& cpuMaterial : cpuMaterials) {
+				auto& mat = cpuMaterial.get();
+
+				cbvsOffset = (cbvsOffset + alignment - 1) & ~(alignment - 1);
+				memcpy(cbvsMappedData + cbvsOffset, &mat.getCBVData(), sizeof(CPUMaterialCBVData));
+				cbvsOffset += sizeof(CPUMaterialCBVData);
+			}
+			cbvsUploadBuffer->Unmap(0, nullptr);
+
+			uint64_t copyCBVsOffset = 0;
+			for (auto& cpuMaterial : cpuMaterials) {
+				auto& mat = cpuMaterial.get();
+				auto gmat = std::make_unique<GPUMaterial>();
+
+				auto& cbvRes = gmat->getCBVResource();
+				D3D12_HEAP_PROPERTIES cbvResProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+				D3D12_RESOURCE_DESC cbvResrDesc = CD3DX12_RESOURCE_DESC::Buffer(cbSize);
+				ThrowIfFailed(m_device->CreateCommittedResource(
+					&cbvResProps,
+					D3D12_HEAP_FLAG_NONE,
+					&cbvResrDesc,
+					D3D12_RESOURCE_STATE_COMMON,
+					nullptr,
+					IID_PPV_ARGS(&cbvRes)
+				));
+				//{
+
+				//	CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+				//		cbvRes.Get(),
+				//		D3D12_RESOURCE_STATE_COMMON,
+				//		D3D12_RESOURCE_STATE_COPY_DEST
+				//	);
+				//	commandList->ResourceBarrier(1, &barrier);
+				//}
+				m_commandList->CopyBufferRegion(
+					cbvRes.Get(),
+					0,
+					cbvsUploadBuffer.Get(),
+					copyCBVsOffset,
+					cbSize
+				);
+				//{
+
+				//	CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+				//		cbvRes.Get(),
+				//		D3D12_RESOURCE_STATE_COPY_DEST,
+				//		D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER
+				//	);
+				//	m_barrierCommandList->ResourceBarrier(1, &barrier);
+				//}
+
+				copyCBVsOffset += cbSize;
+				auto slot = m_bindlessHeapDescriptor.addCBV(cbvRes, cbSize);
+				mat.setCBVDataBindlessHeapSlot(slot);
+
+				GUID gmatId;
+				ThrowIfFailed(CoCreateGuid(&gmatId));
+				gmat->setID(gmatId);
+
+				auto cpugpu = std::make_unique<CPUGPU>();
+				cpugpu.get()->gpuId = gmatId;
+
+				m_cpuGPUManager.add(mat.getID(), std::move(cpugpu));
+				m_gpuMaterialManager.add(gmatId, std::move(gmat));
+			}
+		}
+
+		void uploadTexturesAndSamplers(std::vector<std::reference_wrapper<CPUMaterial>>& cpuMaterials, ModelHeaps* modelHeaps) {
+			std::unordered_set<GUID, GUIDHash, GUIDEqual> uploadedCpuTextureIds;
+			std::unordered_set<GUID, GUIDHash, GUIDEqual> nonUploadedCpuTextureIds;
+
+
+			std::unordered_set<GUID, GUIDHash, GUIDEqual> allCpuTextureIds;
+			for (auto& cpuMaterial : cpuMaterials) {
+				auto& cpuTexIds = cpuMaterial.get().getCPUTextureIds();
+				for (auto& cpuTexId : cpuTexIds) {
+					allCpuTextureIds.insert(cpuTexId);
+				}
+			}
+
+			std::vector<GUID> vAllCpuTextureIds(allCpuTextureIds.begin(), allCpuTextureIds.end());
+			auto options = m_cpuGPUManager.try_getMany(std::vector<GUID>(vAllCpuTextureIds));
+			for (auto i = 0; i < options.size(); i++) {
+				options[i].has_value() ? uploadedCpuTextureIds.insert(vAllCpuTextureIds[i]) : nonUploadedCpuTextureIds.insert(vAllCpuTextureIds[i]);
+			}
+
+
+			auto nonUploadedCpuTextures = m_cpuTextureManager.getMany(std::vector<GUID>(nonUploadedCpuTextureIds.begin(), nonUploadedCpuTextureIds.end()));
+			std::vector<std::unique_ptr<GPUTexture>> nonUploadedGpuTextures;
+
+			std::vector<std::vector<D3D12_SUBRESOURCE_DATA>> textureSubResources;
+			uint64_t totalTextureUploadBufferSize = 0;
+
+
+			for (auto& cpuTexture : nonUploadedCpuTextures) {
+				auto& tex = cpuTexture.get();
+				auto& image = tex.getScratchImage();
+
+				auto gpuTexture = std::make_unique<GPUTexture>();
+				ThrowIfFailed(CreateTexture(m_device, image.GetMetadata(), gpuTexture->getResource().GetAddressOf()));
+				//{
+
+				//	CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+				//		gpuTexture->getResource().Get(),
+				//		D3D12_RESOURCE_STATE_COMMON,
+				//		D3D12_RESOURCE_STATE_COPY_DEST
+				//	);
+				//	commandList->ResourceBarrier(1, &barrier);
+				//}
+
+				std::vector<D3D12_SUBRESOURCE_DATA> subresources;
+				ThrowIfFailed(PrepareUpload(m_device, image.GetImages(), image.GetImageCount(), image.GetMetadata(), subresources));
+
+				totalTextureUploadBufferSize += Helpers::Align(
+					GetRequiredIntermediateSize(gpuTexture->getResource().Get(), 0, static_cast<UINT>(subresources.size())),
+					D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
+
+				GUID gtexId;
+				ThrowIfFailed(CoCreateGuid(&gtexId));
+				gpuTexture->setID(gtexId);
+
+				auto cpugpu = std::make_unique<CPUGPU>();
+				cpugpu.get()->gpuId = gtexId;
+				m_cpuGPUManager.add(tex.getID(), std::move(cpugpu));
+
+				tex.bindlessHeapSlot = m_bindlessHeapDescriptor.addTexture(gpuTexture->getResource());
+
+				nonUploadedGpuTextures.push_back(std::move(gpuTexture));
+				textureSubResources.push_back(std::move(subresources));
+			}
+
+			D3D12_HEAP_PROPERTIES texUploadHeapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+			D3D12_RESOURCE_DESC texUploadHeapDesc = CD3DX12_RESOURCE_DESC::Buffer(totalTextureUploadBufferSize);
+			auto& texUploadHeap = modelHeaps->getTexturesUploadHeap();
+			if (totalTextureUploadBufferSize > 0)
+				ThrowIfFailed(m_device->CreateCommittedResource(
+					&texUploadHeapProps,
+					D3D12_HEAP_FLAG_NONE,
+					&texUploadHeapDesc,
+					D3D12_RESOURCE_STATE_GENERIC_READ,
+					nullptr,
+					IID_PPV_ARGS(&texUploadHeap)));
+
+			uint64_t currentOffset = 0;
+			for (size_t i = 0; i < nonUploadedGpuTextures.size(); ++i) {
+				auto& texture = *nonUploadedGpuTextures[i];
+				auto& subresources = textureSubResources[i];
+
+				UpdateSubresources(
+					m_commandList,
+					texture.getResource().Get(),
+					texUploadHeap.Get(),
+					currentOffset,
+					0,
+					static_cast<UINT>(subresources.size()),
+					subresources.data()
+				);
+				//CD3DX12_RESOURCE_BARRIER textureFinalBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
+				//	texture.getResource().Get(),                  // Texture resource
+				//	D3D12_RESOURCE_STATE_COPY_DEST,               // State after UpdateSubresources
+				//	D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE     // Final state for using in shaders
+				//);
+				//commandList->ResourceBarrier(1, &textureFinalBarrier);
+
+				uint64_t requiredSize = Helpers::Align(
+					GetRequiredIntermediateSize(texture.getResource().Get(), 0, static_cast<UINT>(subresources.size())),
+					D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
+
+				currentOffset += requiredSize;
+
+				m_gpuTextureManager.add(texture.getID(), std::move(nonUploadedGpuTextures[i]));
+			}
+
+			auto allCPUTextures = m_cpuTextureManager.getMany(std::vector<GUID>(vAllCpuTextureIds));
+			for (auto& cpuMaterial : cpuMaterials) {
+				auto& matCBV = cpuMaterial.get().getCBVData();
+				auto& cpuTexIds = cpuMaterial.get().getCPUTextureIds();
+				for (auto& cpuTexId : cpuTexIds) {
+					auto& cpuTexture = std::find_if(allCPUTextures.begin(), allCPUTextures.end(), [&cpuTexId](auto& texture) {
+						return IsEqualGUID(texture.get().getID(), cpuTexId);
+						})->get();
+
+					auto slotTex = cpuTexture.bindlessHeapSlot;
+					auto slotSam = m_bindlessHeapDescriptor.addSampler(m_samplerManager.get(cpuTexture.getSamplerId()).samplerDesc);
+
+					if (cpuTexture.getType() == TextureType::BASE_COLOR) {
+						matCBV.diffuseEmissiveNormalOcclusionTexSlots.x = slotTex;
+						matCBV.diffuseEmissiveNormalOcclusionSamSlots.x = slotSam;
+					}
+					else if (cpuTexture.getType() == TextureType::EMISSIVE) {
+						matCBV.diffuseEmissiveNormalOcclusionTexSlots.y = slotTex;
+						matCBV.diffuseEmissiveNormalOcclusionSamSlots.y = slotSam;
+					}
+					else if (cpuTexture.getType() == TextureType::METALLIC_ROUGHNESS) {
+						matCBV.MrTexSlots.x = slotTex;
+						matCBV.MrSamSlots.x = slotSam;
+					}
+					else if (cpuTexture.getType() == TextureType::NORMAL) {
+						matCBV.diffuseEmissiveNormalOcclusionTexSlots.z = slotTex;
+						matCBV.diffuseEmissiveNormalOcclusionSamSlots.z = slotSam;
+					}
+					else if (cpuTexture.getType() == TextureType::OCCLUSION) {
+						matCBV.diffuseEmissiveNormalOcclusionTexSlots.w = slotTex;
+						matCBV.diffuseEmissiveNormalOcclusionSamSlots.w = slotSam;
+					}
+
+				}
+			}
+
 		}
 		ID3D12Device* m_device;
 		ID3D12GraphicsCommandList* m_commandList;
@@ -471,6 +505,8 @@ namespace Engine {
 		GPUMeshManager& m_gpuMeshManager = GPUMeshManager::GetInstance();
 		GPUTextureManager& m_gpuTextureManager = GPUTextureManager::GetInstance();
 		GPUMaterialManager& m_gpuMaterialManager = GPUMaterialManager::GetInstance();
+		CPUGPUManager& m_cpuGPUManager = CPUGPUManager::GetInstance();
+
 
 		BindlessHeapDescriptor& m_bindlessHeapDescriptor = BindlessHeapDescriptor::GetInstance();
 	};

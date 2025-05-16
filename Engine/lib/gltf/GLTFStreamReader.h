@@ -48,6 +48,4 @@ namespace GLTFLocal
 	};
 
 	std::vector<GUID> GetMeshesInfo(const fs::path& path);
-	extern BS::thread_pool<> m_threadPool;
-	extern BS::thread_pool<> m_texturesThreadPool;
 }

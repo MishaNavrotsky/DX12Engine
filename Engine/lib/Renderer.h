@@ -13,6 +13,7 @@
 #include "pipelines/LightingPass.h"
 #include "geometry/ModelMatrix.h"
 #include "pipelines/gizmos/GizmosPass.h"
+#include "mesh/InitializeDefault.h"
 
 
 using namespace DirectX;

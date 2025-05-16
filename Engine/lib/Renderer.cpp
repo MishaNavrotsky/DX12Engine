@@ -60,6 +60,7 @@ void Renderer::LoadPipeline()
 	m_uploadQueue.registerDevice(m_device);
 	m_bindlessHeapDescriptor.registerDevice(m_device);
 	Engine::Device::SetDevice(m_device);
+	Engine::InitializeDefault::Initialize(m_device.Get(), &m_bindlessHeapDescriptor.GetInstance());
 	m_gbufferPass = std::unique_ptr<Engine::GBufferPass>(new Engine::GBufferPass(m_device, m_width, m_height));
 	m_lightingPass = std::unique_ptr<Engine::LightingPass>(new Engine::LightingPass(m_device, m_width, m_height));
 	m_gizmosPass = std::unique_ptr<Engine::GizmosPass>(new Engine::GizmosPass(m_device, m_width, m_height));
@@ -295,8 +296,7 @@ void Renderer::PopulateCommandList()
 	m_lightingPass->computeLighting(m_gbufferPass.get(), m_camera.get());
 	{
 		m_lightingPass->waitForGPU();
-		m_gizmosPass->renderGizmos(&m_scene, m_camera.get(), m_gbufferPass->getDepthStencilResource());
-		m_gizmosPass->waitForGPU();
+		auto list = m_gizmosPass->renderGizmos(&m_scene, m_camera.get(), m_gbufferPass->getDepthStencilResource());
 	}
 }
 

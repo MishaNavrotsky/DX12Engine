@@ -37,50 +37,16 @@ namespace Engine {
 
 			D3D12_COMMAND_QUEUE_DESC queueDesc = {};
 			queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
-			queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+			queueDesc.Type = D3D12_COMMAND_LIST_TYPE_COPY;
 
 			ThrowIfFailed(m_device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&m_uploadCommandQueue)));
 			for (auto& task : m_tasks) {
-				ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&task->commandAllocator)));
-				ThrowIfFailed(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, task->commandAllocator.Get(), nullptr, IID_PPV_ARGS(&task->commandList)));
+				ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COPY, IID_PPV_ARGS(&task->commandAllocator)));
+				ThrowIfFailed(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COPY, task->commandAllocator.Get(), nullptr, IID_PPV_ARGS(&task->commandList)));
 			}
 		}
 
 		std::future<void> queueModel(GUID modelId) {
-			//auto lambda = [&, modelId] {
-			//	std::vector<GPUUploadQueueTask*> taskPtrs;
-			//	{
-			//		std::lock_guard lock(m_mutex);
-			//		for (auto& task : m_tasks) {
-			//			taskPtrs.push_back(task.get());
-			//		}
-			//		std::sort(taskPtrs.begin(), taskPtrs.end(), [](const GPUUploadQueueTask* a, const GPUUploadQueueTask* b) {
-			//			return a->modelIds.size() < b->modelIds.size();
-			//			});
-			//	}
-
-			//	GPUUploadQueueTask* m = nullptr;
-			//	for (auto& t : taskPtrs) {
-			//		if (t->mutex.try_lock()) {
-			//			m = t;
-			//			break;
-			//		}
-			//	}
-
-			//	if (m == nullptr) {
-			//		std::cerr << "[Warning] No free task, falling back to blocking lock.\n";
-			//		taskPtrs[0]->mutex.lock();
-			//		m = taskPtrs[0];
-			//	}
-
-			//	std::lock_guard<std::mutex> taskLock(m->mutex, std::adopt_lock);
-			//	{
-			//		std::lock_guard lock(m_mutex);
-			//		m->modelIds.push_back(modelId);
-			//	}
-			//	ModelGPULoader modelGPULoader(m_device.Get(), m->commandList.Get(), modelId);
-			//	};
-			//return m_threadPool.submit_task(lambda);
 			auto lambda = [&, modelId] {
 				std::osyncstream(std::cout) << "[GPUUploadQueue] Queue geometry for model: " << modelId.Data1 << std::endl;
 				const int maxAttempts = 5;
@@ -171,7 +137,7 @@ namespace Engine {
 
 				for (auto& task : m_tasks) {
 					for (auto& modelId : task->modelIds) {
-						m_modelManager.get(modelId).setIsLoaded();
+						m_modelManager.get(modelId).setLoaded();
 						m_modelHeapsManager.get(modelId).releaseUploadHeaps();
 					}
 					task->modelIds.clear();

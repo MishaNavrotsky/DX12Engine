@@ -33,20 +33,6 @@ namespace Engine {
 	public:
 		CPUMaterial() {};
 
-		std::vector<GUID>& getTextureIds() {
-			return m_textureIds;
-		}
-		void setTextureIds(std::vector<GUID>&& texturesIds) noexcept {
-			m_textureIds = std::move(texturesIds);
-		}
-
-		std::vector<GUID>& getSamplerIds() {
-			return m_samplerIds;
-		}
-		void setSamplerIds(std::vector<GUID>&& samplerIds) noexcept {
-			m_samplerIds = std::move(samplerIds);
-		}
-
 		CPUMaterialCBVData& getCBVData() {
 			return m_cbvData;
 		}
@@ -110,6 +96,22 @@ namespace Engine {
 			std::cout << "m_cbvDataBindlessHeapSlot: " << data.getCBVDataBindlessHeapSlot() << '\n';
 		}
 
+		const std::unordered_set<GUID, GUIDHash, GUIDEqual>& getCPUTextureIds() const {
+			return m_cpuTextureIds;
+		}
+		void setCPUTextureIds(std::unordered_set<GUID, GUIDHash, GUIDEqual>&& textureIds) noexcept {
+			m_cpuTextureIds = std::move(textureIds);
+		}
+		void addCPUTextureId(GUID textureId) noexcept {
+			m_cpuTextureIds.insert(textureId);
+		}
+		void removeCPUTextureId(GUID textureId) noexcept {
+			m_cpuTextureIds.erase(textureId);
+		}
+		void clearCPUTextureIds() noexcept {
+			m_cpuTextureIds.clear();
+		}
+
 		std::unordered_set<GUID, GUIDHash, GUIDEqual>& getCPUMeshIds() {
 			return m_cpuMeshesIds;
 		}
@@ -127,8 +129,7 @@ namespace Engine {
 		}
 	private:
 		std::unordered_set<GUID, GUIDHash, GUIDEqual> m_cpuMeshesIds;
-		std::vector<GUID> m_textureIds;
-		std::vector<GUID> m_samplerIds;
+		std::unordered_set<GUID, GUIDHash, GUIDEqual> m_cpuTextureIds;
 		CPUMaterialCBVData m_cbvData;
 
 		uint32_t m_cbvDataBindlessHeapSlot;

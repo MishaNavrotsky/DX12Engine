@@ -5,8 +5,8 @@
 #include "IManager.h"
 
 namespace Engine {
-	struct CPUGPU {
-		GUID cpuId;
+	class CPUGPU: public IID{
+	public:
 		GUID gpuId;
 	};
 	class CPUGPUManager : public IManager<CPUGPU, CPUGPUManager> {};

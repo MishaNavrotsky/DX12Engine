@@ -21,7 +21,7 @@ namespace Engine {
 			return m_gpuMeshIds;
 		}
 
-		void setIsLoaded() {
+		void setLoaded() {
 			isLoaded = true;
 			m_cv.notify_all();
 		}

@@ -26,4 +26,20 @@ namespace Engine {
 			return memcmp(&lhs, &rhs, sizeof(GUID)) < 0; // Binary ordering
 		}
 	};
+
+	struct GUIDPairHash {
+		std::size_t operator()(const std::pair<GUID, GUID>& p) const noexcept {
+			GUIDHash hash_fn;
+			std::size_t h1 = hash_fn(p.first);
+			std::size_t h2 = hash_fn(p.second);
+			return h1 ^ (h2 * 0x9e3779b9 + (h1 << 6) + (h1 >> 2));
+		}
+	};
+
+	struct GUIDPairEqual {
+		bool operator()(const std::pair<GUID, GUID>& lhs, const std::pair<GUID, GUID>& rhs) const noexcept {
+			GUIDEqual eq;
+			return eq(lhs.first, rhs.first) && eq(lhs.second, rhs.second);
+		}
+	};
 }

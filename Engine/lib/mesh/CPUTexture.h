@@ -25,6 +25,8 @@ namespace Engine {
 			m_scratchImage = std::move(other.m_scratchImage);
 			m_isDefaultScratchImage = other.m_isDefaultScratchImage;
 			m_id = other.m_id;
+			m_cpuMaterialsIds = std::move(other.m_cpuMaterialsIds);
+			m_samplerId = other.m_samplerId;
 		}
 		CPUTexture(const CPUTexture& other) = delete;
 		CPUTexture& operator=(const CPUTexture&) = delete;
@@ -58,17 +60,26 @@ namespace Engine {
 		void setCpuMaterialIds(std::unordered_set<GUID, GUIDHash, GUIDEqual>&& ids) {
 			m_cpuMaterialsIds = std::move(ids);
 		}
+
+		GUID& getSamplerId() {
+			return m_samplerId;
+		}
+		void setSamplerId(const GUID& id) {
+			m_samplerId = id;
+		}
+
+		uint32_t bindlessHeapSlot = 0;
 	protected:
 		std::unique_ptr<DirectX::ScratchImage> m_scratchImage = std::make_unique<DirectX::ScratchImage>();
 		bool m_isDefaultScratchImage = true;
 		std::unordered_set<GUID, GUIDHash, GUIDEqual> m_cpuMaterialsIds;
+		GUID m_samplerId = GUID_NULL;
 	};
 
 	class CPUEmissiveTexture : public CPUTexture {
 	public:
 		CPUEmissiveTexture() = default;
 		CPUEmissiveTexture(CPUTexture&& other) noexcept : CPUTexture(std::move(other)) {};
-		DirectX::XMFLOAT3 emissiveFactor = { 0.f, 0.f, 0.f };
 
 		TextureType getType() const override { return TextureType::EMISSIVE; }
 	};
@@ -77,7 +88,6 @@ namespace Engine {
 	public:
 		CPUDiffuseTexture() = default;
 		CPUDiffuseTexture(CPUTexture&& other) noexcept : CPUTexture(std::move(other)) {};
-		DirectX::XMFLOAT4 baseColorFactor = { 1.f, 1.f, 1.f, 1.f };
 
 		TextureType getType() const override { return TextureType::BASE_COLOR; }
 	};
@@ -86,7 +96,6 @@ namespace Engine {
 	public:
 		CPUNormalTexture() = default;
 		CPUNormalTexture(CPUTexture&& other) noexcept : CPUTexture(std::move(other)) {};
-		float scale = 1.f;
 
 		TextureType getType() const override { return TextureType::NORMAL; }
 	};
@@ -95,7 +104,6 @@ namespace Engine {
 	public:
 		CPUOcclusionTexture() = default;
 		CPUOcclusionTexture(CPUTexture&& other) noexcept : CPUTexture(std::move(other)) {};
-		float strength = 1.f;
 
 		TextureType getType() const override { return TextureType::OCCLUSION; }
 	};
@@ -104,8 +112,6 @@ namespace Engine {
 	public:
 		CPUMetallicRoughnessTexture() = default;
 		CPUMetallicRoughnessTexture(CPUTexture&& other) noexcept : CPUTexture(std::move(other)) {};
-		float metallicFactor = 1.f;
-		float roughnessFactor = 1.f;
 
 		TextureType getType() const override { return TextureType::METALLIC_ROUGHNESS; }
 	};

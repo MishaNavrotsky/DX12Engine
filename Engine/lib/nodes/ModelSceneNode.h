@@ -10,6 +10,7 @@
 #include "../managers/GPUMeshManager.h"
 #include "../managers/CPUMaterialManager.h"
 #include "../managers/GPUMaterialManager.h"
+#include "../managers/CPUGPUManager.h"
 
 namespace Engine {
 	class ModelSceneNode : public SceneNode {
@@ -20,7 +21,7 @@ namespace Engine {
 
 			auto modelId = modelLoader.queueGLTF(std::move(path));
 			auto ptr = std::shared_ptr<ModelSceneNode>(new ModelSceneNode(modelManager.get(modelId)));
-			ptr->m_loadingThread = std::thread([node = ptr.get()] {
+			ptr->m_loadingFuture = std::async(std::launch::async, [node = ptr.get()] {
 				node->m_model.waitForIsLoaded();
 				node->m_isReady.store(true, std::memory_order_release);
 				node->onLoadComplete();
@@ -35,7 +36,7 @@ namespace Engine {
 
 			auto modelId = modelLoader.queueGeometry(std::move(cpuMeshGUIDs));
 			auto ptr = std::shared_ptr<ModelSceneNode>(new ModelSceneNode(modelManager.get(modelId)));
-			ptr->m_loadingThread = std::thread([node = ptr.get()] {
+			ptr->m_loadingFuture = std::async(std::launch::async, [node = ptr.get()] {
 				node->m_model.waitForIsLoaded();
 				node->m_isReady.store(true, std::memory_order_release);
 				node->onLoadComplete();
@@ -53,9 +54,11 @@ namespace Engine {
 		}
 
 		~ModelSceneNode() override {
-			if (m_loadingThread.joinable()) {
-				m_loadingThread.join();
-			}
+			waitUntilLoadComplete();
+		}
+
+		void waitUntilLoadComplete() {
+			if (m_loadingFuture.valid()) m_loadingFuture.get();
 		}
 	private:
 		void onLoadComplete() {
@@ -63,6 +66,7 @@ namespace Engine {
 			static auto& gpuMeshManager = GPUMeshManager::GetInstance();
 			static auto& cpuMaterialManager = CPUMaterialManager::GetInstance();
 			static auto& gpuMaterialManager = GPUMaterialManager::GetInstance();
+			static auto& cpuGPUManager = CPUGPUManager::GetInstance();
 
 			auto cpuMeshes = cpuMeshManager.getMany(m_model.getCPUMeshIds());
 			auto gpuMeshes = gpuMeshManager.getMany(m_model.getGPUMeshIds());
@@ -70,8 +74,18 @@ namespace Engine {
 			for (uint32_t i = 0; i < cpuMeshes.size(); i++) {
 				auto& cpuMesh = cpuMeshes[i].get();
 				auto& gpuMesh = gpuMeshes[i].get();
-				auto& cpuMaterial = cpuMaterialManager.get(cpuMesh.getMaterialId());
-				auto& gpuMaterial = gpuMaterialManager.get(gpuMesh.getGPUMaterialId());
+				auto& cpuMaterial = cpuMaterialManager.get(cpuMesh.getCPUMaterialId());
+
+				auto& cpuMaterialId = cpuMesh.getCPUMaterialId();
+				auto cpugpuOptional = cpuGPUManager.try_get(cpuMaterialId);
+				if (!cpugpuOptional.has_value()) {
+					std::osyncstream(std::cout) << "[ModelSceneNode (OnLoadComplete)]: " << cpuMesh.getID().Data1 << " Missing gpuMaterial proceeding with default \n";
+				}
+				auto& gpuMaterialId = (cpugpuOptional.has_value() ? cpugpuOptional.value().get() : cpuGPUManager.get(GUID_NULL)).gpuId;
+
+
+				auto& gpuMaterial = gpuMaterialManager.get(gpuMaterialId);
+
 
 				m_children.push_back(MeshSceneNode::CreateFromMesh(cpuMesh, gpuMesh, cpuMaterial, gpuMaterial));
 			}
@@ -81,6 +95,6 @@ namespace Engine {
 		bool m_cachedReady = false;
 		ModelSceneNode(Model& model) : m_model(model) {};
 		Model& m_model;
-		std::thread m_loadingThread;
+		std::future<void> m_loadingFuture;
 	};
 }
