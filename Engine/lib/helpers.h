@@ -40,6 +40,17 @@ namespace Engine::Helpers {
 		return flat;
 	}
 
+	inline std::vector<float> FlattenXMFLOAT3Vector(const std::vector<DirectX::XMFLOAT3>& vec) {
+		std::vector<float> flat;
+		flat.reserve(vec.size() * 3);
+		for (const auto& v : vec) {
+			flat.push_back(v.x);
+			flat.push_back(v.y);
+			flat.push_back(v.z);
+		}
+		return flat;
+	}
+
 	inline void TransformAABB_ObjectToWorld(const AABB& objectAABB, const XMMATRIX& worldMatrix, AABB& aabb) {
 		using namespace DirectX;
 		// Load min and max

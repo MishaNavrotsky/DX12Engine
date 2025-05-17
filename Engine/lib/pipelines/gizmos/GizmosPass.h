@@ -55,9 +55,6 @@ namespace Engine {
 			createDsv();
 			createRootSignature();
 
-			D3D12_COMMAND_QUEUE_DESC queueDesc = {};
-			queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
-			queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
 			ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_commandAllocator)));
 			ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_commandAllocatorBarrier)));
 
@@ -98,7 +95,7 @@ namespace Engine {
 			m_commandList->OMSetRenderTargets(1, &rtvHandle, TRUE, &dsvHandle);
 			m_commandList->ClearRenderTargetView(rtvHandle, m_rtvClearValue.Color, 0, nullptr);
 
-			//populateScene(scene);
+			populateScene(scene);
 
 			m_scene->draw(m_commandList.Get(), camera, false, [&](CPUMesh& mesh, CPUMaterial& material, SceneNode* node) {
 				m_commandList->IASetPrimitiveTopology(mesh.topology);
@@ -152,17 +149,17 @@ namespace Engine {
 				DirectX::XMFLOAT3 min;
 				DirectX::XMStoreFloat3(&min, worldSpace.min);
 				DirectX::XMFLOAT3 max;
-				DirectX::XMStoreFloat3(&max, worldSpace.min);
+				DirectX::XMStoreFloat3(&max, worldSpace.max);
 
 
 
 				auto cube = Geometry::GenerateCubeFromPoints(min, max);
 				auto cpuMesh = std::make_unique<CPUMesh>();
-				cpuMesh->setIndices(std::vector<uint32_t>(cube.indices.begin(), cube.indices.end())); 
+				cpuMesh->setIndices(std::vector<uint32_t>(cube.lineListIndices.begin(), cube.lineListIndices.end()));
 				cpuMesh->setVertices(Helpers::FlattenXMFLOAT3Array(cube.vertices));
 				cpuMesh->setNormals(Helpers::FlattenXMFLOAT3Array(cube.normals));
-				cpuMesh->topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-				cpuMesh->topologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+				cpuMesh->topology = D3D_PRIMITIVE_TOPOLOGY_LINELIST;
+				cpuMesh->topologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
 				cpuMesh->setCPUMaterialId(GUID_NULL);
 
 				meshGUIDs.push_back(cpuMeshManager.add(std::move(cpuMesh)));
@@ -202,7 +199,7 @@ namespace Engine {
 			m_rtvClearValue.Color[0] = 0.0f;
 			m_rtvClearValue.Color[1] = 0.0f;
 			m_rtvClearValue.Color[2] = 0.0f;
-			m_rtvClearValue.Color[3] = 1.0f;
+			m_rtvClearValue.Color[3] = 0.0f; //for alpha
 		}
 		void createRtvCommitedResources() {
 			D3D12_HEAP_PROPERTIES rtvProp = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
@@ -316,6 +313,28 @@ namespace Engine {
 			psoDesc.NumRenderTargets = 1;
 			psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 			psoDesc.SampleDesc.Count = 1;
+
+
+			D3D12_BLEND_DESC blendDesc = {};
+			blendDesc.AlphaToCoverageEnable = FALSE;
+			blendDesc.IndependentBlendEnable = FALSE;
+
+			D3D12_RENDER_TARGET_BLEND_DESC rtBlendDesc = {};
+			rtBlendDesc.BlendEnable = TRUE;
+			rtBlendDesc.LogicOpEnable = FALSE;
+
+			rtBlendDesc.SrcBlend = D3D12_BLEND_SRC_ALPHA;
+			rtBlendDesc.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+			rtBlendDesc.BlendOp = D3D12_BLEND_OP_ADD;
+
+			rtBlendDesc.SrcBlendAlpha = D3D12_BLEND_ONE;
+			rtBlendDesc.DestBlendAlpha = D3D12_BLEND_ZERO;
+			rtBlendDesc.BlendOpAlpha = D3D12_BLEND_OP_ADD;
+
+			rtBlendDesc.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+			blendDesc.RenderTarget[0] = rtBlendDesc;
+
+			psoDesc.BlendState = blendDesc;
 
 			ComPtr<ID3D12PipelineState> pso;
 			ThrowIfFailed(m_device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pso)));

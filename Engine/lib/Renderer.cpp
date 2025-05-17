@@ -64,16 +64,23 @@ void Renderer::LoadPipeline()
 	m_gbufferPass = std::unique_ptr<Engine::GBufferPass>(new Engine::GBufferPass(m_device, m_width, m_height));
 	m_lightingPass = std::unique_ptr<Engine::LightingPass>(new Engine::LightingPass(m_device, m_width, m_height));
 	m_gizmosPass = std::unique_ptr<Engine::GizmosPass>(new Engine::GizmosPass(m_device, m_width, m_height));
+	m_compositionPass = std::unique_ptr<Engine::CompositionPass>(new Engine::CompositionPass(m_device, m_width, m_height));
 
 	m_camera = std::unique_ptr<Engine::Camera>(new Engine::Camera(XMConvertToRadians(60.0f), m_width, m_height, 0.1f, 100000.0f));
 
 
 
-	D3D12_COMMAND_QUEUE_DESC queueDesc = {};
-	queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
-	queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+	D3D12_COMMAND_QUEUE_DESC directQueueDesc = {};
+	directQueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
+	directQueueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
 
-	ThrowIfFailed(m_device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&m_commandQueue)));
+	ThrowIfFailed(m_device->CreateCommandQueue(&directQueueDesc, IID_PPV_ARGS(&m_directCommandQueue)));
+
+	D3D12_COMMAND_QUEUE_DESC computeQueueDesc = {};
+	computeQueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
+	computeQueueDesc.Type = D3D12_COMMAND_LIST_TYPE_COMPUTE;
+
+	ThrowIfFailed(m_device->CreateCommandQueue(&computeQueueDesc, IID_PPV_ARGS(&m_computeCommandQueue)));
 
 	DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
 	swapChainDesc.BufferCount = FrameCount;
@@ -86,7 +93,7 @@ void Renderer::LoadPipeline()
 
 	ComPtr<IDXGISwapChain1> swapChain;
 	ThrowIfFailed(factory->CreateSwapChainForHwnd(
-		m_commandQueue.Get(), Win32Application::GetHwnd(),
+		m_directCommandQueue.Get(), Win32Application::GetHwnd(),
 		&swapChainDesc,
 		nullptr,
 		nullptr,
@@ -140,12 +147,12 @@ void Renderer::LoadAssets()
 		//}
 
 		m_scene.addNode(Engine::ModelSceneNode::CreateFromGLTFFile(L"assets\\models\\alicev2rigged.glb"));
-		auto o = Engine::ModelSceneNode::CreateFromGLTFFile(L"assets\\models\\alicev2rigged_c.glb");
-		Engine::ModelMatrix modelMatrix;
-		modelMatrix.setPosition(8000, 0, 0);
-		modelMatrix.update();
-		o.get()->setLocalModelMatrix(modelMatrix);
-		m_scene.addNode(o);
+		//auto o = Engine::ModelSceneNode::CreateFromGLTFFile(L"assets\\models\\alicev2rigged_c.glb");
+		//Engine::ModelMatrix modelMatrix;
+		//modelMatrix.setPosition(8000, 0, 0);
+		//modelMatrix.update();
+		//o.get()->setLocalModelMatrix(modelMatrix);
+		//m_scene.addNode(o);
 
 		//auto cpuMesh = std::make_unique<Engine::CPUMesh>();
 		//auto cpuMaterial = std::make_unique <Engine::CPUMaterial>();
@@ -248,27 +255,46 @@ void Renderer::OnRender()
 		this->OnKeyDown();
 	}
 	m_camera->update();
-	PopulateCommandList();
+	m_modelLoader.waitForQueueEmpty();
+	m_uploadQueue.execute();
+	auto commandLists = PopulateCommandLists();
+
+
+	std::array<ID3D12CommandList*, commandLists.d_gbuffer.size() + commandLists.d_gizmos.size()> d_combined;
+
+	std::copy(commandLists.d_gbuffer.begin(), commandLists.d_gbuffer.end(), d_combined.begin());
+	std::copy(commandLists.d_gizmos.begin(), commandLists.d_gizmos.end(), d_combined.begin() + commandLists.d_gbuffer.size());
+
+
+	m_directCommandQueue->ExecuteCommandLists(static_cast<UINT>(d_combined.size()), d_combined.data());
+	ThrowIfFailed(m_directCommandQueue->Signal(m_fence.Get(), ++m_fenceValue));
+	
+	ThrowIfFailed(m_computeCommandQueue->Wait(m_fence.Get(), m_fenceValue));
+	m_computeCommandQueue->ExecuteCommandLists(static_cast<UINT>(commandLists.c_lighting.size()), commandLists.c_lighting.data());
+	ThrowIfFailed(m_computeCommandQueue->Signal(m_fence.Get(), ++m_fenceValue));
+
+	ThrowIfFailed(m_directCommandQueue->Wait(m_fence.Get(), m_fenceValue));
+	m_directCommandQueue->ExecuteCommandLists(static_cast<UINT>(commandLists.d_composition.size()), commandLists.d_composition.data());
 
 
 	ThrowIfFailed(m_commandAllocator->Reset());
 	ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), nullptr));
 
-	auto uavBuffer = m_lightingPass->getOutputTexture();
+	auto compositionRtv = m_compositionPass->getRtvResource();
 	auto swapChainBuffer = m_renderTargets[m_swapChain->GetCurrentBackBufferIndex()].Get();
 
 	{
 		CD3DX12_RESOURCE_BARRIER uavBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
-			uavBuffer, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
+			compositionRtv, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE);
 		CD3DX12_RESOURCE_BARRIER swapChainBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
 			swapChainBuffer, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_COPY_DEST);
 		D3D12_RESOURCE_BARRIER barriers[] = { uavBarrier,  swapChainBarrier };
 		m_commandList->ResourceBarrier(2, barriers);
 	}
-	m_commandList->CopyResource(swapChainBuffer, uavBuffer);
+	m_commandList->CopyResource(swapChainBuffer, compositionRtv);
 	{
 		CD3DX12_RESOURCE_BARRIER uavBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
-			uavBuffer, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+			compositionRtv, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET);
 		CD3DX12_RESOURCE_BARRIER swapChainBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
 			swapChainBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PRESENT);
 		D3D12_RESOURCE_BARRIER barriers[] = { uavBarrier,  swapChainBarrier };
@@ -276,9 +302,9 @@ void Renderer::OnRender()
 	}
 
 	ThrowIfFailed(m_commandList->Close());
-	m_commandQueue->Wait(m_lightingPass->getFence(), m_lightingPass->getFenceValue());
 	ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
-	m_commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
+	m_directCommandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
+
 	WaitForCommandQueueExecute();
 	ThrowIfFailed(m_swapChain->Present(0, 0));
 }
@@ -290,26 +316,25 @@ void Renderer::OnDestroy()
 	CloseHandle(m_fenceEvent);
 }
 
-void Renderer::PopulateCommandList()
+Renderer::CommandLists Renderer::PopulateCommandLists()
 {
-	m_gbufferPass->renderGBuffers(&m_scene, m_camera.get());
-	m_lightingPass->computeLighting(m_gbufferPass.get(), m_camera.get());
-	{
-		m_lightingPass->waitForGPU();
-		auto list = m_gizmosPass->renderGizmos(&m_scene, m_camera.get(), m_gbufferPass->getDepthStencilResource());
-	}
+	auto commandLists = Renderer::CommandLists();
+	commandLists.d_gbuffer = m_gbufferPass->renderGBuffers(&m_scene, m_camera.get());
+	commandLists.c_lighting = m_lightingPass->computeLighting(m_gbufferPass.get(), m_camera.get());
+	commandLists.d_gizmos = m_gizmosPass->renderGizmos(&m_scene, m_camera.get(), m_gbufferPass->getDepthStencilResource());
+	commandLists.d_composition = m_compositionPass->renderComposition(m_lightingPass->getOutputTexture(), m_gizmosPass->getRtvResource(), m_camera.get());
+
+	return std::move(commandLists);
 }
 
 void Renderer::WaitForCommandQueueExecute()
 {
 
-	const UINT64 fence = m_fenceValue;
-	ThrowIfFailed(m_commandQueue->Signal(m_fence.Get(), fence));
-	m_fenceValue++;
+	ThrowIfFailed(m_directCommandQueue->Signal(m_fence.Get(), ++m_fenceValue));
 
-	if (m_fence->GetCompletedValue() < fence)
+	if (m_fence->GetCompletedValue() < m_fenceValue)
 	{
-		ThrowIfFailed(m_fence->SetEventOnCompletion(fence, m_fenceEvent));
+		ThrowIfFailed(m_fence->SetEventOnCompletion(m_fenceValue, m_fenceEvent));
 		WaitForSingleObject(m_fenceEvent, INFINITE);
 	}
 }

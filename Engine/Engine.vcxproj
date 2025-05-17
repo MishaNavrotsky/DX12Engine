@@ -170,7 +170,7 @@
     <ClInclude Include="lib\pipelines\gizmos\GizmosPass.h" />
     <ClInclude Include="lib\pipelines\LightingPass.h" />
     <ClInclude Include="lib\pipelines\GBufferPass.h" />
-    <ClInclude Include="lib\pipelines\OverlayPass.h" />
+    <ClInclude Include="lib\pipelines\CompositionPass.h" />
     <ClInclude Include="lib\pipelines\PSOShader.h" />
     <ClInclude Include="lib\queues\GPUUploadQueue.h" />
     <ClInclude Include="lib\renderable\MeshRenderable.h" />
@@ -274,6 +274,13 @@
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="assets\shaders\gizmos.hlsl">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <FileType>Document</FileType>
+      <DestinationFolders Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)/assets/shaders</DestinationFolders>
+    </CopyFileToFolders>
+  </ItemGroup>
+  <ItemGroup>
+    <CopyFileToFolders Include="assets\shaders\composition.hlsl">
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
       <FileType>Document</FileType>
       <DestinationFolders Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)/assets/shaders</DestinationFolders>

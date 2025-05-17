@@ -38,23 +38,28 @@ cbuffer cb1 : register(b1)
     uint4 cbvDataBindlessHeapSlot;
 };
 
-PSInput VSMain(VertexShaderInput input)
+PSInput VSMain(VertexShaderInput input, uint vertexID : SV_VertexID)
 {
     PSInput result;
     result.position = mul(float4(input.position, 1.0), viewProjectionReverseDepthMatrix);
     
+    //float2 positions[3] =
+    //{
+    //    float2(-1.0, -1.0), // Bottom-left
+    //    float2(3.0, -1.0), // Bottom-right (off-screen to ensure full coverage)
+    //    float2(-1.0, 3.0) // Top-left (off-screen to ensure full coverage)
+    //};
+    
+    //result.position = float4(1, 1, 1, 5); 
+    //result.position.xy = positions[vertexID % 3];
+    
     return result;
 }
 
-struct PSOutput
-{
-    float4 albedo : SV_Target0;
-};
 
 
-PSOutput PSMain(PSInput input)
+
+float4 PSMain(PSInput input) : SV_Target
 {
-    PSOutput output;
-    output.albedo = float4(1.0, 1.0, 1.0, 1.0);
-    return output;
+    return float4(1.0, 1.0, 1.0, 1.0);
 }

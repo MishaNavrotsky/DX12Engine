@@ -111,7 +111,7 @@ namespace Engine {
 			XMStoreFloat4x4(&cbvData.prevViewProjectionReverseDepthMatrix, XMMatrixTranspose(cameraPrevView * cameraPrevProjectionReverseDepth));
 
 			XMStoreFloat4(&cbvData.position, getPosition());
-			XMVECTOR dimensions = XMVectorSetInt(m_width, m_height, 0, 0);
+			XMVECTOR dimensions = XMVectorSet((float)m_width, (float)m_height, 0.0f, 0.0f);
 			XMStoreUInt4(&cbvData.dimensions, dimensions);
 
 

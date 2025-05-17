@@ -19,26 +19,15 @@ namespace Engine {
 			m_shaders = PSOShader::Create(psoSC);
 			ThrowIfFailed(m_device->CreateRootSignature(0, m_shaders->getCOM()->GetBufferPointer(), m_shaders->getCOM()->GetBufferSize(), IID_PPV_ARGS(&m_rootSignature)));
 
-			D3D12_COMMAND_QUEUE_DESC queueDesc = {};
-			queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
-			queueDesc.Type = D3D12_COMMAND_LIST_TYPE_COMPUTE;
-			ThrowIfFailed(m_device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&m_commandQueue)));
-			m_commandQueue->SetName(L"LightingPass Command Queue");
 			ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COMPUTE, IID_PPV_ARGS(&m_commandAllocator)));
 			ThrowIfFailed(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COMPUTE, m_commandAllocator.Get(), nullptr, IID_PPV_ARGS(&m_commandList)));
 			ThrowIfFailed(m_commandList->Close());
-			ThrowIfFailed(m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence)));
-			m_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-			if (m_fenceEvent == nullptr)
-			{
-				ThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
-			}
 
 			createPso();
 			createRWTex();
 		}
 
-		void computeLighting(GBufferPass* gbufferPass, Camera* camera) {
+		std::array<ID3D12CommandList*, 1> computeLighting(GBufferPass* gbufferPass, Camera* camera) {
 			createDescriptorHeap(gbufferPass->getRtvResources());
 
 			ThrowIfFailed(m_commandAllocator->Reset());
@@ -56,25 +45,7 @@ namespace Engine {
 			m_commandList->Dispatch(dispatchX, dispatchY, 1);
 			ThrowIfFailed(m_commandList->Close());
 
-			m_commandQueue->Wait(gbufferPass->getFence(), gbufferPass->getFenceValue());
-			ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
-			m_commandQueue->ExecuteCommandLists(1, ppCommandLists);
-			ThrowIfFailed(m_commandQueue->Signal(m_fence.Get(), ++m_fenceValue));
-		}
-
-		ID3D12Fence* getFence() const {
-			return m_fence.Get();
-		}
-
-		UINT64 getFenceValue() const {
-			return m_fenceValue;
-		}
-
-		void waitForGPU() {
-			if (m_fence->GetCompletedValue() < m_fenceValue) {
-				ThrowIfFailed(m_fence->SetEventOnCompletion(m_fenceValue, m_fenceEvent));
-				WaitForSingleObject(m_fenceEvent, INFINITE);
-			}
+			return std::array<ID3D12CommandList*, 1>({ m_commandList.Get() });
 		}
 
 		ID3D12Resource* getOutputTexture() {
@@ -147,17 +118,12 @@ namespace Engine {
 		ComPtr<ID3D12PipelineState> m_pso;
 		ComPtr<ID3D12RootSignature> m_rootSignature;
 		ComPtr<ID3D12GraphicsCommandList> m_commandList;
-		ComPtr<ID3D12CommandQueue> m_commandQueue;
 		ComPtr<ID3D12CommandAllocator> m_commandAllocator;
 		std::unique_ptr<PSOShader> m_shaders;
 
 		ComPtr<ID3D12Resource> m_rwTexture;
 		ComPtr<ID3D12DescriptorHeap> m_descriptorHeap = nullptr;
 
-
-		HANDLE m_fenceEvent;
-		ComPtr<ID3D12Fence> m_fence;
-		UINT64 m_fenceValue = 0;
 
 		UINT m_width;
 		UINT m_height;
