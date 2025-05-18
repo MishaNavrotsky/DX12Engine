@@ -16,3 +16,4 @@ void Engine::MeshRenderable::render(ID3D12GraphicsCommandList* commandList)
     UINT indexCount = m_gpuMesh.GetIndexBufferView()->SizeInBytes / sizeof(UINT);
     commandList->DrawIndexedInstanced(indexCount, 1, 0, 0, 0);
 }
+  

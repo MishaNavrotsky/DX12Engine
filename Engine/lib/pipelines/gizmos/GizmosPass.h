@@ -12,6 +12,7 @@
 #include "../../scene/SceneNode.h"
 #include "../../scene/Scene.h"
 #include "../../geometry/CubeGeometry.h"
+#include "../../geometry/PlaneGeometry.h"
 #include "../../helpers.h"
 
 #include "../../managers/CPUMaterialManager.h"
@@ -95,7 +96,7 @@ namespace Engine {
 			m_commandList->OMSetRenderTargets(1, &rtvHandle, TRUE, &dsvHandle);
 			m_commandList->ClearRenderTargetView(rtvHandle, m_rtvClearValue.Color, 0, nullptr);
 
-			populateScene(scene);
+			populateScene(scene, camera);
 
 			m_scene->draw(m_commandList.Get(), camera, false, [&](CPUMesh& mesh, CPUMaterial& material, SceneNode* node) {
 				m_commandList->IASetPrimitiveTopology(mesh.topology);
@@ -133,7 +134,7 @@ namespace Engine {
 		}
 	private:
 
-		void populateScene(Scene* oScene) {
+		void populateScene(Scene* oScene, Camera* camera) {
 			m_scene->getSceneRootNodes().clear();
 			static auto& cpuMaterialManager = CPUMaterialManager::GetInstance();
 			static auto& cpuMeshManager = CPUMeshManager::GetInstance();
@@ -165,6 +166,22 @@ namespace Engine {
 				meshGUIDs.push_back(cpuMeshManager.add(std::move(cpuMesh)));
 			}
 
+			//auto& frustrum = camera->getFrustum();
+			//for (int i = 0; i < std::size(frustrum.planes); ++i) {
+			//	auto plane = frustrum.planes[i];
+			//	auto p = Geometry::GeneratePlaneQuad(plane);
+			//	std::array<uint32_t, 8> lineIndices = {
+			//		0, 1, 1, 2, 2, 3, 3, 0
+			//	};
+
+			//	auto cpuMesh = std::make_unique<CPUMesh>();
+			//	cpuMesh->setVertices(Helpers::FlattenXMFLOAT3Array(p));
+			//	cpuMesh->setIndices(std::vector<uint32_t>(lineIndices.begin(), lineIndices.end()));
+			//	cpuMesh->topology = D3D_PRIMITIVE_TOPOLOGY_LINELIST;
+			//	cpuMesh->topologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
+			//	cpuMesh->setCPUMaterialId(GUID_NULL);
+			//	meshGUIDs.push_back(cpuMeshManager.add(std::move(cpuMesh)));
+			//}
 
 			auto o = ModelSceneNode::CreateFromGeometry(meshGUIDs);
 			modelLoader.waitForQueueEmpty();

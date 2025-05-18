@@ -44,8 +44,11 @@ namespace Engine {
 			}
 
 			if (enableFrustumCulling) {
-				//auto& cameraFrustum = camera->getFrustum();
-				//if (!Helpers::IsAABBInFrustum(cameraFrustum, m_worldSpaceAABB.min, m_worldSpaceAABB.max)) return;
+				auto& cameraFrustum = camera->getFrustum();
+				if (!Helpers::AABBInFrustum(cameraFrustum.planes, m_worldSpaceAABB.min, m_worldSpaceAABB.max)) {
+					return; 
+				}
+				std::cout << "herth \n";
 			}
 
 			if (callback(m_cpuMesh, m_cpuMaterial, this)) return;

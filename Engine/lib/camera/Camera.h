@@ -22,41 +22,19 @@ namespace Engine {
 		XMUINT4 dimensions;
 	};
 
-	struct Frustum {
-		DirectX::XMVECTOR planes[6]; // 0: left, 1: right, 2: top, 3: bottom, 4: near, 5: far
-	};
-
-	inline Frustum ExtractFrustumPlanes(const XMMATRIX& viewRevProj) {
-		Frustum frustum;
-
-		// Extract planes using row vectors from the View * Reverse Z Projection matrix
-		XMVECTOR row1 = viewRevProj.r[0];
-		XMVECTOR row2 = viewRevProj.r[1];
-		XMVECTOR row3 = viewRevProj.r[2];
-		XMVECTOR row4 = viewRevProj.r[3];
-
-		// Compute frustum planes
-		frustum.planes[0] = XMPlaneNormalize(row4 + row1); // Left
-		frustum.planes[1] = XMPlaneNormalize(row4 - row1); // Right
-		frustum.planes[2] = XMPlaneNormalize(row4 - row2); // Top
-		frustum.planes[3] = XMPlaneNormalize(row4 + row2); // Bottom
-		frustum.planes[4] = XMPlaneNormalize(row4 + row3); // Near (Reverse Z: Near -> 1)
-		frustum.planes[5] = XMPlaneNormalize(row4 - row3); // Far (Reverse Z: Far -> 0)
-
-		return frustum;
-	}
-
 	class Camera {
 	public:
+		struct Frustum {
+			// x,y,z = normal, w = distance
+			DirectX::XMVECTOR planes[6]; // 0: left, 1: right, 2: top, 3: bottom, 4: near, 5: far
+		};
+
 		Camera(float fov, int width, int height, float nearPlane, float farPlane) :
 			m_fov(fov), m_width(width), m_height(height), m_nearPlane(nearPlane), m_farPlane(farPlane) {
 			m_aspectRatio = static_cast<float>(width) / static_cast<float>(height);
 
 			updateProjectionMatrix();
 			updateViewMatrix();
-
-			m_frustum = ExtractFrustumPlanes(m_viewMatrix * m_reverseZProjectionMatrix);
-
 
 			m_prevViewMatrix = m_viewMatrix;
 			m_prevReverseZProjectionMatrix = m_reverseZProjectionMatrix;
@@ -76,6 +54,8 @@ namespace Engine {
 				nullptr,
 				IID_PPV_ARGS(&m_cbv)));
 			m_cbv->SetName(L"Camera Buffer");
+
+			update();
 		}
 
 		void setPosition(XMVECTOR position) {
@@ -99,8 +79,9 @@ namespace Engine {
 			XMStoreFloat4x4(&cbvData.projectionMatrix, cameraProjection);
 			XMStoreFloat4x4(&cbvData.projectionReverseDepthMatrix, cameraProjectionReverseDepth);
 			XMStoreFloat4x4(&cbvData.viewMatrix, cameraView);
-			XMStoreFloat4x4(&cbvData.viewProjectionReverseDepthMatrix, XMMatrixTranspose(m_cameraViewProjReverseDepth));
-			m_frustum = ExtractFrustumPlanes(m_cameraViewProjReverseDepth);
+			auto t = XMMatrixTranspose(m_cameraViewProjReverseDepth);
+			XMStoreFloat4x4(&cbvData.viewProjectionReverseDepthMatrix, t);
+			ExtractFrustumPlanes(t);
 
 			auto cameraPrevProjection = getPrevProjectionMatrix();
 			auto cameraPrevProjectionReverseDepth = getPrevProjectionMatrixForReverseDepth();
@@ -206,6 +187,17 @@ namespace Engine {
 				m_farPlane,
 				m_nearPlane
 			);
+		}
+
+		void ExtractFrustumPlanes(const XMMATRIX& m)
+		{
+			m_frustum.planes[0] = m.r[3] + m.r[0]; // left
+			m_frustum.planes[1] = m.r[3] - m.r[0]; // right 
+			m_frustum.planes[2] = m.r[3] + m.r[1]; // bottom
+			m_frustum.planes[3] = m.r[3] - m.r[1]; // top
+			m_frustum.planes[4] = m.r[3] - m.r[2]; // far
+			m_frustum.planes[5] = m.r[2]; // near
+			//m_frustum.planes[5] = m.r[3] + m.r[2]; // near
 		}
 	};
 }

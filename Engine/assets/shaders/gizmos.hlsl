@@ -43,16 +43,6 @@ PSInput VSMain(VertexShaderInput input, uint vertexID : SV_VertexID)
     PSInput result;
     result.position = mul(float4(input.position, 1.0), viewProjectionReverseDepthMatrix);
     
-    //float2 positions[3] =
-    //{
-    //    float2(-1.0, -1.0), // Bottom-left
-    //    float2(3.0, -1.0), // Bottom-right (off-screen to ensure full coverage)
-    //    float2(-1.0, 3.0) // Top-left (off-screen to ensure full coverage)
-    //};
-    
-    //result.position = float4(1, 1, 1, 5); 
-    //result.position.xy = positions[vertexID % 3];
-    
     return result;
 }
 

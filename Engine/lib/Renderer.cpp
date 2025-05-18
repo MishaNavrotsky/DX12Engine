@@ -147,12 +147,12 @@ void Renderer::LoadAssets()
 		//}
 
 		m_scene.addNode(Engine::ModelSceneNode::CreateFromGLTFFile(L"assets\\models\\alicev2rigged.glb"));
-		//auto o = Engine::ModelSceneNode::CreateFromGLTFFile(L"assets\\models\\alicev2rigged_c.glb");
-		//Engine::ModelMatrix modelMatrix;
-		//modelMatrix.setPosition(8000, 0, 0);
-		//modelMatrix.update();
-		//o.get()->setLocalModelMatrix(modelMatrix);
-		//m_scene.addNode(o);
+		auto o = Engine::ModelSceneNode::CreateFromGLTFFile(L"assets\\models\\alicev2rigged_c.glb");
+		Engine::ModelMatrix modelMatrix;
+		modelMatrix.setPosition(8000, 0, 0);
+		modelMatrix.update();
+		o.get()->setLocalModelMatrix(modelMatrix);
+		m_scene.addNode(o);
 
 		//auto cpuMesh = std::make_unique<Engine::CPUMesh>();
 		//auto cpuMaterial = std::make_unique <Engine::CPUMaterial>();

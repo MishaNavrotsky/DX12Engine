@@ -60,5 +60,35 @@ namespace Engine::Geometry {
 
 		return plane;
 	}
+
+	inline std::array<DirectX::XMFLOAT3, 4> GeneratePlaneQuad(const DirectX::XMVECTOR& plane) {
+		DirectX::XMFLOAT4 planeData;
+		XMStoreFloat4(&planeData, plane);
+
+		DirectX::XMVECTOR normal = XMVectorSet(planeData.x, planeData.y, planeData.z, 0.0f);
+		float d = planeData.w;
+
+		// Find a reference point on the plane
+		DirectX::XMVECTOR center = XMVectorScale(normal, -d);
+
+		// Generate two perpendicular vectors to form the quad basis
+		DirectX::XMVECTOR right = XMVector3Normalize(XMVectorSet(planeData.y, -planeData.x, 0.0f, 0.0f));
+		DirectX::XMVECTOR up = XMVector3Normalize(XMVector3Cross(normal, right));
+
+		// Define quad corners
+		DirectX::XMVECTOR p1 = XMVectorAdd(center, XMVectorScale(right, 5.0f));
+		DirectX::XMVECTOR p2 = XMVectorAdd(center, XMVectorScale(up, 5.0f));
+		DirectX::XMVECTOR p3 = XMVectorSubtract(center, XMVectorScale(right, 5.0f));
+		DirectX::XMVECTOR p4 = XMVectorSubtract(center, XMVectorScale(up, 5.0f));
+
+		// Store result
+		std::array<DirectX::XMFLOAT3, 4> quad;
+		XMStoreFloat3(&quad[0], p1);
+		XMStoreFloat3(&quad[1], p2);
+		XMStoreFloat3(&quad[2], p3);
+		XMStoreFloat3(&quad[3], p4);
+
+		return quad;
+	}
 }
 

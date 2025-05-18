@@ -84,23 +84,55 @@ namespace Engine::Helpers {
 		aabb.max = transformedMax;
 	}
 
-	inline bool IsAABBInFrustum(const Frustum& frustum, const XMVECTOR& minBounds, const XMVECTOR& maxBounds) {
-		for (int i = 0; i < 6; i++) {
-			XMVECTOR plane = frustum.planes[i];
+	inline bool AABBInFrustum(const XMVECTOR* frustumPlanes, const XMFLOAT3& minBounds, const XMFLOAT3& maxBounds)
+	{
+		for (int i = 0; i < 6; i++)
+		{
+			XMVECTOR plane = frustumPlanes[i];
 
-			// Extract the normal (ignore the .w component)
-			XMVECTOR normal = XMVectorSetW(plane, 0.0f);
+			// Select the most positive vertex for the plane test
+			XMFLOAT3 positiveVertex = {
+				(XMVectorGetX(plane) >= 0) ? maxBounds.x : minBounds.x,
+				(XMVectorGetY(plane) >= 0) ? maxBounds.y : minBounds.y,
+				(XMVectorGetZ(plane) >= 0) ? maxBounds.z : minBounds.z
+			};
 
-			// Compute the positive vertex (furthest in the direction of the plane normal)
-			XMVECTOR positiveVertex = XMVectorSelect(minBounds, maxBounds, XMVectorGreaterOrEqual(normal, XMVectorZero()));
-
-			// If the positive vertex is outside the plane, the AABB is outside the frustum
-			if (XMVectorGetX(XMPlaneDotCoord(plane, positiveVertex)) < 0.0f) {
-				return false;
+			// Perform the plane test
+			if (XMVectorGetX(plane) * positiveVertex.x +
+				XMVectorGetY(plane) * positiveVertex.y +
+				XMVectorGetZ(plane) * positiveVertex.z +
+				XMVectorGetW(plane) < 0)
+			{
+				return false; // AABB is outside the frustum
 			}
 		}
+		return true; // AABB is inside or intersecting the frustum
+	}
 
-		return true; // AABB is inside or intersects the frustum
+	inline bool AABBInFrustum(const XMVECTOR* frustumPlanes, const XMVECTOR minBounds, const XMVECTOR maxBounds)
+	{
+		for (int i = 0; i < 6; i++)
+		{
+			XMVECTOR plane = frustumPlanes[i];
+
+			// Select the most positive vertex for the plane test
+			XMVECTOR positiveVertex = XMVectorSet(
+				(XMVectorGetX(plane) >= 0) ? XMVectorGetX(maxBounds) : XMVectorGetX(minBounds),
+				(XMVectorGetY(plane) >= 0) ? XMVectorGetY(maxBounds) : XMVectorGetY(minBounds),
+				(XMVectorGetZ(plane) >= 0) ? XMVectorGetZ(maxBounds) : XMVectorGetZ(minBounds),
+				1.0f // Homogeneous coordinate
+			);
+
+			// Perform the plane test
+			if (XMVectorGetX(plane) * XMVectorGetX(positiveVertex) +
+				XMVectorGetY(plane) * XMVectorGetY(positiveVertex) +
+				XMVectorGetZ(plane) * XMVectorGetZ(positiveVertex) +
+				XMVectorGetW(plane) < 0)
+			{
+				return false; // AABB is outside the frustum
+			}
+		}
+		return true; // AABB is inside or intersecting the frustum
 	}
 
 	inline uint64_t Align(uint64_t size, uint64_t alignment) {
