@@ -7,6 +7,7 @@
 
 namespace Engine {
 	using namespace DirectX;
+	using namespace Microsoft::WRL;
 
 	struct CBVCameraData {
 		XMFLOAT4X4 projectionMatrix;

@@ -77,7 +77,7 @@ namespace Engine {
 		MeshSceneNode(CPUMesh& cpuMesh, GPUMesh& gpuMesh, CPUMaterial& cpuMaterial, GPUMaterial& gpuMaterial) : m_cpuMesh(cpuMesh), m_gpuMesh(gpuMesh), m_cpuMaterial(cpuMaterial), m_gpuMaterial(gpuMaterial) {
 			m_meshRenderable = std::make_unique<MeshRenderable>(cpuMesh, gpuMesh, cpuMaterial, gpuMaterial);
 
-			D3D12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(Helpers::Align(sizeof(CBVMeshData), 256));
+			D3D12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(Align(sizeof(CBVMeshData), 256));
 			D3D12_HEAP_PROPERTIES heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
 			auto device = Device::GetDevice();
 

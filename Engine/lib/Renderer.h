@@ -15,6 +15,7 @@
 #include "pipelines/gizmos/GizmosPass.h"
 #include "mesh/InitializeDefault.h"
 #include "pipelines/CompositionPass.h"
+#include "memory/Resource.h"
 
 
 using namespace DirectX;

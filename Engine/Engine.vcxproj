@@ -140,6 +140,7 @@
     <ClInclude Include="lib\geometry\PlaneGeometry.h" />
     <ClInclude Include="lib\geometry\SphereGeometry.h" />
     <ClInclude Include="lib\managers\CPUGPUManager.h" />
+    <ClInclude Include="lib\memory\Resource.h" />
     <ClInclude Include="lib\mesh\InitializeDefault.h" />
     <ClInclude Include="lib\nodes\MeshSceneNode.h" />
     <ClInclude Include="lib\gltf\GLTFStreamReader.h" />

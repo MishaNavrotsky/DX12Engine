@@ -23,7 +23,7 @@ namespace Engine {
 			auto gpuMaterialId = GUID_NULL;
 			gpuMaterial->setID(gpuMaterialId);
 
-			const uint64_t cbSize = Helpers::Align(sizeof(CPUMaterialCBVData), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+			const uint64_t cbSize = Align(sizeof(CPUMaterialCBVData), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
 
 			auto& cbvRes = gpuMaterial->getCBVResource();
 			D3D12_HEAP_PROPERTIES cbvResProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);

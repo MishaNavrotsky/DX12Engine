@@ -260,7 +260,7 @@ namespace Engine {
 		}
 
 		void uploadMaterials(std::vector<std::reference_wrapper<CPUMaterial>>& cpuMaterials, ModelHeaps* modelHeaps) {
-			const uint64_t cbSize = Helpers::Align(sizeof(CPUMaterialCBVData), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+			const uint64_t cbSize = Align(sizeof(CPUMaterialCBVData), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
 
 			auto cbvsUploadBufferSize = cpuMaterials.size() * cbSize;
 			D3D12_HEAP_PROPERTIES cbvsUploadBufferProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
@@ -394,7 +394,7 @@ namespace Engine {
 				std::vector<D3D12_SUBRESOURCE_DATA> subresources;
 				ThrowIfFailed(PrepareUpload(m_device, image.GetImages(), image.GetImageCount(), image.GetMetadata(), subresources));
 
-				totalTextureUploadBufferSize += Helpers::Align(
+				totalTextureUploadBufferSize += Align(
 					GetRequiredIntermediateSize(gpuTexture->getResource().Get(), 0, static_cast<UINT>(subresources.size())),
 					D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
 
@@ -445,7 +445,7 @@ namespace Engine {
 				//);
 				//commandList->ResourceBarrier(1, &textureFinalBarrier);
 
-				uint64_t requiredSize = Helpers::Align(
+				uint64_t requiredSize = Align(
 					GetRequiredIntermediateSize(texture.getResource().Get(), 0, static_cast<UINT>(subresources.size())),
 					D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
 

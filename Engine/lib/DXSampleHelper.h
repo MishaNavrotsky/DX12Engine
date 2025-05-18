@@ -5,8 +5,6 @@
 #include <comdef.h>
 #include <iostream>
 
-using Microsoft::WRL::ComPtr;
-
 inline std::string HrToString(HRESULT hr)
 {
 	char s_str[64] = {};
@@ -218,7 +216,7 @@ inline Microsoft::WRL::ComPtr<ID3DBlob> CompileShader(
 #endif
 
 template<class T>
-void ResetComPtrArray(T* comPtrArray)
+void ResetPtrArray(T* comPtrArray)
 {
 	for (auto& i : *comPtrArray)
 	{
@@ -257,7 +255,7 @@ inline HRESULT CompileShaderWithMessage(const wchar_t* shaderFilePath, const cha
 	return hr;
 }
 
-inline ComPtr<IDxcBlob> CompileShaderFromFile(IDxcCompiler3* compiler, IDxcLibrary* library, const wchar_t* shaderFilePath, const wchar_t* entryPoint, const wchar_t* targetProfile) {
+inline Microsoft::WRL::ComPtr<IDxcBlob> CompileShaderFromFile(IDxcCompiler3* compiler, IDxcLibrary* library, const wchar_t* shaderFilePath, const wchar_t* entryPoint, const wchar_t* targetProfile) {
 	IDxcBlobEncoding* sourceBlob = nullptr;
 	ThrowIfFailed(library->CreateBlobFromFile(shaderFilePath, nullptr, &sourceBlob));
 
@@ -273,7 +271,7 @@ inline ComPtr<IDxcBlob> CompileShaderFromFile(IDxcCompiler3* compiler, IDxcLibra
 		L"-Qembed_debug"// Specify PDB output file name
 	};
 
-	ComPtr<IDxcResult> result;
+	Microsoft::WRL::ComPtr<IDxcResult> result;
 	ThrowIfFailed(compiler->Compile(
 		&sourceBuffer,          // Shader source
 		arguments,              // Compilation arguments
@@ -283,8 +281,8 @@ inline ComPtr<IDxcBlob> CompileShaderFromFile(IDxcCompiler3* compiler, IDxcLibra
 	));
 
 	if (sourceBlob) sourceBlob->Release();
-	ComPtr<IDxcBlob> shaderBlob;
-	ComPtr<IDxcBlobUtf8> errors;
+	Microsoft::WRL::ComPtr<IDxcBlob> shaderBlob;
+	Microsoft::WRL::ComPtr<IDxcBlobUtf8> errors;
 
 	auto hr = result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&errors), nullptr);
 	if (errors && errors->GetStringLength() > 0) {
@@ -299,20 +297,20 @@ inline ComPtr<IDxcBlob> CompileShaderFromFile(IDxcCompiler3* compiler, IDxcLibra
 
 
 struct DefaultPBRTextures {
-	ComPtr<ID3D12Resource> baseColor;
-	ComPtr<ID3D12Resource> metallicRoughness;
-	ComPtr<ID3D12Resource> normal;
-	ComPtr<ID3D12Resource> emissive;
-	ComPtr<ID3D12Resource> occlusion;
+	Microsoft::WRL::ComPtr<ID3D12Resource> baseColor;
+	Microsoft::WRL::ComPtr<ID3D12Resource> metallicRoughness;
+	Microsoft::WRL::ComPtr<ID3D12Resource> normal;
+	Microsoft::WRL::ComPtr<ID3D12Resource> emissive;
+	Microsoft::WRL::ComPtr<ID3D12Resource> occlusion;
 };
 
-inline ComPtr<ID3D12Resource> CreateAndUpload1x1Texture(
+inline Microsoft::WRL::ComPtr<ID3D12Resource> CreateAndUpload1x1Texture(
 	ID3D12Device* device,
 	ID3D12GraphicsCommandList* cmdList,
 	const void* pixelData,
 	UINT pixelSize,
 	DXGI_FORMAT format,
-	ComPtr<ID3D12Resource>& uploadBufferOut)
+	Microsoft::WRL::ComPtr<ID3D12Resource>& uploadBufferOut)
 {
 	// --- Create default heap texture (GPU)
 	D3D12_RESOURCE_DESC texDesc = {};
@@ -329,7 +327,7 @@ inline ComPtr<ID3D12Resource> CreateAndUpload1x1Texture(
 	D3D12_HEAP_PROPERTIES defaultHeapProps = {};
 	defaultHeapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
 
-	ComPtr<ID3D12Resource> texture;
+	Microsoft::WRL::ComPtr<ID3D12Resource> texture;
 	ThrowIfFailed(device->CreateCommittedResource(
 		&defaultHeapProps,
 		D3D12_HEAP_FLAG_NONE,
@@ -381,9 +379,9 @@ inline ComPtr<ID3D12Resource> CreateAndUpload1x1Texture(
 inline DefaultPBRTextures CreateDefaultPBRTextures(ID3D12Device* m_device)
 {
 	// Create command objects
-	ComPtr<ID3D12CommandAllocator> cmdAllocator;
-	ComPtr<ID3D12GraphicsCommandList> cmdList;
-	ComPtr<ID3D12CommandQueue> queue;
+	Microsoft::WRL::ComPtr<ID3D12CommandAllocator> cmdAllocator;
+	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList;
+	Microsoft::WRL::ComPtr<ID3D12CommandQueue> queue;
 
 	ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&cmdAllocator)));
 	ThrowIfFailed(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, cmdAllocator.Get(), nullptr, IID_PPV_ARGS(&cmdList)));
@@ -400,11 +398,11 @@ inline DefaultPBRTextures CreateDefaultPBRTextures(ID3D12Device* m_device)
 	const uint8_t occlusionPixel[1] = { 255 };
 
 	// Define a struct to hold the upload buffer
-	ComPtr<ID3D12Resource> uploadBuffer0;
-	ComPtr<ID3D12Resource> uploadBuffer1;
-	ComPtr<ID3D12Resource> uploadBuffer2;
-	ComPtr<ID3D12Resource> uploadBuffer3;
-	ComPtr<ID3D12Resource> uploadBuffer4;
+	Microsoft::WRL::ComPtr<ID3D12Resource> uploadBuffer0;
+	Microsoft::WRL::ComPtr<ID3D12Resource> uploadBuffer1;
+	Microsoft::WRL::ComPtr<ID3D12Resource> uploadBuffer2;
+	Microsoft::WRL::ComPtr<ID3D12Resource> uploadBuffer3;
+	Microsoft::WRL::ComPtr<ID3D12Resource> uploadBuffer4;
 
 
 	// Initialize textures using the upload buffer
@@ -421,7 +419,7 @@ inline DefaultPBRTextures CreateDefaultPBRTextures(ID3D12Device* m_device)
 	queue->ExecuteCommandLists(1, lists);
 
 	// Wait for GPU to finish
-	ComPtr<ID3D12Fence> fence;
+	Microsoft::WRL::ComPtr<ID3D12Fence> fence;
 	ThrowIfFailed(m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence)));
 	HANDLE fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 	UINT64 fenceValue = 1;
@@ -484,4 +482,8 @@ inline std::vector<DirectX::XMVECTOR> convertToXMVectors(const std::vector<float
 	}
 
 	return result;
+}
+
+inline uint64_t Align(uint64_t size, uint64_t alignment) {
+	return (size + alignment - 1) & ~(alignment - 1);
 }
