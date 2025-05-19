@@ -48,7 +48,7 @@ namespace Engine {
 
 		std::future<void> queueModel(GUID modelId) {
 			auto lambda = [&, modelId] {
-				std::osyncstream(std::cout) << "[GPUUploadQueue] Queue geometry for model: " << modelId.Data1 << std::endl;
+				std::osyncstream(std::cout) << "[GPUUploadQueue] Queue model: " << modelId.Data1 << std::endl;
 				const int maxAttempts = 5;
 				GPUUploadQueueTask* task = nullptr;
 

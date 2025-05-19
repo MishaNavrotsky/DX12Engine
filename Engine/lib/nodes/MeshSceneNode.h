@@ -48,7 +48,6 @@ namespace Engine {
 				if (!Helpers::AABBInFrustum(cameraFrustum.planes, m_worldSpaceAABB.min, m_worldSpaceAABB.max)) {
 					return; 
 				}
-				std::cout << "herth \n";
 			}
 
 			if (callback(m_cpuMesh, m_cpuMaterial, this)) return;

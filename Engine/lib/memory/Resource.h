@@ -10,20 +10,20 @@ namespace Engine::Memory {
 
 	class Resource {
 	public:
-		static std::unique_ptr<Resource> Create(D3D12_HEAP_TYPE type, UINT size, D3D12_RESOURCE_STATES state, std::unique_ptr<D3D12_CLEAR_VALUE> clearValue = nullptr, D3D12_HEAP_FLAGS flag = D3D12_HEAP_FLAG_NONE) {
+		static std::unique_ptr<Resource> Create(D3D12_HEAP_TYPE type, UINT size, D3D12_RESOURCE_STATES state, const D3D12_CLEAR_VALUE* clearValue = nullptr, D3D12_HEAP_FLAGS flag = D3D12_HEAP_FLAG_NONE) {
 			D3D12_HEAP_PROPERTIES props = CD3DX12_HEAP_PROPERTIES(type);
 			D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer(size);
 			auto resource = new Resource();
 			resource->m_heapType = type;
-			resource->m_clearValue = std::move(clearValue);
+			resource->setClearValue(clearValue);
 			resource->Initialize(&props, flag, &desc, state);
 			resource->saveSize(desc);
 			return std::unique_ptr<Resource>(resource);
 		}
 
-		static std::unique_ptr<Resource> Create(D3D12_HEAP_PROPERTIES props, D3D12_RESOURCE_DESC desc, D3D12_RESOURCE_STATES state, std::unique_ptr<D3D12_CLEAR_VALUE> clearValue = nullptr, D3D12_HEAP_FLAGS flag = D3D12_HEAP_FLAG_NONE) {
+		static std::unique_ptr<Resource> Create(D3D12_HEAP_PROPERTIES props, D3D12_RESOURCE_DESC desc, D3D12_RESOURCE_STATES state, const D3D12_CLEAR_VALUE* clearValue = nullptr, D3D12_HEAP_FLAGS flag = D3D12_HEAP_FLAG_NONE) {
 			auto resource = new Resource();
-			resource->m_clearValue = std::move(clearValue);
+			resource->setClearValue(clearValue);
 			resource->m_heapType = props.Type;
 			resource->Initialize(&props, flag, &desc, state);
 			resource->saveSize(desc);
@@ -42,7 +42,7 @@ namespace Engine::Memory {
 			return m_resource.Get();
 		}
 
-		UINT64 copyData(ID3D12GraphicsCommandList* cmdList, Resource* src, UINT64 sourceOffset,UINT64 size, UINT64 alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT) {
+		UINT64 copyData(ID3D12GraphicsCommandList* cmdList, Resource* src, UINT64 sourceOffset, UINT64 size, UINT64 alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT) {
 			// Align current offset
 			UINT64 alignedOffset = Align(m_currentOffset, alignment);
 
@@ -63,6 +63,14 @@ namespace Engine::Memory {
 
 			return alignedOffset;
 		}
+
+		void copyResource(ID3D12GraphicsCommandList* cmdList, Resource* src) {
+			cmdList->CopyResource(m_resource.Get(), src->m_resource.Get());
+
+			m_allocatedSize = src->m_allocatedSize;
+			m_currentOffset = src->m_currentOffset;
+		}
+
 		UINT64 writeData(const void* data, UINT64 size, UINT64 alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT) {
 			if (m_heapType != D3D12_HEAP_TYPE_UPLOAD && m_heapType != D3D12_HEAP_TYPE_GPU_UPLOAD) {
 				throw std::runtime_error("WriteData is only valid on UPLOAD or READBACK heap types");
@@ -112,6 +120,10 @@ namespace Engine::Memory {
 		D3D12_HEAP_TYPE getType() const {
 			return m_heapType;
 		}
+
+		D3D12_CLEAR_VALUE* getClearValue() const {
+			return m_clearValue.get();
+		}
 	private:
 		void saveSize(D3D12_RESOURCE_DESC& desc) {
 			static auto device = Device::GetDevice();
@@ -122,6 +134,14 @@ namespace Engine::Memory {
 			);
 			totalAllocatedMemory.fetch_add(allocInfo.SizeInBytes, std::memory_order_relaxed);
 			m_allocatedSize = allocInfo.SizeInBytes;
+		}
+		void setClearValue(const D3D12_CLEAR_VALUE* clearValue) {
+			if (clearValue) {
+				m_clearValue = std::make_unique<D3D12_CLEAR_VALUE>(*clearValue);
+			}
+			else {
+				m_clearValue = nullptr;
+			}
 		}
 		Resource() = default; // Private constructor (only Create() can instantiate)
 		void Initialize(_In_  const D3D12_HEAP_PROPERTIES* pHeapProperties,

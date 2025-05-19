@@ -20,6 +20,7 @@
 #include "../../managers/ModelManager.h"
 
 #include "../../nodes/ModelSceneNode.h"
+#include "../../memory/Resource.h"
 
 
 namespace Engine {
@@ -50,7 +51,6 @@ namespace Engine {
 			psoSC.VSEntry = L"VSMain";
 			m_shaders = PSOShader::Create(psoSC);
 
-			setRtvClearValue();
 			createRtvCommitedResources();
 			createRtvsDescriptorHeap();
 			createDsv();
@@ -69,11 +69,11 @@ namespace Engine {
 			m_viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height));
 			m_scissorRect = CD3DX12_RECT(0, 0, static_cast<LONG>(width), static_cast<LONG>(height));
 		}
-		std::array<ID3D12CommandList*, 2> renderGizmos(Scene* scene, Camera* camera, ID3D12Resource* srcDepthBuffer) {
+		std::array<ID3D12CommandList*, 2> renderGizmos(Scene* scene, Camera* camera, Memory::Resource* srcDepthBuffer) {
 			ThrowIfFailed(m_commandAllocator->Reset());
 			ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), nullptr));
 			{
-				CD3DX12_RESOURCE_BARRIER barrierBack = CD3DX12_RESOURCE_BARRIER::Transition(m_rtvResource.Get(),
+				CD3DX12_RESOURCE_BARRIER barrierBack = CD3DX12_RESOURCE_BARRIER::Transition(m_rtvResource->getResource(),
 					D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
 					D3D12_RESOURCE_STATE_RENDER_TARGET);
 
@@ -94,7 +94,7 @@ namespace Engine {
 			auto rtvHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(m_rtvHeap.Get()->GetCPUDescriptorHandleForHeapStart());
 			auto dsvHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(m_dsvHeap.Get()->GetCPUDescriptorHandleForHeapStart());
 			m_commandList->OMSetRenderTargets(1, &rtvHandle, TRUE, &dsvHandle);
-			m_commandList->ClearRenderTargetView(rtvHandle, m_rtvClearValue.Color, 0, nullptr);
+			m_commandList->ClearRenderTargetView(rtvHandle, m_rtvResource->getClearValue()->Color, 0, nullptr);
 
 			populateScene(scene, camera);
 
@@ -112,7 +112,7 @@ namespace Engine {
 			ThrowIfFailed(m_commandAllocatorBarrier->Reset());
 			ThrowIfFailed(m_commandListBarrier->Reset(m_commandAllocatorBarrier.Get(), nullptr));
 			{
-				CD3DX12_RESOURCE_BARRIER barrierBack = CD3DX12_RESOURCE_BARRIER::Transition(m_rtvResource.Get(),
+				CD3DX12_RESOURCE_BARRIER barrierBack = CD3DX12_RESOURCE_BARRIER::Transition(m_rtvResource->getResource(),
 					D3D12_RESOURCE_STATE_RENDER_TARGET,
 					D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 
@@ -125,12 +125,12 @@ namespace Engine {
 			return std::array<ID3D12CommandList*, 2>({ m_commandList.Get(), m_commandListBarrier.Get() });
 		}
 
-		ID3D12Resource* getRtvResource() const {
-			return m_rtvResource.Get();
+		Memory::Resource* getRtvResource() const {
+			return m_rtvResource.get();
 		}
 
-		ID3D12Resource* getDepthStencilResource() const {
-			return m_depthStencilBuffer.Get();
+		Memory::Resource* getDepthStencilResource() const {
+			return m_depthStencilBuffer.get();
 		}
 	private:
 
@@ -189,35 +189,28 @@ namespace Engine {
 			o->waitUntilLoadComplete();
 			m_scene->addNode(std::move(o));
 		}
-		void cloneDepthBuffer(ID3D12Resource* srcDepthBuffer) {
+		void cloneDepthBuffer(Memory::Resource* srcDepthBuffer) {
 			auto b = CD3DX12_RESOURCE_BARRIER::Transition(
-				srcDepthBuffer, D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_COPY_SOURCE);
+				srcDepthBuffer->getResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_COPY_SOURCE);
 			m_commandList->ResourceBarrier(1, &b);
 
 			auto b1 = CD3DX12_RESOURCE_BARRIER::Transition(
-				m_depthStencilBuffer.Get(), D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_COPY_DEST);
+				m_depthStencilBuffer->getResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_COPY_DEST);
 			m_commandList->ResourceBarrier(1, &b1);
 
 			// Copy entire depth buffer
-			m_commandList->CopyResource(m_depthStencilBuffer.Get(), srcDepthBuffer);
+			m_depthStencilBuffer->copyResource(m_commandList.Get(), srcDepthBuffer);
 
 			// Restore original states
 			auto b2 = CD3DX12_RESOURCE_BARRIER::Transition(
-				srcDepthBuffer, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+				srcDepthBuffer->getResource(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_DEPTH_WRITE);
 			m_commandList->ResourceBarrier(1, &b2);
 
 			auto b3 = CD3DX12_RESOURCE_BARRIER::Transition(
-				m_depthStencilBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+				m_depthStencilBuffer->getResource(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_DEPTH_WRITE);
 			m_commandList->ResourceBarrier(1, &b3);
 		}
 
-		void setRtvClearValue() {
-			m_rtvClearValue.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-			m_rtvClearValue.Color[0] = 0.0f;
-			m_rtvClearValue.Color[1] = 0.0f;
-			m_rtvClearValue.Color[2] = 0.0f;
-			m_rtvClearValue.Color[3] = 0.0f; //for alpha
-		}
 		void createRtvCommitedResources() {
 			D3D12_HEAP_PROPERTIES rtvProp = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
 			D3D12_RESOURCE_DESC  rtvDesc = {};
@@ -232,13 +225,19 @@ namespace Engine {
 			rtvDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
 			rtvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 
-			ThrowIfFailed(m_device->CreateCommittedResource(
-				&rtvProp,
-				D3D12_HEAP_FLAG_NONE,
-				&rtvDesc,
+			D3D12_CLEAR_VALUE clearValue = {};
+			clearValue.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+			clearValue.Color[0] = 0.0f;
+			clearValue.Color[1] = 0.0f;
+			clearValue.Color[2] = 0.0f;
+			clearValue.Color[3] = 0.0f; //for alpha
+
+
+			m_rtvResource = Memory::Resource::Create(
+				rtvProp,
+				rtvDesc,
 				D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-				&m_rtvClearValue,
-				IID_PPV_ARGS(&m_rtvResource)));
+				&clearValue);
 		}
 		void createRtvsDescriptorHeap() {
 			D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
@@ -250,7 +249,7 @@ namespace Engine {
 
 			m_rtvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 			D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = m_rtvHeap->GetCPUDescriptorHandleForHeapStart();
-			m_device->CreateRenderTargetView(m_rtvResource.Get(), nullptr, rtvHandle);
+			m_device->CreateRenderTargetView(m_rtvResource->getResource(), nullptr, rtvHandle);
 		}
 		void createDsv() {
 			D3D12_CLEAR_VALUE clearValue = {};
@@ -272,14 +271,11 @@ namespace Engine {
 			D3D12_HEAP_PROPERTIES heapProps = {};
 			heapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
 
-			ThrowIfFailed(m_device->CreateCommittedResource(
-				&heapProps,
-				D3D12_HEAP_FLAG_NONE,
-				&depthBufferDesc,
+			m_depthStencilBuffer = Memory::Resource::Create(
+				heapProps,
+				depthBufferDesc,
 				D3D12_RESOURCE_STATE_DEPTH_WRITE,
-				&clearValue,
-				IID_PPV_ARGS(&m_depthStencilBuffer)
-			));
+				&clearValue);
 
 			D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
 			dsvDesc.Format = DXGI_FORMAT_D32_FLOAT;
@@ -296,7 +292,7 @@ namespace Engine {
 			ThrowIfFailed(m_device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&m_dsvHeap)));
 
 			m_device->CreateDepthStencilView(
-				m_depthStencilBuffer.Get(),
+				m_depthStencilBuffer->getResource(),
 				&dsvDesc,
 				m_dsvHeap->GetCPUDescriptorHandleForHeapStart()
 			);
@@ -394,8 +390,6 @@ namespace Engine {
 		UINT m_width;
 		UINT m_height;
 
-		D3D12_CLEAR_VALUE m_rtvClearValue;
-
 		std::unordered_map<EnumKey, ComPtr<ID3D12PipelineState>, EnumKeyHash> m_psos;
 		ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
 		ComPtr<ID3D12RootSignature> m_rootSignature;
@@ -407,8 +401,8 @@ namespace Engine {
 			{ "TANGENT", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 3, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		};
 
-		ComPtr<ID3D12Resource> m_depthStencilBuffer;
-		ComPtr<ID3D12Resource> m_rtvResource;
+		std::unique_ptr<Memory::Resource> m_depthStencilBuffer;
+		std::unique_ptr<Memory::Resource> m_rtvResource;
 
 		ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
 		std::unique_ptr<PSOShader> m_shaders;

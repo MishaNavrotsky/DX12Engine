@@ -7,6 +7,7 @@
 #include "GBufferPass.h"
 #include "PSOShader.h"
 #include "../camera/Camera.h"
+#include "../memory/Resource.h"
 
 namespace Engine {
 	using namespace Microsoft::WRL;
@@ -48,8 +49,8 @@ namespace Engine {
 			return std::array<ID3D12CommandList*, 1>({ m_commandList.Get() });
 		}
 
-		ID3D12Resource* getOutputTexture() {
-			return m_rwTexture.Get();
+		Memory::Resource* getOutputTexture() {
+			return m_rwTexture.get();
 		}
 	private:
 		void createPso() {
@@ -73,16 +74,13 @@ namespace Engine {
 
 			auto texProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
 
-			ThrowIfFailed(m_device->CreateCommittedResource(
-				&texProps,
-				D3D12_HEAP_FLAG_NONE,
-				&texDesc,
-				D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-				nullptr,
-				IID_PPV_ARGS(&m_rwTexture)));
+			m_rwTexture = Memory::Resource::Create(
+				texProps,
+				texDesc,
+				D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 		}
 
-		void createDescriptorHeap(const std::array<ID3D12Resource*, 7>& rtvs) {
+		void createDescriptorHeap(const std::array<Memory::Resource*, 7>& rtvs) {
 			if (m_descriptorHeap.Get() != nullptr) return;
 
 			D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
@@ -97,22 +95,22 @@ namespace Engine {
 			for (int i = 0; i < rtvs.size(); ++i)
 			{
 				D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-				srvDesc.Format = rtvs[i]->GetDesc().Format;
+				srvDesc.Format = rtvs[i]->getResource()->GetDesc().Format;
 				srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 				srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-				srvDesc.Texture2D.MipLevels = rtvs[i]->GetDesc().MipLevels;
+				srvDesc.Texture2D.MipLevels = rtvs[i]->getResource()->GetDesc().MipLevels;
 
 				CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle(m_descriptorHeap->GetCPUDescriptorHandleForHeapStart(), i, descriptorSize);
-				m_device->CreateShaderResourceView(rtvs[i], &srvDesc, srvHandle);
+				m_device->CreateShaderResourceView(rtvs[i]->getResource(), &srvDesc, srvHandle);
 			}
 
 			D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
-			uavDesc.Format = m_rwTexture->GetDesc().Format;
+			uavDesc.Format = m_rwTexture->getResource()->GetDesc().Format;
 			uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
 			uavDesc.Texture2D.MipSlice = 0;
 
 			CD3DX12_CPU_DESCRIPTOR_HANDLE uavHandle(m_descriptorHeap->GetCPUDescriptorHandleForHeapStart(), 7, descriptorSize);
-			m_device->CreateUnorderedAccessView(m_rwTexture.Get(), nullptr, &uavDesc, uavHandle);
+			m_device->CreateUnorderedAccessView(m_rwTexture->getResource(), nullptr, &uavDesc, uavHandle);
 		}
 		ComPtr<ID3D12Device> m_device;
 		ComPtr<ID3D12PipelineState> m_pso;
@@ -121,7 +119,7 @@ namespace Engine {
 		ComPtr<ID3D12CommandAllocator> m_commandAllocator;
 		std::unique_ptr<PSOShader> m_shaders;
 
-		ComPtr<ID3D12Resource> m_rwTexture;
+		std::unique_ptr<Memory::Resource> m_rwTexture;
 		ComPtr<ID3D12DescriptorHeap> m_descriptorHeap = nullptr;
 
 

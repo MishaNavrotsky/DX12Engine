@@ -11,6 +11,7 @@
 #include "../scene/SceneNode.h"
 #include "../geometry/PlaneGeometry.h"
 #include "../helpers.h"
+#include "../memory/Resource.h"
 
 namespace Engine {
 	using namespace Microsoft::WRL;
@@ -44,11 +45,11 @@ namespace Engine {
 			m_viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, static_cast<float>(m_width), static_cast<float>(height));
 			m_scissorRect = CD3DX12_RECT(0, 0, static_cast<LONG>(m_width), static_cast<LONG>(height));
 		}
-		std::array<ID3D12CommandList*, 2> renderComposition(ID3D12Resource* lightningPassTexture, ID3D12Resource* gizmosPassTexture, Camera* camera) {
+		std::array<ID3D12CommandList*, 2> renderComposition(Memory::Resource* lightningPassTexture, Memory::Resource* gizmosPassTexture, Camera* camera) {
 			ThrowIfFailed(m_commandAllocator->Reset());
 			ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), nullptr));
 			{
-				CD3DX12_RESOURCE_BARRIER barrierBack = CD3DX12_RESOURCE_BARRIER::Transition(lightningPassTexture,
+				CD3DX12_RESOURCE_BARRIER barrierBack = CD3DX12_RESOURCE_BARRIER::Transition(lightningPassTexture->getResource(),
 					D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
 					D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 
@@ -57,7 +58,7 @@ namespace Engine {
 			m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
 			m_commandList->SetGraphicsRootConstantBufferView(1, camera->getResource()->GetGPUVirtualAddress());
 
-			populateSrvDescriptorHeap(lightningPassTexture, gizmosPassTexture);
+			populateSrvDescriptorHeap(lightningPassTexture->getResource(), gizmosPassTexture->getResource());
 			ID3D12DescriptorHeap* heaps[] = { m_srvDescriptorHeap.Get()};
 			m_commandList->SetDescriptorHeaps(_countof(heaps), heaps);
 			m_commandList->SetGraphicsRootDescriptorTable(0, m_srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
@@ -66,7 +67,7 @@ namespace Engine {
 			m_commandList->RSSetScissorRects(1, &m_scissorRect);
 
 			m_commandList->OMSetRenderTargets(1, &m_rtvHandle, TRUE, nullptr);
-			m_commandList->ClearRenderTargetView(m_rtvHandle, m_rtvClearValue.Color, 0, nullptr);
+			m_commandList->ClearRenderTargetView(m_rtvHandle, m_rtvResource->getClearValue()->Color, 0, nullptr);
 			m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 			m_commandList->SetPipelineState(m_pso.Get());
 
@@ -82,7 +83,7 @@ namespace Engine {
 			ThrowIfFailed(m_commandAllocatorBarrier->Reset());
 			ThrowIfFailed(m_commandListBarrier->Reset(m_commandAllocatorBarrier.Get(), nullptr));
 			{
-				CD3DX12_RESOURCE_BARRIER barrierBack = CD3DX12_RESOURCE_BARRIER::Transition(lightningPassTexture,
+				CD3DX12_RESOURCE_BARRIER barrierBack = CD3DX12_RESOURCE_BARRIER::Transition(lightningPassTexture->getResource(),
 					D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
 					D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
@@ -95,8 +96,8 @@ namespace Engine {
 
 		}
 
-		ID3D12Resource* getRtvResource() const {
-			return m_rtvResource.Get();
+		Memory::Resource* getRtvResource() const {
+			return m_rtvResource.get();
 		}
 	private:
 		void createRtvsDescriptorHeap() {
@@ -109,7 +110,7 @@ namespace Engine {
 
 			UINT rtvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 			m_rtvHandle = m_rtvDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-			m_device->CreateRenderTargetView(m_rtvResource.Get(), nullptr, m_rtvHandle);
+			m_device->CreateRenderTargetView(m_rtvResource->getResource(), nullptr, m_rtvHandle);
 		}
 		void createRtvResource() {
 			D3D12_RESOURCE_DESC overlayDesc = {};
@@ -124,22 +125,21 @@ namespace Engine {
 			overlayDesc.DepthOrArraySize = 1;
 			overlayDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 
-			m_rtvClearValue.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-			m_rtvClearValue.Color[0] = 0.0f;
-			m_rtvClearValue.Color[1] = 0.0f;
-			m_rtvClearValue.Color[2] = 0.0f;
-			m_rtvClearValue.Color[3] = 1.0f;
+			D3D12_CLEAR_VALUE rtvClearValue;
+			rtvClearValue.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+			rtvClearValue.Color[0] = 0.0f;
+			rtvClearValue.Color[1] = 0.0f;
+			rtvClearValue.Color[2] = 0.0f;
+			rtvClearValue.Color[3] = 1.0f;
 
 			auto props = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-			m_device->CreateCommittedResource(
-				&props,
-				D3D12_HEAP_FLAG_NONE,
-				&overlayDesc,
+			m_rtvResource = Memory::Resource::Create(
+				props,
+				overlayDesc,
 				D3D12_RESOURCE_STATE_RENDER_TARGET,
-				&m_rtvClearValue,
-				IID_PPV_ARGS(&m_rtvResource)
-			);
-			m_rtvResource->SetName(L"Overlay Texture");
+				&rtvClearValue);
+
+			m_rtvResource->getResource()->SetName(L"Overlay Texture");
 		}
 		void createFullScreenQuad() {
 			static auto& cpuMaterialManager = CPUMaterialManager::GetInstance();
@@ -255,9 +255,8 @@ namespace Engine {
 
 		ComPtr<ID3D12DescriptorHeap> m_rtvDescriptorHeap, m_srvDescriptorHeap;
 		UINT m_cbvSrvUavDescriptorSize;
-		ComPtr<ID3D12Resource> m_rtvResource;
+		std::unique_ptr<Memory::Resource> m_rtvResource;
 		D3D12_CPU_DESCRIPTOR_HANDLE m_rtvHandle;
-		D3D12_CLEAR_VALUE m_rtvClearValue;
 
 		std::unique_ptr<Scene> m_scene = std::make_unique<Engine::Scene>();
 	};

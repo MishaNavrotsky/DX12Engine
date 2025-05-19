@@ -285,16 +285,16 @@ void Renderer::OnRender()
 
 	{
 		CD3DX12_RESOURCE_BARRIER uavBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
-			compositionRtv, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE);
+			compositionRtv->getResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE);
 		CD3DX12_RESOURCE_BARRIER swapChainBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
 			swapChainBuffer, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_COPY_DEST);
 		D3D12_RESOURCE_BARRIER barriers[] = { uavBarrier,  swapChainBarrier };
 		m_commandList->ResourceBarrier(2, barriers);
 	}
-	m_commandList->CopyResource(swapChainBuffer, compositionRtv);
+	m_commandList->CopyResource(swapChainBuffer, compositionRtv->getResource());
 	{
 		CD3DX12_RESOURCE_BARRIER uavBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
-			compositionRtv, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET);
+			compositionRtv->getResource(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET);
 		CD3DX12_RESOURCE_BARRIER swapChainBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
 			swapChainBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PRESENT);
 		D3D12_RESOURCE_BARRIER barriers[] = { uavBarrier,  swapChainBarrier };
