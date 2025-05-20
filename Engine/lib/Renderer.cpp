@@ -68,6 +68,11 @@ void Renderer::LoadPipeline()
 
 	m_camera = std::unique_ptr<Engine::Camera>(new Engine::Camera(XMConvertToRadians(60.0f), m_width, m_height, 0.1f, 100000.0f));
 
+	auto d = Engine::Memory::Heap::Create(1, D3D12_HEAP_TYPE_DEFAULT, static_cast<UINT64>(1024 * 1024 * 1024));
+	auto desc = CD3DX12_RESOURCE_DESC::Buffer(100);
+	desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+	auto res = d->createPlacedResource(desc, D3D12_RESOURCE_STATE_COMMON);
+
 
 
 	D3D12_COMMAND_QUEUE_DESC directQueueDesc = {};

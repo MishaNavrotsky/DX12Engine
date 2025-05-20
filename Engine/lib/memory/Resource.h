@@ -7,9 +7,15 @@
 
 namespace Engine::Memory {
 	using namespace Microsoft::WRL;
-
+	enum class ResourceTypes {
+		Commited,
+		Placed,
+		Reserved,
+	};
 	class Resource {
 	public:
+		Resource(const Resource&) = delete;
+		Resource& operator=(const Resource&) = delete;
 		static std::unique_ptr<Resource> Create(D3D12_HEAP_TYPE type, UINT size, D3D12_RESOURCE_STATES state, const D3D12_CLEAR_VALUE* clearValue = nullptr, D3D12_HEAP_FLAGS flag = D3D12_HEAP_FLAG_NONE) {
 			D3D12_HEAP_PROPERTIES props = CD3DX12_HEAP_PROPERTIES(type);
 			D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer(size);
@@ -30,35 +36,23 @@ namespace Engine::Memory {
 			return std::unique_ptr<Resource>(resource);
 		}
 
-		~Resource() {
-			totalAllocatedMemory.fetch_sub(m_allocatedSize, std::memory_order_relaxed);
-		}
-
-		static UINT64 GetTotalAllocatedMemory() {
-			return totalAllocatedMemory.load(std::memory_order_relaxed);
-		}
-
 		ID3D12Resource* getResource() const {
 			return m_resource.Get();
 		}
 
 		UINT64 copyData(ID3D12GraphicsCommandList* cmdList, Resource* src, UINT64 sourceOffset, UINT64 size, UINT64 alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT) {
-			// Align current offset
 			UINT64 alignedOffset = Align(m_currentOffset, alignment);
 
-			// Ensure space
 			if (alignedOffset + size > m_allocatedSize) {
 				throw std::runtime_error("Resource: Not enough space to copy data.");
 			}
 
-			// Perform GPU copy
 			cmdList->CopyBufferRegion(
 				this->m_resource.Get(), alignedOffset,
 				src->m_resource.Get(), sourceOffset,
 				size
 			);
 
-			// Advance pointer
 			m_currentOffset = alignedOffset + size;
 
 			return alignedOffset;
@@ -113,26 +107,69 @@ namespace Engine::Memory {
 			m_resource->Unmap(0, nullptr);
 		}
 
+		UINT64 getSize() const {
+			return m_allocatedSize;
+		}
+
+		ResourceTypes getResourceType() const {
+			return m_resourceType;
+		}
+
+		UINT64 getCurrentOffset() const {
+			return m_currentOffset;
+		}
+
 		void resetOffset() {
 			m_currentOffset = 0;
 		}
 
-		D3D12_HEAP_TYPE getType() const {
+		D3D12_HEAP_TYPE getHeapType() const {
 			return m_heapType;
 		}
 
 		D3D12_CLEAR_VALUE* getClearValue() const {
 			return m_clearValue.get();
 		}
+
+		~Resource() {
+			if (m_resourceType == ResourceTypes::Commited) return;
+			if (m_heapType == D3D12_HEAP_TYPE_UPLOAD || m_heapType == D3D12_HEAP_TYPE_READBACK || m_heapType == D3D12_HEAP_TYPE_GPU_UPLOAD) {
+				cpuTotalAllocatedMemory.fetch_sub(m_allocatedSize, std::memory_order_relaxed);
+			}
+			else if (m_heapType == D3D12_HEAP_TYPE_DEFAULT) {
+				gpuTotalAllocatedMemory.fetch_sub(m_allocatedSize, std::memory_order_relaxed);
+			}
+			else if (m_heapType == D3D12_HEAP_TYPE_CUSTOM) {
+				//throw std::runtime_error("[Resource] D3D12_HEAP_TYPE_CUSTOM not yet supported");
+				//gpuTotalAllocatedMemory.fetch_add(allocInfo.SizeInBytes, std::memory_order_relaxed);
+			}
+		}
+		static UINT64 GetTotalAllocatedMemoryCPU() {
+			return cpuTotalAllocatedMemory.load(std::memory_order_relaxed);
+		}
+		static UINT64 GetTotalAllocatedMemoryGPU() {
+			return gpuTotalAllocatedMemory.load(std::memory_order_relaxed);
+		}
 	private:
-		void saveSize(D3D12_RESOURCE_DESC& desc) {
+		virtual void saveSize(D3D12_RESOURCE_DESC& desc) {
 			static auto device = Device::GetDevice();
+			if (m_resourceType == ResourceTypes::Commited) return;
+
 			D3D12_RESOURCE_ALLOCATION_INFO allocInfo = device->GetResourceAllocationInfo(
 				0,
 				1,
 				&desc
 			);
-			totalAllocatedMemory.fetch_add(allocInfo.SizeInBytes, std::memory_order_relaxed);
+			if (m_heapType == D3D12_HEAP_TYPE_UPLOAD || m_heapType == D3D12_HEAP_TYPE_READBACK || m_heapType == D3D12_HEAP_TYPE_GPU_UPLOAD) {
+				cpuTotalAllocatedMemory.fetch_add(allocInfo.SizeInBytes, std::memory_order_relaxed);
+			}
+			else if (m_heapType == D3D12_HEAP_TYPE_DEFAULT) {
+				gpuTotalAllocatedMemory.fetch_add(allocInfo.SizeInBytes, std::memory_order_relaxed);
+			}
+			else if (m_heapType == D3D12_HEAP_TYPE_CUSTOM) {
+				throw std::runtime_error("[Resource] D3D12_HEAP_TYPE_CUSTOM not yet supported");
+				//gpuTotalAllocatedMemory.fetch_add(allocInfo.SizeInBytes, std::memory_order_relaxed);
+			}
 			m_allocatedSize = allocInfo.SizeInBytes;
 		}
 		void setClearValue(const D3D12_CLEAR_VALUE* clearValue) {
@@ -143,7 +180,9 @@ namespace Engine::Memory {
 				m_clearValue = nullptr;
 			}
 		}
-		Resource() = default; // Private constructor (only Create() can instantiate)
+		Resource() {
+			m_id = m_idGenerator.fetch_add(1, std::memory_order_relaxed);
+		};
 		void Initialize(_In_  const D3D12_HEAP_PROPERTIES* pHeapProperties,
 			D3D12_HEAP_FLAGS HeapFlags,
 			_In_  const D3D12_RESOURCE_DESC* pDesc,
@@ -161,7 +200,16 @@ namespace Engine::Memory {
 
 		UINT64 m_currentOffset = 0;
 		D3D12_HEAP_TYPE m_heapType = D3D12_HEAP_TYPE_DEFAULT;
+		ResourceTypes m_resourceType = ResourceTypes::Commited;
 
-		static inline std::atomic<UINT64> totalAllocatedMemory{ 0 }; // Tracks total memory usage
+		UINT64 m_placedHeapId = 0;
+
+		UINT64 m_id = 0;
+
+		static inline std::atomic<UINT64> gpuTotalAllocatedMemory{ 0 };
+		static inline std::atomic<UINT64> cpuTotalAllocatedMemory{ 0 };
+		static inline std::atomic<UINT64> m_idGenerator{ 1 };
+
+		friend class Heap;
 	};
 }

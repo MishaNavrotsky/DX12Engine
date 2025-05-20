@@ -16,6 +16,7 @@
 #include "mesh/InitializeDefault.h"
 #include "pipelines/CompositionPass.h"
 #include "memory/Resource.h"
+#include "memory/Heap.h"
 
 
 using namespace DirectX;
