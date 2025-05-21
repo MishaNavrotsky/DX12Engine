@@ -13,7 +13,29 @@ namespace Engine::Memory {
 		Reserved,
 	};
 	class Resource {
+
 	public:
+		struct Handle {
+			uint32_t index;
+			uint32_t generation;
+
+			bool operator==(const Handle& other) const {
+				return index == other.index && generation == other.generation;
+			}
+		};
+		using PackedHandle = uint64_t;
+
+		static inline PackedHandle PackHandle(uint32_t index, uint32_t generation) {
+			return (static_cast<uint64_t>(generation) << 32) | index;
+		}
+
+		static inline uint32_t ExtractIndex(PackedHandle handle) {
+			return static_cast<uint32_t>(handle & 0xFFFFFFFF);
+		}
+
+		static inline uint32_t ExtractGeneration(PackedHandle handle) {
+			return static_cast<uint32_t>(handle >> 32);
+		}
 		Resource(const Resource&) = delete;
 		Resource& operator=(const Resource&) = delete;
 		static std::unique_ptr<Resource> Create(D3D12_HEAP_TYPE type, UINT size, D3D12_RESOURCE_STATES state, const D3D12_CLEAR_VALUE* clearValue = nullptr, D3D12_HEAP_FLAGS flag = D3D12_HEAP_FLAG_NONE) {
@@ -40,8 +62,8 @@ namespace Engine::Memory {
 			return m_resource.Get();
 		}
 
-		UINT64 copyData(ID3D12GraphicsCommandList* cmdList, Resource* src, UINT64 sourceOffset, UINT64 size, UINT64 alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT) {
-			UINT64 alignedOffset = Align(m_currentOffset, alignment);
+		uint64_t copyData(ID3D12GraphicsCommandList* cmdList, Resource* src, uint64_t sourceOffset, uint64_t size, uint64_t alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT) {
+			uint64_t alignedOffset = Align(m_currentOffset, alignment);
 
 			if (alignedOffset + size > m_allocatedSize) {
 				throw std::runtime_error("Resource: Not enough space to copy data.");
@@ -65,12 +87,12 @@ namespace Engine::Memory {
 			m_currentOffset = src->m_currentOffset;
 		}
 
-		UINT64 writeData(const void* data, UINT64 size, UINT64 alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT) {
+		uint64_t writeData(const void* data, uint64_t size, uint64_t alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT) {
 			if (m_heapType != D3D12_HEAP_TYPE_UPLOAD && m_heapType != D3D12_HEAP_TYPE_GPU_UPLOAD) {
 				throw std::runtime_error("WriteData is only valid on UPLOAD or READBACK heap types");
 			}
 
-			UINT64 alignedOffset = Align(m_currentOffset, alignment);
+			uint64_t alignedOffset = Align(m_currentOffset, alignment);
 
 			if (alignedOffset + size > m_allocatedSize) {
 				throw std::runtime_error("Resource: Not enough space for WriteData.");
@@ -89,7 +111,7 @@ namespace Engine::Memory {
 			return alignedOffset;
 		}
 
-		void readData(void* destination, UINT64 size, UINT64 offset = 0) {
+		void readData(void* destination, uint64_t size, uint64_t offset = 0) {
 			if (m_heapType != D3D12_HEAP_TYPE_READBACK) {
 				throw std::runtime_error("ReadData is only valid on READBACK heap type.");
 			}
@@ -107,7 +129,7 @@ namespace Engine::Memory {
 			m_resource->Unmap(0, nullptr);
 		}
 
-		UINT64 getSize() const {
+		uint64_t getSize() const {
 			return m_allocatedSize;
 		}
 
@@ -115,7 +137,7 @@ namespace Engine::Memory {
 			return m_resourceType;
 		}
 
-		UINT64 getCurrentOffset() const {
+		uint64_t getCurrentOffset() const {
 			return m_currentOffset;
 		}
 
@@ -131,6 +153,17 @@ namespace Engine::Memory {
 			return m_clearValue.get();
 		}
 
+		uint64_t getPlacedHeapId() const {
+			return m_placedHeapId;
+		}
+
+		PackedHandle getId() const {
+			return m_id;
+		}
+		void setId(PackedHandle id) {
+			m_id = id;
+		}
+
 		~Resource() {
 			if (m_resourceType == ResourceTypes::Commited) return;
 			if (m_heapType == D3D12_HEAP_TYPE_UPLOAD || m_heapType == D3D12_HEAP_TYPE_READBACK || m_heapType == D3D12_HEAP_TYPE_GPU_UPLOAD) {
@@ -144,10 +177,10 @@ namespace Engine::Memory {
 				//gpuTotalAllocatedMemory.fetch_add(allocInfo.SizeInBytes, std::memory_order_relaxed);
 			}
 		}
-		static UINT64 GetTotalAllocatedMemoryCPU() {
+		static uint64_t GetTotalAllocatedMemoryCPU() {
 			return cpuTotalAllocatedMemory.load(std::memory_order_relaxed);
 		}
-		static UINT64 GetTotalAllocatedMemoryGPU() {
+		static uint64_t GetTotalAllocatedMemoryGPU() {
 			return gpuTotalAllocatedMemory.load(std::memory_order_relaxed);
 		}
 	private:
@@ -180,9 +213,7 @@ namespace Engine::Memory {
 				m_clearValue = nullptr;
 			}
 		}
-		Resource() {
-			m_id = m_idGenerator.fetch_add(1, std::memory_order_relaxed);
-		};
+		Resource() = default;
 		void Initialize(_In_  const D3D12_HEAP_PROPERTIES* pHeapProperties,
 			D3D12_HEAP_FLAGS HeapFlags,
 			_In_  const D3D12_RESOURCE_DESC* pDesc,
@@ -195,20 +226,19 @@ namespace Engine::Memory {
 
 		ComPtr<ID3D12Resource> m_resource;
 
-		UINT64 m_allocatedSize = 0;
+		uint64_t m_allocatedSize = 0;
 		std::unique_ptr<D3D12_CLEAR_VALUE> m_clearValue;
 
-		UINT64 m_currentOffset = 0;
+		uint64_t m_currentOffset = 0;
 		D3D12_HEAP_TYPE m_heapType = D3D12_HEAP_TYPE_DEFAULT;
 		ResourceTypes m_resourceType = ResourceTypes::Commited;
 
-		UINT64 m_placedHeapId = 0;
+		uint64_t m_placedHeapId = 0;
 
-		UINT64 m_id = 0;
+		PackedHandle m_id = 0;
 
-		static inline std::atomic<UINT64> gpuTotalAllocatedMemory{ 0 };
-		static inline std::atomic<UINT64> cpuTotalAllocatedMemory{ 0 };
-		static inline std::atomic<UINT64> m_idGenerator{ 1 };
+		static inline std::atomic<uint64_t> gpuTotalAllocatedMemory{ 0 };
+		static inline std::atomic<uint64_t> cpuTotalAllocatedMemory{ 0 };
 
 		friend class Heap;
 	};

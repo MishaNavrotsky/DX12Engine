@@ -337,7 +337,7 @@ inline Microsoft::WRL::ComPtr<ID3D12Resource> CreateAndUpload1x1Texture(
 		IID_PPV_ARGS(&texture)));
 
 	// --- Create upload buffer
-	UINT64 uploadSize = 0;
+	uint64_t uploadSize = 0;
 	device->GetCopyableFootprints(&texDesc, 0, 1, 0, nullptr, nullptr, nullptr, &uploadSize);
 
 	D3D12_HEAP_PROPERTIES uploadHeapProps = {};
@@ -422,7 +422,7 @@ inline DefaultPBRTextures CreateDefaultPBRTextures(ID3D12Device* m_device)
 	Microsoft::WRL::ComPtr<ID3D12Fence> fence;
 	ThrowIfFailed(m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence)));
 	HANDLE fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-	UINT64 fenceValue = 1;
+	uint64_t fenceValue = 1;
 
 	ThrowIfFailed(queue->Signal(fence.Get(), fenceValue));
 	if (fence->GetCompletedValue() < fenceValue)

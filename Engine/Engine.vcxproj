@@ -142,6 +142,7 @@
     <ClInclude Include="lib\geometry\PlaneGeometry.h" />
     <ClInclude Include="lib\geometry\SphereGeometry.h" />
     <ClInclude Include="lib\managers\CPUGPUManager.h" />
+    <ClInclude Include="lib\managers\ResourceManager.h" />
     <ClInclude Include="lib\memory\Heap.h" />
     <ClInclude Include="lib\memory\pools\IBufferPool.h" />
     <ClInclude Include="lib\memory\Resource.h" />

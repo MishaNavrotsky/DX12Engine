@@ -65,7 +65,7 @@ private:
 
     HANDLE m_fenceEvent;
     ComPtr<ID3D12Fence> m_fence;
-    UINT64 m_fenceValue = 0;
+    uint64_t m_fenceValue = 0;
 
     std::unique_ptr <Engine::Camera> m_camera;
     Engine::Scene m_scene;

@@ -2,6 +2,7 @@
 #include "lib/Renderer.h"
 #include <iostream>
 #include "DirectXTex.h"
+#include "lib/managers/ResourceManager.h"
 
 static void CreateConsole()
 {
