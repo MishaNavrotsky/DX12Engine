@@ -13,11 +13,12 @@
 #include "pipelines/LightingPass.h"
 #include "geometry/ModelMatrix.h"
 #include "pipelines/gizmos/GizmosPass.h"
+#include "pipelines/ui/UIPass.h"
+
 #include "mesh/InitializeDefault.h"
 #include "pipelines/CompositionPass.h"
 #include "memory/Resource.h"
 #include "memory/Heap.h"
-
 
 using namespace DirectX;
 
@@ -31,6 +32,7 @@ using Microsoft::WRL::ComPtr;
 class Renderer : public DXSample
 {
     struct CommandLists {
+		std::array<ID3D12CommandList*, 2> d_ui;
         std::array<ID3D12CommandList*, 2> d_gbuffer;
         std::array<ID3D12CommandList*, 2> d_gizmos;
         std::array<ID3D12CommandList*, 1> c_lighting;
@@ -79,6 +81,8 @@ private:
     std::unique_ptr<Engine::LightingPass> m_lightingPass;
     std::unique_ptr<Engine::GizmosPass> m_gizmosPass;
     std::unique_ptr<Engine::CompositionPass> m_compositionPass;
+    std::unique_ptr<Engine::UIPass> m_uiPass;
+
 
 
     ComPtr<ID3D12CommandQueue> m_directCommandQueue;

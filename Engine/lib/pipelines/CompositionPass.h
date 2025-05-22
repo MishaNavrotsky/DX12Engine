@@ -45,7 +45,7 @@ namespace Engine {
 			m_viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, static_cast<float>(m_width), static_cast<float>(height));
 			m_scissorRect = CD3DX12_RECT(0, 0, static_cast<LONG>(m_width), static_cast<LONG>(height));
 		}
-		std::array<ID3D12CommandList*, 2> renderComposition(Memory::Resource* lightningPassTexture, Memory::Resource* gizmosPassTexture, Camera* camera) {
+		std::array<ID3D12CommandList*, 2> renderComposition(Memory::Resource* lightningPassTexture, Memory::Resource* gizmosPassTexture, Memory::Resource* uiPassTexture, Camera* camera) {
 			ThrowIfFailed(m_commandAllocator->Reset());
 			ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), nullptr));
 			{
@@ -58,7 +58,7 @@ namespace Engine {
 			m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
 			m_commandList->SetGraphicsRootConstantBufferView(1, camera->getResource()->GetGPUVirtualAddress());
 
-			populateSrvDescriptorHeap(lightningPassTexture->getResource(), gizmosPassTexture->getResource());
+			populateSrvDescriptorHeap(lightningPassTexture->getResource(), gizmosPassTexture->getResource(), uiPassTexture->getResource());
 			ID3D12DescriptorHeap* heaps[] = { m_srvDescriptorHeap.Get()};
 			m_commandList->SetDescriptorHeaps(_countof(heaps), heaps);
 			m_commandList->SetGraphicsRootDescriptorTable(0, m_srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
@@ -196,7 +196,7 @@ namespace Engine {
 			CD3DX12_ROOT_PARAMETER rootParameters[2];
 
 			CD3DX12_DESCRIPTOR_RANGE range;
-			range.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 0); // 2 SRVs starting at t0
+			range.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 0); // 3 SRVs starting at t0
 
 			rootParameters[0].InitAsDescriptorTable(1, &range, D3D12_SHADER_VISIBILITY_PIXEL);
 			rootParameters[1].InitAsConstantBufferView(0, 0);  // Camera buffer (CBV at slot 0)
@@ -212,14 +212,14 @@ namespace Engine {
 		}
 		void createSrvDescriptorHeap() {
 			D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-			srvHeapDesc.NumDescriptors = 2; // Gizmos and Lighting textures
+			srvHeapDesc.NumDescriptors = 3; // Gizmos and Lighting textures and UI
 			srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 			srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 			ThrowIfFailed(m_device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&m_srvDescriptorHeap)));
 
 			m_cbvSrvUavDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 		}
-		void populateSrvDescriptorHeap(ID3D12Resource* lightingTexture, ID3D12Resource* gizmosTexture) {
+		void populateSrvDescriptorHeap(ID3D12Resource* lightingTexture, ID3D12Resource* gizmosTexture, ID3D12Resource* uiTexture) {
 			D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 			srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 			srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -230,6 +230,9 @@ namespace Engine {
 
 			handle.Offset(1, m_cbvSrvUavDescriptorSize);
 			m_device->CreateShaderResourceView(gizmosTexture, &srvDesc, handle);
+
+			handle.Offset(1, m_cbvSrvUavDescriptorSize);
+			m_device->CreateShaderResourceView(uiTexture, &srvDesc, handle);
 		}
 		ComPtr<ID3D12RootSignature> m_rootSignature;
 		ComPtr<ID3D12PipelineState> m_pso;

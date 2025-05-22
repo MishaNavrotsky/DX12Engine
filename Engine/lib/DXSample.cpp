@@ -30,7 +30,6 @@ DXSample::DXSample(UINT width, UINT height, std::wstring name) :
 DXSample::~DXSample()
 {
 }
-
 // Helper function for resolving the full path of assets.
 std::wstring DXSample::GetAssetFullPath(LPCWSTR assetName)
 {

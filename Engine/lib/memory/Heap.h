@@ -18,7 +18,7 @@ namespace Engine::Memory {
 			if (size == 0) {
 				throw std::runtime_error("[Heap] Size cannot be zero.");
 			}
-
+			
 			if (alignment < D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT) {
 				throw std::runtime_error("[Heap] Alignment must be at least D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT.");
 			}
@@ -109,7 +109,7 @@ namespace Engine::Memory {
 		}
 	private:
 		Heap() = default;
-		void Initialize(D3D12_HEAP_PROPERTIES props, D3D12_HEAP_FLAGS flag, uint64_t size, uint64_t alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT) {
+		void Initialize(D3D12_HEAP_PROPERTIES& props, D3D12_HEAP_FLAGS flag, uint64_t size, uint64_t alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT) {
 			static auto device = Device::GetDevice();
 			m_size = Align(size, alignment);
 			m_alignment = alignment;

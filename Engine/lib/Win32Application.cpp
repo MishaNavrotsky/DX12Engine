@@ -1,8 +1,14 @@
 #include "stdafx.h"
 #include "Win32Application.h"
 #include <iostream>
+#include "external/imgui.h"
+#include "external/imgui_impl_win32.h"
+
+
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 HWND Win32Application::m_hwnd = nullptr;
+
 
 int Win32Application::Run(DXSample* pSample, HINSTANCE hInstance, int nCmdShow)
 {
@@ -65,6 +71,20 @@ int Win32Application::Run(DXSample* pSample, HINSTANCE hInstance, int nCmdShow)
 // Main message handler for the sample.
 LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+	if (ImGui::GetCurrentContext()) {
+		auto& io = ImGui::GetIO();
+		if (ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam)) {
+			if (io.WantCaptureMouse)
+			{
+				ShowCursor(true);
+				return 0;
+			}
+			else {
+				ShowCursor(false);
+			}
+
+		}
+	}
 	DXSample* pSample = reinterpret_cast<DXSample*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
 
 	switch (message)
@@ -105,6 +125,7 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
 		PostQuitMessage(0);
 		return 0;
 	}
+
 
 	// Handle any messages the switch statement didn't.
 	return DefWindowProc(hWnd, message, wParam, lParam);

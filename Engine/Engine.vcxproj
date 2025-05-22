@@ -57,13 +57,13 @@
     <OutDir>bin\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>obj\$(Platform)\$(Configuration)\</IntDir>
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
-    <LibraryPath>C:\Users\Misha\glTF-SDK\GLTFSDK\Debug;C:\Users\Misha\DirectXTex\build\lib\Debug;$(LibraryPath)</LibraryPath>
+    <LibraryPath>C:\Users\Misha\DirectXTK12\Bin\Desktop_2022_Win10\x64\Debug;C:\Users\Misha\glTF-SDK\GLTFSDK\Debug;C:\Users\Misha\DirectXTex\build\lib\Debug;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <OutDir>bin\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>obj\$(Platform)\$(Configuration)\</IntDir>
-    <LibraryPath>C:\Users\Misha\glTF-SDK\GLTFSDK\Release;C:\Users\Misha\DirectXTex\build\lib\Release;$(LibraryPath)</LibraryPath>
+    <LibraryPath>C:\Users\Misha\DirectXTK12\Bin\Desktop_2022_Win10\x64\Release;C:\Users\Misha\glTF-SDK\GLTFSDK\Release;C:\Users\Misha\DirectXTex\build\lib\Release;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -72,7 +72,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories);C:\Users\Misha\glTF-SDK\GLTFSDK\Inc;C:\Users\Misha\DirectXTex\DirectXTex;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Misha\DirectXTK12\Inc;$(ProjectDir);%(AdditionalIncludeDirectories);C:\Users\Misha\glTF-SDK\GLTFSDK\Inc;C:\Users\Misha\DirectXTex\DirectXTex</AdditionalIncludeDirectories>
       <CompileAsWinRT>false</CompileAsWinRT>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp20</LanguageStandard>
@@ -80,7 +80,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;d3dcompiler.lib;GLTFSDK.lib;%(AdditionalDependencies);DirectXTex.lib;dxcompiler.lib;</AdditionalDependencies>
+      <AdditionalDependencies>d3d12.lib;dxgi.lib;d3dcompiler.lib;GLTFSDK.lib;%(AdditionalDependencies);DirectXTex.lib;dxcompiler.lib;user32.lib;gdi32.lib;dxguid.lib;DirectXTK12.lib;</AdditionalDependencies>
       <DelayLoadDLLs>d3d12.dll</DelayLoadDLLs>
     </Link>
     <CustomBuildStep>
@@ -104,7 +104,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories);C:\Users\Misha\glTF-SDK\GLTFSDK\Inc;C:\Users\Misha\DirectXTex\DirectXTex;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Misha\DirectXTK12\Inc;$(ProjectDir);%(AdditionalIncludeDirectories);C:\Users\Misha\glTF-SDK\GLTFSDK\Inc;C:\Users\Misha\DirectXTex\DirectXTex</AdditionalIncludeDirectories>
       <CompileAsWinRT>false</CompileAsWinRT>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
@@ -113,7 +113,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;d3dcompiler.lib;GLTFSDK.lib;%(AdditionalDependencies);DirectXTex.lib;dxcompiler.lib;</AdditionalDependencies>
+      <AdditionalDependencies>d3d12.lib;dxgi.lib;d3dcompiler.lib;GLTFSDK.lib;%(AdditionalDependencies);DirectXTex.lib;dxcompiler.lib;user32.lib;gdi32.lib;dxguid.lib;DirectXTK12.lib;</AdditionalDependencies>
       <DelayLoadDLLs>d3d12.dll</DelayLoadDLLs>
     </Link>
     <CustomBuildStep>
@@ -130,6 +130,14 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="external\BS_thread_pool.hpp" />
+    <ClInclude Include="external\imconfig.h" />
+    <ClInclude Include="external\imgui.h" />
+    <ClInclude Include="external\imgui_impl_dx12.h" />
+    <ClInclude Include="external\imgui_impl_win32.h" />
+    <ClInclude Include="external\imgui_internal.h" />
+    <ClInclude Include="external\imstb_rectpack.h" />
+    <ClInclude Include="external\imstb_textedit.h" />
+    <ClInclude Include="external\imstb_truetype.h" />
     <ClInclude Include="lib\camera\Camera.h" />
     <ClInclude Include="lib\descriptors\BindlessHeapDescriptor.h" />
     <ClInclude Include="lib\Device.h" />
@@ -182,6 +190,7 @@
     <ClInclude Include="lib\renderable\MeshRenderable.h" />
     <ClInclude Include="lib\scene\SceneNode.h" />
     <ClInclude Include="lib\scene\Scene.h" />
+    <ClInclude Include="lib\pipelines\ui\UIPass.h" />
     <ClInclude Include="lib\Win32Application.h" />
     <ClInclude Include="lib\Renderer.h" />
     <ClInclude Include="lib\DXSample.h" />
@@ -190,6 +199,34 @@
     <ClInclude Include="stdafx.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="external\imgui.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="external\imgui_demo.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="external\imgui_draw.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="external\imgui_impl_dx12.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="external\imgui_impl_win32.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="external\imgui_tables.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="external\imgui_widgets.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="lib\Device.cpp" />
     <ClCompile Include="lib\gltf\GLTFStreamReader.cpp" />
     <ClCompile Include="lib\pipelines\PSOShader.cpp" />

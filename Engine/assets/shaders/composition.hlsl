@@ -36,12 +36,23 @@ cbuffer cb0 : register(b0)
 
 Texture2D<float4> lightingTexture : register(t0); // Lighting texture (SRV at slot 1)
 Texture2D<float4> gizmosTexture : register(t1); // Gizmos texture (SRV at slot 0)
+Texture2D<float4> uiTexture : register(t2); // Gizmos texture (SRV at slot 0)
+
 
 float4 PSMain(VSOutput input) : SV_Target
 {
     int3 texCoord = int3(input.texCoord.x * screenDimensions.x, (1.0 - input.texCoord.y) * screenDimensions.y, 0);
     float4 gizmos = gizmosTexture.Load(texCoord);
     float4 lighting = lightingTexture.Load(texCoord);
+    float4 ui = uiTexture.Load(texCoord);
+    
+    float4 uiOverGizmos;
+    uiOverGizmos.rgb = lerp(gizmos.rgb, ui.rgb, ui.a);
+    uiOverGizmos.a = ui.a + gizmos.a * (1.0 - ui.a);
 
-    return lighting + gizmos;
+    float4 finalColor;
+    finalColor.rgb = lerp(lighting.rgb, uiOverGizmos.rgb, uiOverGizmos.a);
+    finalColor.a = uiOverGizmos.a + lighting.a * (1.0 - uiOverGizmos.a);
+
+    return finalColor;
 }

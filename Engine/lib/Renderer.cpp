@@ -61,12 +61,6 @@ void Renderer::LoadPipeline()
 	m_bindlessHeapDescriptor.registerDevice(m_device);
 	Engine::Device::SetDevice(m_device);
 	Engine::InitializeDefault::Initialize(m_device.Get(), &m_bindlessHeapDescriptor.GetInstance());
-	m_gbufferPass = std::unique_ptr<Engine::GBufferPass>(new Engine::GBufferPass(m_device, m_width, m_height));
-	m_lightingPass = std::unique_ptr<Engine::LightingPass>(new Engine::LightingPass(m_device, m_width, m_height));
-	m_gizmosPass = std::unique_ptr<Engine::GizmosPass>(new Engine::GizmosPass(m_device, m_width, m_height));
-	m_compositionPass = std::unique_ptr<Engine::CompositionPass>(new Engine::CompositionPass(m_device, m_width, m_height));
-
-	m_camera = std::unique_ptr<Engine::Camera>(new Engine::Camera(XMConvertToRadians(60.0f), m_width, m_height, 0.1f, 100000.0f));
 
 
 	D3D12_COMMAND_QUEUE_DESC directQueueDesc = {};
@@ -80,6 +74,13 @@ void Renderer::LoadPipeline()
 	computeQueueDesc.Type = D3D12_COMMAND_LIST_TYPE_COMPUTE;
 
 	ThrowIfFailed(m_device->CreateCommandQueue(&computeQueueDesc, IID_PPV_ARGS(&m_computeCommandQueue)));
+
+	m_gbufferPass = std::unique_ptr<Engine::GBufferPass>(new Engine::GBufferPass(m_device, m_width, m_height));
+	m_lightingPass = std::unique_ptr<Engine::LightingPass>(new Engine::LightingPass(m_device, m_width, m_height));
+	m_gizmosPass = std::unique_ptr<Engine::GizmosPass>(new Engine::GizmosPass(m_device, m_width, m_height));
+	m_compositionPass = std::unique_ptr<Engine::CompositionPass>(new Engine::CompositionPass(m_device, m_width, m_height));
+	m_uiPass = std::unique_ptr<Engine::UIPass>(new Engine::UIPass(Win32Application::GetHwnd(), m_device, m_directCommandQueue, FrameCount, m_width, m_height));
+	m_camera = std::unique_ptr<Engine::Camera>(new Engine::Camera(XMConvertToRadians(60.0f), m_width, m_height, 0.1f, 100000.0f));
 
 	DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
 	swapChainDesc.BufferCount = FrameCount;
@@ -138,13 +139,6 @@ void Renderer::LoadPipeline()
 void Renderer::LoadAssets()
 {
 	{
-		const wchar_t* strings[] = { L"brick_wall.glb", L"cute_anime_girl_mage.glb", L"furniture_decor_sculpture_8mb.glb", L"hand_low_poly.glb", L"star_wars_galaxies_-_eta-2_actis_interceptor.glb", L"su-33_flanker-d.glb" };
-		//for (uint32_t i = 0; i < std::size(strings); i++) {
-		//	std::wstring prefix = L"assets\\models\\";
-		//	auto result = prefix + strings[i];
-		//	m_scene.addNode(Engine::GLTFModelSceneNode::ReadFromFile(result));
-		//}
-
 		m_scene.addNode(Engine::ModelSceneNode::CreateFromGLTFFile(L"assets\\models\\alicev2rigged.glb"));
 		auto o = Engine::ModelSceneNode::CreateFromGLTFFile(L"assets\\models\\alicev2rigged_c.glb");
 		Engine::ModelMatrix modelMatrix;
@@ -152,56 +146,6 @@ void Renderer::LoadAssets()
 		modelMatrix.update();
 		o.get()->setLocalModelMatrix(modelMatrix);
 		m_scene.addNode(o);
-
-		//auto cpuMesh = std::make_unique<Engine::CPUMesh>();
-		//auto cpuMaterial = std::make_unique <Engine::CPUMaterial>();
-		//cpuMaterial->cullMode = D3D12_CULL_MODE_NONE;
-		//auto cpuMaterialGuid = Engine::CPUMaterialManager::GetInstance().add(std::move(cpuMaterial));
-		//cpuMesh->setMaterialId(cpuMaterialGuid);
-		//cpuMesh->topologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
-		//cpuMesh->topology = D3D_PRIMITIVE_TOPOLOGY_LINESTRIP;
-
-		//std::vector<float> cubeVertices = {
-		//	-100.0f, -100.0f, -100.0f, // 0
-		//	 100.0f, -100.0f, -100.0f, // 1
-		//	 100.0f,  100.0f, -100.0f, // 2
-		//	-100.0f,  100.0f, -100.0f, // 3
-		//	-100.0f, -100.0f,  100.0f, // 4
-		//	 100.0f, -100.0f,  100.0f, // 5
-		//	 100.0f,  100.0f,  100.0f, // 6
-		//	-100.0f,  100.0f,  100.0f  // 7
-		//};
-		//// Indices for 12 triangles (2 per face × 6 faces)
-		//std::vector<unsigned int> cubeIndices = {
-		//	// Back face
-		//	0, 1, 2,
-		//	2, 3, 0,
-
-		//	// Front face
-		//	4, 5, 6,
-		//	6, 7, 4,
-
-		//	// Left face
-		//	0, 3, 7,
-		//	7, 4, 0,
-
-		//	// Right face
-		//	1, 5, 6,
-		//	6, 2, 1,
-
-		//	// Bottom face
-		//	0, 1, 5,
-		//	5, 4, 0,
-
-		//	// Top face
-		//	3, 2, 6,
-		//	6, 7, 3
-		//};
-		//cpuMesh->setVertices(std::move(cubeVertices));
-		//cpuMesh->setIndices(std::move(cubeIndices));
-
-		//auto cpuMeshGuid = Engine::CPUMeshManager::GetInstance().add(std::move(cpuMesh));
-		//m_scene.addNode(Engine::ModelSceneNode::CreateFromGeometry({ cpuMeshGuid }));
 
 		m_modelLoader.waitForQueueEmpty();
 		m_uploadQueue.execute().wait();
@@ -259,10 +203,14 @@ void Renderer::OnRender()
 	auto commandLists = PopulateCommandLists();
 
 
-	std::array<ID3D12CommandList*, commandLists.d_gbuffer.size() + commandLists.d_gizmos.size()> d_combined;
+	std::array<ID3D12CommandList*, commandLists.d_gbuffer.size() + commandLists.d_gizmos.size() + commandLists.d_ui.size()> d_combined;
 
-	std::copy(commandLists.d_gbuffer.begin(), commandLists.d_gbuffer.end(), d_combined.begin());
-	std::copy(commandLists.d_gizmos.begin(), commandLists.d_gizmos.end(), d_combined.begin() + commandLists.d_gbuffer.size());
+	auto itt = d_combined.begin();
+	std::copy(commandLists.d_gbuffer.begin(), commandLists.d_gbuffer.end(), itt);
+	itt += commandLists.d_gbuffer.size();
+	std::copy(commandLists.d_gizmos.begin(), commandLists.d_gizmos.end(), itt);
+	itt += commandLists.d_ui.size();
+	std::copy(commandLists.d_ui.begin(), commandLists.d_ui.end(), itt);
 
 
 	m_directCommandQueue->ExecuteCommandLists(static_cast<UINT>(d_combined.size()), d_combined.data());
@@ -318,10 +266,12 @@ void Renderer::OnDestroy()
 Renderer::CommandLists Renderer::PopulateCommandLists()
 {
 	auto commandLists = Renderer::CommandLists();
+	auto frame = m_swapChain->GetCurrentBackBufferIndex();
+	commandLists.d_ui = m_uiPass->renderUI(frame);
 	commandLists.d_gbuffer = m_gbufferPass->renderGBuffers(&m_scene, m_camera.get());
 	commandLists.c_lighting = m_lightingPass->computeLighting(m_gbufferPass.get(), m_camera.get());
 	commandLists.d_gizmos = m_gizmosPass->renderGizmos(&m_scene, m_camera.get(), m_gbufferPass->getDepthStencilResource());
-	commandLists.d_composition = m_compositionPass->renderComposition(m_lightingPass->getOutputTexture(), m_gizmosPass->getRtvResource(), m_camera.get());
+	commandLists.d_composition = m_compositionPass->renderComposition(m_lightingPass->getOutputTexture(), m_gizmosPass->getRtvResource(), m_uiPass->getRtvResource(frame), m_camera.get());
 
 	return std::move(commandLists);
 }
