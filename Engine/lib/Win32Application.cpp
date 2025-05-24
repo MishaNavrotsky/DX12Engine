@@ -1,14 +1,12 @@
 #include "stdafx.h"
 #include "Win32Application.h"
-#include <iostream>
-#include "external/imgui.h"
-#include "external/imgui_impl_win32.h"
 
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 HWND Win32Application::m_hwnd = nullptr;
-
+std::unique_ptr<DirectX::Keyboard> Win32Application::m_keyboard = std::make_unique<DirectX::Keyboard>();
+std::unique_ptr<DirectX::Mouse> Win32Application::m_mouse = std::make_unique<DirectX::Mouse>();
 
 int Win32Application::Run(DXSample* pSample, HINSTANCE hInstance, int nCmdShow)
 {
@@ -49,7 +47,8 @@ int Win32Application::Run(DXSample* pSample, HINSTANCE hInstance, int nCmdShow)
 	pSample->OnInit();
 
 	ShowWindow(m_hwnd, nCmdShow);
-	ShowCursor(false);
+	m_mouse->SetWindow(m_hwnd);
+	ShowCursor(true);
 	// Main sample loop.
 	MSG msg = {};
 	while (msg.message != WM_QUIT)
@@ -76,13 +75,8 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
 		if (ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam)) {
 			if (io.WantCaptureMouse)
 			{
-				ShowCursor(true);
 				return 0;
 			}
-			else {
-				ShowCursor(false);
-			}
-
 		}
 	}
 	DXSample* pSample = reinterpret_cast<DXSample*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
@@ -96,29 +90,45 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
 		SetWindowLongPtr(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(pCreateStruct->lpCreateParams));
 	}
 	return 0;
+	case WM_ACTIVATEAPP:
+		DirectX::Keyboard::ProcessMessage(message, wParam, lParam);
+		DirectX::Mouse::ProcessMessage(message, wParam, lParam);
+		break;
+	case WM_ACTIVATE:
+	case WM_INPUT:
+	case WM_MOUSEMOVE:
+	case WM_LBUTTONDOWN:
+	case WM_LBUTTONUP:
+	case WM_RBUTTONDOWN:
+	case WM_RBUTTONUP:
+	case WM_MBUTTONDOWN:
+	case WM_MBUTTONUP:
+	case WM_MOUSEWHEEL:
+	case WM_XBUTTONDOWN:
+	case WM_XBUTTONUP:
+	case WM_MOUSEHOVER:
+		DirectX::Mouse::ProcessMessage(message, wParam, lParam);
+		break;
 
 	case WM_KEYDOWN:
-		if (pSample)
-		{
-		}
-		return 0;
-
 	case WM_KEYUP:
-		if (pSample)
+	case WM_SYSKEYUP:
+		DirectX::Keyboard::ProcessMessage(message, wParam, lParam);
+		break;
+
+	case WM_SYSKEYDOWN:
+		DirectX::Keyboard::ProcessMessage(message, wParam, lParam);
+		if (wParam == VK_RETURN && (lParam & 0x60000000) == 0x20000000)
 		{
+			
 		}
-		return 0;
+		break;
 
 	case WM_PAINT:
 		if (pSample)
 		{
 			pSample->OnUpdate();
 			pSample->OnRender();
-		}
-		return 0;
-	case WM_MOUSEMOVE:
-		if (pSample)
-		{
 		}
 		return 0;
 	case WM_DESTROY:

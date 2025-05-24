@@ -20,6 +20,8 @@
 #include "memory/Resource.h"
 #include "memory/Heap.h"
 
+#include <iostream>
+
 using namespace DirectX;
 
 // Note that while ComPtr is used to manage the lifetime of resources on the CPU,
@@ -45,8 +47,8 @@ public:
     virtual void OnUpdate();
     virtual void OnRender();
     virtual void OnDestroy();
-    virtual void OnKeyDown() override;
-    virtual void OnMouseMove() override;
+    void OnMouseMove();
+	void OnKeyDown();
 
 private:
     static const UINT FrameCount = 2;
@@ -91,6 +93,8 @@ private:
 
     float yaw = 0;
     float pitch = 0;
+    bool isCursorCaptured = false;
+    DirectX::Keyboard::KeyboardStateTracker tracker;
 
     void LoadPipeline();
     void LoadAssets();

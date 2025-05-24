@@ -25,11 +25,6 @@ public:
     virtual void OnRender() = 0;
     virtual void OnDestroy() = 0;
 
-    // Samples override the event handlers to handle specific messages.
-    virtual void OnKeyDown()   {}
-    virtual void OnKeyUp()     {}
-	virtual void OnMouseMove() {}
-
     // Accessors.
     inline UINT GetWidth() const           { return m_width; }
     inline UINT GetHeight() const          { return m_height; }

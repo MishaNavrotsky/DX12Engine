@@ -96,7 +96,7 @@ namespace Engine {
 			m_commandList->OMSetRenderTargets(1, &rtvHandle, TRUE, &dsvHandle);
 			m_commandList->ClearRenderTargetView(rtvHandle, m_rtvResource->getClearValue()->Color, 0, nullptr);
 
-			populateScene(scene, camera);
+			//populateScene(scene, camera);
 
 			m_scene->draw(m_commandList.Get(), camera, false, [&](CPUMesh& mesh, CPUMaterial& material, SceneNode* node) {
 				m_commandList->IASetPrimitiveTopology(mesh.topology);

@@ -166,7 +166,25 @@ void Renderer::LoadAssets()
 
 void Renderer::OnUpdate()
 {
+	static auto keyboard = Win32Application::GetKeyboard();
+	static auto mouse = Win32Application::GetMouse();
+	tracker.Update(keyboard->GetState());
 
+	if (tracker.released.Escape) { 
+		isCursorCaptured = !isCursorCaptured; 
+		mouse->SetVisible(!isCursorCaptured);
+		if (isCursorCaptured) mouse->SetMode(DirectX::Mouse::MODE_RELATIVE);
+		if (!isCursorCaptured) mouse->SetMode(DirectX::Mouse::MODE_ABSOLUTE);
+	}
+
+
+	if (isCursorCaptured) {
+		this->OnMouseMove();
+		this->OnKeyDown();
+	}
+
+
+	m_camera->update();
 }
 
 static void setCursorToCenterOfTheWindow() {
@@ -190,16 +208,6 @@ static void setCursorToCenterOfTheWindow() {
 
 void Renderer::OnRender()
 {
-	{
-		this->OnMouseMove();
-	}
-
-	{
-		this->OnKeyDown();
-	}
-	m_camera->update();
-	m_modelLoader.waitForQueueEmpty();
-	m_uploadQueue.execute();
 	auto commandLists = PopulateCommandLists();
 
 
@@ -215,7 +223,7 @@ void Renderer::OnRender()
 
 	m_directCommandQueue->ExecuteCommandLists(static_cast<UINT>(d_combined.size()), d_combined.data());
 	ThrowIfFailed(m_directCommandQueue->Signal(m_fence.Get(), ++m_fenceValue));
-	
+
 	ThrowIfFailed(m_computeCommandQueue->Wait(m_fence.Get(), m_fenceValue));
 	m_computeCommandQueue->ExecuteCommandLists(static_cast<UINT>(commandLists.c_lighting.size()), commandLists.c_lighting.data());
 	ThrowIfFailed(m_computeCommandQueue->Signal(m_fence.Get(), ++m_fenceValue));
@@ -254,6 +262,7 @@ void Renderer::OnRender()
 
 	WaitForCommandQueueExecute();
 	ThrowIfFailed(m_swapChain->Present(0, 0));
+	Win32Application::GetMouse()->EndOfInputFrame();
 }
 
 void Renderer::OnDestroy()
@@ -290,6 +299,8 @@ void Renderer::WaitForCommandQueueExecute()
 
 void Renderer::OnKeyDown()
 {
+	static auto keyboard = Win32Application::GetKeyboard();
+	auto state = keyboard->GetState();
 	HWND hWnd = GetFocus();
 	if (!hWnd) return;
 
@@ -297,26 +308,26 @@ void Renderer::OnKeyDown()
 	auto cameraLookAt = m_camera->getLookAt();
 	auto cameraSpeed = 10.0f;
 
-	if (GetAsyncKeyState(VK_SHIFT) & 0x8000) { // Shift key
+	if (state.LeftShift) { // Shift key
 		cameraSpeed *= 10.0f;
 	}
 
-	if (GetAsyncKeyState(VK_LCONTROL) & 0x8000) { // Left Ctrl key
+	if (state.LeftControl) { // Left Ctrl key
 		cameraSpeed *= 0.1f;
 	}
 
 
 
-	if (GetAsyncKeyState(0x57) & 0x8000) { // W key
+	if (state.W) { // W key
 		cameraPos += cameraLookAt * cameraSpeed;
 	}
-	if (GetAsyncKeyState(0x41) & 0x8000) { // A key
+	if (state.A) { // A key
 		cameraPos += XMVector3Normalize(XMVector3Cross(cameraLookAt, XMVectorSet(0, 1, 0, 0))) * cameraSpeed;
 	}
-	if (GetAsyncKeyState(0x53) & 0x8000) { // S key
+	if (state.S) { // S key
 		cameraPos -= cameraLookAt * cameraSpeed;
 	}
-	if (GetAsyncKeyState(0x44) & 0x8000) { // D key
+	if (state.D) { // D key
 		cameraPos -= XMVector3Normalize(XMVector3Cross(cameraLookAt, XMVectorSet(0, 1, 0, 0))) * cameraSpeed;;
 	}
 
@@ -325,29 +336,16 @@ void Renderer::OnKeyDown()
 
 void Renderer::OnMouseMove()
 {
+	static auto mouse = Win32Application::GetMouse();
+	auto state = mouse->GetState();
+
 	HWND hWnd = GetFocus();
 	if (!hWnd) return;
-	//set cursor to center of window if window is selected
-	RECT rect;
-	if (!GetClientRect(hWnd, &rect)) return;
-
-	POINT center;
-	center.x = (rect.right - rect.left) / 2;
-	center.y = (rect.bottom - rect.top) / 2;
-
-	if (!ClientToScreen(hWnd, &center)) return;
-
-	//get mouse position
-	POINT mousePos;
-	GetCursorPos(&mousePos);
-
-	int deltaX = mousePos.x - center.x;
-	int deltaY = mousePos.y - center.y;
 
 	float speed = 0.1f;
 
-	yaw += -deltaX * speed;
-	pitch += -deltaY * speed;
+	yaw += -state.x * speed;
+	pitch += -state.y * speed;
 	if (pitch > 89.0f) {
 		pitch = 89.0f;
 	}
