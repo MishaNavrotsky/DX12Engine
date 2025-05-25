@@ -147,6 +147,8 @@ void Renderer::LoadAssets()
 		o.get()->setLocalModelMatrix(modelMatrix);
 		m_scene.addNode(o);
 
+		auto h = Engine::Asset::AssetReader::ReadMeshHeaders("D:\\DX12En\\AssetsCreator\\assets\\alicev2rigged_0.mesh.asset");
+
 		m_modelLoader.waitForQueueEmpty();
 		m_uploadQueue.execute().wait();
 		WaitForCommandQueueExecute();

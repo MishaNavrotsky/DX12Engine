@@ -43,6 +43,89 @@ namespace GLTFLocal {
 
 		return output;
 	}
+
+	struct AttributeFormat
+	{
+		int strideInBytes;
+		DXGI_FORMAT dxgiFormat;
+	};
+
+	AttributeFormat GetAttributeFormat(AccessorType type, ComponentType componentType, bool normalized = false)
+	{
+		int numComponents = 0;
+		switch (type)
+		{
+		case TYPE_SCALAR: numComponents = 1; break;
+		case TYPE_VEC2:   numComponents = 2; break;
+		case TYPE_VEC3:   numComponents = 3; break;
+		case TYPE_VEC4:   numComponents = 4; break;
+		default:
+			throw std::invalid_argument("Unsupported AccessorType");
+		}
+
+		int componentSize = 0;
+		DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
+
+		switch (componentType)
+		{
+		case COMPONENT_FLOAT:
+			componentSize = 4;
+			switch (type)
+			{
+			case TYPE_SCALAR: format = DXGI_FORMAT_R32_FLOAT; break;
+			case TYPE_VEC2:   format = DXGI_FORMAT_R32G32_FLOAT; break;
+			case TYPE_VEC3:   format = DXGI_FORMAT_R32G32B32_FLOAT; break;
+			case TYPE_VEC4:   format = DXGI_FORMAT_R32G32B32A32_FLOAT; break;
+			}
+			break;
+
+		case COMPONENT_UNSIGNED_BYTE:
+			componentSize = 1;
+			if (type == TYPE_VEC4)
+				format = normalized ? DXGI_FORMAT_R8G8B8A8_UNORM : DXGI_FORMAT_R8G8B8A8_UINT;
+			else if (type == TYPE_VEC2)
+				format = normalized ? DXGI_FORMAT_R8G8_UNORM : DXGI_FORMAT_R8G8_UINT;
+			else if (type == TYPE_SCALAR)
+				format = DXGI_FORMAT_R8_UINT; // no UNORM scalar
+			break;
+
+		case COMPONENT_BYTE:
+			componentSize = 1;
+			if (type == TYPE_VEC4)
+				format = normalized ? DXGI_FORMAT_R8G8B8A8_SNORM : DXGI_FORMAT_UNKNOWN;
+			else if (type == TYPE_VEC2)
+				format = normalized ? DXGI_FORMAT_R8G8_SNORM : DXGI_FORMAT_UNKNOWN;
+			else if (type == TYPE_SCALAR)
+				format = DXGI_FORMAT_R8_SINT;
+			break;
+
+		case COMPONENT_UNSIGNED_SHORT:
+			componentSize = 2;
+			if (type == TYPE_VEC4)
+				format = normalized ? DXGI_FORMAT_R16G16B16A16_UNORM : DXGI_FORMAT_R16G16B16A16_UINT;
+			else if (type == TYPE_VEC2)
+				format = normalized ? DXGI_FORMAT_R16G16_UNORM : DXGI_FORMAT_R16G16_UINT;
+			else if (type == TYPE_SCALAR)
+				format = DXGI_FORMAT_R16_UINT;
+			break;
+
+		case COMPONENT_SHORT:
+			componentSize = 2;
+			if (type == TYPE_VEC4)
+				format = normalized ? DXGI_FORMAT_R16G16B16A16_SNORM : DXGI_FORMAT_UNKNOWN;
+			else if (type == TYPE_VEC2)
+				format = normalized ? DXGI_FORMAT_R16G16_SNORM : DXGI_FORMAT_UNKNOWN;
+			else if (type == TYPE_SCALAR)
+				format = DXGI_FORMAT_R16_SINT;
+			break;
+
+		default:
+			throw std::invalid_argument("Unsupported ComponentType");
+		}
+
+		int strideInBytes = numComponents * componentSize;
+		return { strideInBytes, format };
+	}
 }
 
 inline static void GetAssetsPath(_Out_writes_(pathSize) WCHAR* path, UINT pathSize)
@@ -176,6 +259,10 @@ std::vector<std::unique_ptr<Engine::Asset::Mesh>> GLTFLocal::GetMeshesInfo(const
 				auto vAttribute = std::make_unique<Engine::Asset::Attribute>();
 
 				auto& accessor = document.accessors.Get(attribute.second);
+				auto attributeFormat = GetAttributeFormat(accessor.type, accessor.componentType, accessor.normalized);
+				vAttribute->format = attributeFormat.dxgiFormat;
+				vAttribute->strideInBytes = attributeFormat.strideInBytes;
+
 				if (attribute.first == ACCESSOR_POSITION) {
 					auto data = resourceReader->ReadFloatData(document, accessor);
 					Vec3 min, max;
@@ -184,8 +271,6 @@ std::vector<std::unique_ptr<Engine::Asset::Mesh>> GLTFLocal::GetMeshesInfo(const
 					vAttribute->data = ConvertFloatVectorToByteVector(data);
 					vAttribute->semanticIndex = 0;
 					vAttribute->semanticName = "POSITION";
-					vAttribute->format = DXGI_FORMAT_R32G32B32_FLOAT;
-					vAttribute->strideInBytes = 12;
 					vAttribute->type = Engine::Asset::AttributeType::Position;
 
 
@@ -204,8 +289,6 @@ std::vector<std::unique_ptr<Engine::Asset::Mesh>> GLTFLocal::GetMeshesInfo(const
 					vAttribute->data = ConvertFloatVectorToByteVector(data);
 					vAttribute->semanticIndex = 0;
 					vAttribute->semanticName = "NORMAL";
-					vAttribute->format = DXGI_FORMAT_R32G32B32_FLOAT;
-					vAttribute->strideInBytes = 12;
 					vAttribute->type = Engine::Asset::AttributeType::Normal;
 					vSubMesh->attributes.emplace(vAttribute->type, std::move(vAttribute));
 				}
@@ -214,8 +297,6 @@ std::vector<std::unique_ptr<Engine::Asset::Mesh>> GLTFLocal::GetMeshesInfo(const
 					vAttribute->data = ConvertFloatVectorToByteVector(data);
 					vAttribute->semanticIndex = 0;
 					vAttribute->semanticName = "TEXCOORD";
-					vAttribute->format = DXGI_FORMAT_R32G32_FLOAT;
-					vAttribute->strideInBytes = 8;
 					vAttribute->type = Engine::Asset::AttributeType::TEXCOORD;
 					vSubMesh->attributes.emplace(vAttribute->type, std::move(vAttribute));
 				}
@@ -224,8 +305,6 @@ std::vector<std::unique_ptr<Engine::Asset::Mesh>> GLTFLocal::GetMeshesInfo(const
 					vAttribute->data = ConvertFloatVectorToByteVector(data);
 					vAttribute->semanticIndex = 1;
 					vAttribute->semanticName = "TEXCOORD";
-					vAttribute->format = DXGI_FORMAT_R32G32_FLOAT;
-					vAttribute->strideInBytes = 8;
 					vAttribute->type = Engine::Asset::AttributeType::TEXCOORD;
 					vSubMesh->attributes.emplace(vAttribute->type, std::move(vAttribute));
 				}
@@ -234,8 +313,6 @@ std::vector<std::unique_ptr<Engine::Asset::Mesh>> GLTFLocal::GetMeshesInfo(const
 					vAttribute->data = ConvertFloatVectorToByteVector(data);
 					vAttribute->semanticIndex = 0;
 					vAttribute->semanticName = "TANGENT";
-					vAttribute->format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-					vAttribute->strideInBytes = 16;
 					vAttribute->type = Engine::Asset::AttributeType::Tangent;
 					vSubMesh->attributes.emplace(vAttribute->type, std::move(vAttribute));
 				}
@@ -244,8 +321,6 @@ std::vector<std::unique_ptr<Engine::Asset::Mesh>> GLTFLocal::GetMeshesInfo(const
 					vAttribute->data = ConvertFloatVectorToByteVector(data);
 					vAttribute->semanticIndex = 0;
 					vAttribute->semanticName = "JOINT";
-					vAttribute->format = DXGI_FORMAT_R8G8B8A8_UINT;
-					vAttribute->strideInBytes = 4;
 					vAttribute->type = Engine::Asset::AttributeType::JOINT;
 					vSubMesh->attributes.emplace(vAttribute->type, std::move(vAttribute));
 				}
@@ -254,9 +329,15 @@ std::vector<std::unique_ptr<Engine::Asset::Mesh>> GLTFLocal::GetMeshesInfo(const
 					vAttribute->data = ConvertFloatVectorToByteVector(data);
 					vAttribute->semanticIndex = 0;
 					vAttribute->semanticName = "WEIGHT";
-					vAttribute->format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-					vAttribute->strideInBytes = 16;
 					vAttribute->type = Engine::Asset::AttributeType::WEIGHT;
+					vSubMesh->attributes.emplace(vAttribute->type, std::move(vAttribute));
+				}
+				else if (attribute.first == ACCESSOR_COLOR_0) {
+					auto data = resourceReader->ReadFloatData(document, accessor);
+					vAttribute->data = ConvertFloatVectorToByteVector(data);
+					vAttribute->semanticIndex = 0;
+					vAttribute->semanticName = "COLOR";
+					vAttribute->type = Engine::Asset::AttributeType::Color;
 					vSubMesh->attributes.emplace(vAttribute->type, std::move(vAttribute));
 				}
 
