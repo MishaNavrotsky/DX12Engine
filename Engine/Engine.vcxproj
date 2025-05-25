@@ -72,7 +72,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\Users\Misha\DirectXTK12\Inc;$(ProjectDir);%(AdditionalIncludeDirectories);C:\Users\Misha\glTF-SDK\GLTFSDK\Inc;C:\Users\Misha\DirectXTex\DirectXTex</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Misha\DirectXTK12\Inc;$(ProjectDir);%(AdditionalIncludeDirectories);C:\Users\Misha\glTF-SDK\GLTFSDK\Inc;C:\Users\Misha\DirectXTex\DirectXTex;$(SolutionDir)AssetsCreator</AdditionalIncludeDirectories>
       <CompileAsWinRT>false</CompileAsWinRT>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp20</LanguageStandard>
@@ -104,7 +104,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\Users\Misha\DirectXTK12\Inc;$(ProjectDir);%(AdditionalIncludeDirectories);C:\Users\Misha\glTF-SDK\GLTFSDK\Inc;C:\Users\Misha\DirectXTex\DirectXTex</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Misha\DirectXTK12\Inc;$(ProjectDir);%(AdditionalIncludeDirectories);C:\Users\Misha\glTF-SDK\GLTFSDK\Inc;C:\Users\Misha\DirectXTex\DirectXTex;$(SolutionDir)AssetsCreator</AdditionalIncludeDirectories>
       <CompileAsWinRT>false</CompileAsWinRT>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
@@ -340,6 +340,11 @@
       <DestinationFolders Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)/assets/shaders</DestinationFolders>
       <DestinationFolders Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)/assets/shaders</DestinationFolders>
     </CopyFileToFolders>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AssetsCreator\AssetsCreator.vcxproj">
+      <Project>{b6ef0fdd-21d5-410a-82c0-f818fc04ced7}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

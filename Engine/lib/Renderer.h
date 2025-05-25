@@ -19,6 +19,7 @@
 #include "pipelines/CompositionPass.h"
 #include "memory/Resource.h"
 #include "memory/Heap.h"
+#include "AssetReader.h"
 
 #include <iostream>
 
