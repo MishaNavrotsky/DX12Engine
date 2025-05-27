@@ -30,6 +30,7 @@
 #include <unordered_set>
 #include <iomanip>
 #include <span>
+#include <array>
 
 #include <string>
 #include <wrl.h>

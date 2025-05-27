@@ -7,16 +7,44 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg
 HWND Win32Application::m_hwnd = nullptr;
 std::unique_ptr<DirectX::Keyboard> Win32Application::m_keyboard = std::make_unique<DirectX::Keyboard>();
 std::unique_ptr<DirectX::Mouse> Win32Application::m_mouse = std::make_unique<DirectX::Mouse>();
+ThreadSafeQueue<DirectX::Keyboard::State> Win32Application::m_keyboardStateQueue;
+ThreadSafeQueue<DirectX::Mouse::State> Win32Application::m_mouseStateQueue;
 
-int Win32Application::Run(DXSample* pSample, HINSTANCE hInstance, int nCmdShow)
+std::atomic<bool> Win32Application::m_windowClosed = false;
+
+void Win32Application::RunMainEngineLoop(DXSample* pSample)
 {
-	// Parse the command line parameters
-	int argc;
-	LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
-	pSample->ParseCommandLineArgs(argv, argc);
-	LocalFree(argv);
+	using namespace std::chrono;
+	auto previousTime = high_resolution_clock::now();
 
-	// Initialize the window class.
+
+	while (!m_windowClosed.load(std::memory_order_relaxed))
+	{
+		auto currentTime = high_resolution_clock::now();
+		auto deltaTime = duration<float, std::milli>(currentTime - previousTime).count();
+		previousTime = currentTime;
+
+		auto keyboardStates = m_keyboardStateQueue.popAll();
+		auto mouseStates = m_mouseStateQueue.popAll();
+		if (keyboardStates.size() > 0)
+		{
+			pSample->OnKeyboardUpdate(keyboardStates.back());
+
+		}
+		if (mouseStates.size() > 0)
+		{
+			pSample->OnMouseUpdate(mouseStates.back());
+		}
+
+		pSample->OnUpdate(deltaTime);
+
+		//sleap
+		std::this_thread::sleep_for(std::chrono::milliseconds(30)); // Roughly 60 FPS
+	}
+}
+
+void Win32Application::CreateMainWindow(RECT windowRect, const WCHAR* title, HINSTANCE hInstance, int nCmdShow)
+{
 	WNDCLASSEX windowClass = { 0 };
 	windowClass.cbSize = sizeof(WNDCLASSEX);
 	windowClass.style = CS_HREDRAW | CS_VREDRAW;
@@ -26,13 +54,9 @@ int Win32Application::Run(DXSample* pSample, HINSTANCE hInstance, int nCmdShow)
 	windowClass.lpszClassName = L"DXSampleClass";
 	RegisterClassEx(&windowClass);
 
-	RECT windowRect = { 0, 0, static_cast<LONG>(pSample->GetWidth()), static_cast<LONG>(pSample->GetHeight()) };
-	AdjustWindowRect(&windowRect, WS_OVERLAPPEDWINDOW, FALSE);
-
-	// Create the window and store a handle to it.
 	m_hwnd = CreateWindow(
 		windowClass.lpszClassName,
-		pSample->GetTitle(),
+		title,
 		WS_OVERLAPPEDWINDOW,
 		CW_USEDEFAULT,
 		CW_USEDEFAULT,
@@ -41,30 +65,48 @@ int Win32Application::Run(DXSample* pSample, HINSTANCE hInstance, int nCmdShow)
 		nullptr,        // We have no parent window.
 		nullptr,        // We aren't using menus.
 		hInstance,
-		pSample);
-
-	// Initialize the sample. OnInit is defined in each child-implementation of DXSample.
-	pSample->OnInit();
+		nullptr);
 
 	ShowWindow(m_hwnd, nCmdShow);
+}
+
+char Win32Application::RunMainEventLoop()
+{
+	MSG msg = { 0 };
+	while (GetMessage(&msg, nullptr, 0, 0))
+	{
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
+	}
+	return static_cast<char>(msg.wParam);
+}
+
+int Win32Application::Run(DXSample* pSample, HINSTANCE hInstance, int nCmdShow)
+{
+	int argc;
+	LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+	pSample->ParseCommandLineArgs(argv, argc);
+	LocalFree(argv);
+
+	RECT windowRect = { 0, 0, static_cast<LONG>(pSample->GetWidth()), static_cast<LONG>(pSample->GetHeight()) };
+	AdjustWindowRect(&windowRect, WS_OVERLAPPEDWINDOW, FALSE);
+
+	CreateMainWindow(windowRect, pSample->GetTitle(), hInstance, nCmdShow);
 	m_mouse->SetWindow(m_hwnd);
 	ShowCursor(true);
-	// Main sample loop.
-	MSG msg = {};
-	while (msg.message != WM_QUIT)
-	{
-		// Process any messages in the queue.
-		if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
-		{
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
-		}
-	}
+
+	pSample->OnInit();
+
+	std::thread mainEngineLoopThread(RunMainEngineLoop, pSample);
+
+	auto exitCode = RunMainEventLoop();
+	m_windowClosed.store(true);
+
+	mainEngineLoopThread.join();
 
 	pSample->OnDestroy();
 
-	// Return this part of the WM_QUIT message to Windows.
-	return static_cast<char>(msg.wParam);
+	return exitCode;
 }
 
 // Main message handler for the sample.
@@ -86,13 +128,15 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
 	case WM_CREATE:
 	{
 		// Save the DXSample* passed in to CreateWindow.
-		LPCREATESTRUCT pCreateStruct = reinterpret_cast<LPCREATESTRUCT>(lParam);
-		SetWindowLongPtr(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(pCreateStruct->lpCreateParams));
+		//LPCREATESTRUCT pCreateStruct = reinterpret_cast<LPCREATESTRUCT>(lParam);
+		//SetWindowLongPtr(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(pCreateStruct->lpCreateParams));
 	}
 	return 0;
 	case WM_ACTIVATEAPP:
-		DirectX::Keyboard::ProcessMessage(message, wParam, lParam);
-		DirectX::Mouse::ProcessMessage(message, wParam, lParam);
+		//m_keyboard->ProcessMessage(message, wParam, lParam);
+		//m_mouse->ProcessMessage(message, wParam, lParam);
+		//m_keyboardStateQueue.push(m_keyboard->GetState());
+		//m_mouseStateQueue.push(m_mouse->GetState());
 		break;
 	case WM_ACTIVATE:
 	case WM_INPUT:
@@ -107,35 +151,29 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
 	case WM_XBUTTONDOWN:
 	case WM_XBUTTONUP:
 	case WM_MOUSEHOVER:
-		DirectX::Mouse::ProcessMessage(message, wParam, lParam);
+		m_mouse->ProcessMessage(message, wParam, lParam);
+		m_mouseStateQueue.push(m_mouse->GetState());
 		break;
 
 	case WM_KEYDOWN:
 	case WM_KEYUP:
 	case WM_SYSKEYUP:
-		DirectX::Keyboard::ProcessMessage(message, wParam, lParam);
+		m_keyboard->ProcessMessage(message, wParam, lParam);
+		m_keyboardStateQueue.push(m_keyboard->GetState());
 		break;
 
 	case WM_SYSKEYDOWN:
-		DirectX::Keyboard::ProcessMessage(message, wParam, lParam);
+		m_keyboard->ProcessMessage(message, wParam, lParam);
+		m_keyboardStateQueue.push(m_keyboard->GetState());
 		if (wParam == VK_RETURN && (lParam & 0x60000000) == 0x20000000)
 		{
-			
+
 		}
 		break;
-
-	case WM_PAINT:
-		if (pSample)
-		{
-			pSample->OnUpdate();
-			pSample->OnRender();
-		}
-		return 0;
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		return 0;
 	}
-
 
 	// Handle any messages the switch statement didn't.
 	return DefWindowProc(hWnd, message, wParam, lParam);

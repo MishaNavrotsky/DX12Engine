@@ -6,6 +6,7 @@
 #include "external/imgui_impl_win32.h"
 #include "Keyboard.h"
 #include "Mouse.h"
+#include "ThreadSafeQueue.h"
 
 class DXSample;
 
@@ -21,7 +22,14 @@ protected:
     static LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 
 private:
+    static char RunMainEventLoop();
+	static void RunMainEngineLoop(DXSample* pSample);
+    static void CreateMainWindow(RECT windowRect, const WCHAR* title, HINSTANCE hInstance, int nCmdShow);
     static HWND m_hwnd;
     static std::unique_ptr<DirectX::Keyboard> m_keyboard;
     static std::unique_ptr<DirectX::Mouse> m_mouse;
+	static std::atomic<bool> m_windowClosed;
+	static ThreadSafeQueue<DirectX::Keyboard::State> m_keyboardStateQueue;
+	static ThreadSafeQueue<DirectX::Mouse::State> m_mouseStateQueue;
+
 };

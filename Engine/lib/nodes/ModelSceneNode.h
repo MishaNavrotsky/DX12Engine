@@ -4,47 +4,17 @@
 
 #include "../scene/SceneNode.h"
 #include "../managers/ModelManager.h"
-#include "../loaders/ModelLoader.h"
 #include "MeshSceneNode.h"
 #include "../managers/CPUMeshManager.h"
 #include "../managers/GPUMeshManager.h"
 #include "../managers/CPUMaterialManager.h"
 #include "../managers/GPUMaterialManager.h"
 #include "../managers/CPUGPUManager.h"
+#include "AssetReader.h"
 
 namespace Engine {
 	class ModelSceneNode : public SceneNode {
 	public:
-		static std::shared_ptr<ModelSceneNode> CreateFromGLTFFile(std::filesystem::path path) {
-			static auto& modelLoader = ModelLoader::GetInstance();
-			static auto& modelManager = ModelManager::GetInstance();
-
-			auto modelId = modelLoader.queueGLTF(std::move(path));
-			auto ptr = std::shared_ptr<ModelSceneNode>(new ModelSceneNode(modelManager.get(modelId)));
-			ptr->m_loadingFuture = std::async(std::launch::async, [node = ptr.get()] {
-				node->m_model.waitForIsLoaded();
-				node->m_isReady.store(true, std::memory_order_release);
-				node->onLoadComplete();
-				});
-
-			return ptr;
-		}
-
-		static std::shared_ptr<ModelSceneNode> CreateFromGeometry(std::vector<GUID> cpuMeshGUIDs) {
-			static auto& modelLoader = ModelLoader::GetInstance();
-			static auto& modelManager = ModelManager::GetInstance();
-
-			auto modelId = modelLoader.queueGeometry(std::move(cpuMeshGUIDs));
-			auto ptr = std::shared_ptr<ModelSceneNode>(new ModelSceneNode(modelManager.get(modelId)));
-			ptr->m_loadingFuture = std::async(std::launch::async, [node = ptr.get()] {
-				node->m_model.waitForIsLoaded();
-				node->m_isReady.store(true, std::memory_order_release);
-				node->onLoadComplete();
-				});
-
-			return ptr;
-		}
-
 		void draw(ID3D12GraphicsCommandList* commandList, Camera* camera, bool enableFrustumCulling, const std::function<bool(CPUMesh&, CPUMaterial&, SceneNode* node)>& callback) override {
 			if (!m_cachedReady) {
 				m_cachedReady = m_isReady.load(std::memory_order_acquire);

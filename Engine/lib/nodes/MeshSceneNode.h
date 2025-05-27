@@ -3,7 +3,6 @@
 #pragma once
 
 #include "../scene/SceneNode.h"
-#include "../loaders/ModelLoader.h"
 #include "../renderable/MeshRenderable.h"
 #include "../mesh/CPUMesh.h"
 #include "../mesh/GPUMesh.h"

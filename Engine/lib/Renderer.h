@@ -4,8 +4,6 @@
 #include "./camera/Camera.h"
 #include "nodes/ModelSceneNode.h"
 #include "scene/Scene.h"
-#include "queues/GPUUploadQueue.h"
-#include "loaders/ModelLoader.h"
 #include "descriptors/BindlessHeapDescriptor.h"
 #include "Device.h"
 #include "pipelines/PSOShader.h"
@@ -20,6 +18,12 @@
 #include "memory/Resource.h"
 #include "memory/Heap.h"
 #include "AssetReader.h"
+
+#include "Keyboard.h"
+#include "Mouse.h"
+#include "ecs/EntityManager.h"
+#include "ecs/components/Initialize.h"
+#include "ecs/components/ComponentTest.h"
 
 #include <iostream>
 
@@ -45,11 +49,11 @@ public:
     Renderer(UINT width, UINT height, std::wstring name);
 
     virtual void OnInit();
-    virtual void OnUpdate();
+    virtual void OnUpdate(float dt);
     virtual void OnRender();
     virtual void OnDestroy();
-    void OnMouseMove();
-	void OnKeyDown();
+    virtual void OnMouseUpdate(DirectX::Mouse::State);
+    virtual void OnKeyboardUpdate(DirectX::Keyboard::State);
 
 private:
     static const UINT FrameCount = 2;
@@ -74,8 +78,6 @@ private:
 
     std::unique_ptr <Engine::Camera> m_camera;
     Engine::Scene m_scene;
-    Engine::GPUUploadQueue& m_uploadQueue = Engine::GPUUploadQueue::GetInstance();
-    Engine::ModelLoader& m_modelLoader = Engine::ModelLoader::GetInstance();
     Engine::BindlessHeapDescriptor& m_bindlessHeapDescriptor = Engine::BindlessHeapDescriptor::GetInstance();
 
 
@@ -95,7 +97,9 @@ private:
     float yaw = 0;
     float pitch = 0;
     bool isCursorCaptured = false;
-    DirectX::Keyboard::KeyboardStateTracker tracker;
+    DirectX::Keyboard::KeyboardStateTracker trackerKeyboard;
+    DirectX::Mouse::ButtonStateTracker trackerMouse;
+
 
     void LoadPipeline();
     void LoadAssets();

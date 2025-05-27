@@ -144,8 +144,8 @@ namespace Engine {
 		void createFullScreenQuad() {
 			static auto& cpuMaterialManager = CPUMaterialManager::GetInstance();
 			static auto& cpuMeshManager = CPUMeshManager::GetInstance();
-			static auto& modelLoader = Engine::ModelLoader::GetInstance();
-			static auto& uploadQueue = Engine::GPUUploadQueue::GetInstance();
+			//static auto& modelLoader = Engine::ModelLoader::GetInstance();
+			//static auto& uploadQueue = Engine::GPUUploadQueue::GetInstance();
 
 
 			std::vector<GUID> meshGUIDs;
@@ -158,11 +158,11 @@ namespace Engine {
 			cpuMesh->topologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 			cpuMesh->setCPUMaterialId(GUID_NULL);
 			meshGUIDs.push_back(cpuMeshManager.add(std::move(cpuMesh)));
-			auto modelSceneNode = ModelSceneNode::CreateFromGeometry(meshGUIDs);
-			modelLoader.waitForQueueEmpty();
-			uploadQueue.execute();
-			modelSceneNode->waitUntilLoadComplete();
-			m_scene->addNode(std::move(modelSceneNode));
+			//auto modelSceneNode = ModelSceneNode::CreateFromGeometry(meshGUIDs);
+			//modelLoader.waitForQueueEmpty();
+			//uploadQueue.execute();
+			//modelSceneNode->waitUntilLoadComplete();
+			//m_scene->addNode(std::move(modelSceneNode));
 		}
 		void createPso() {
 			CD3DX12_DEPTH_STENCIL_DESC depthStencilDesc = {};

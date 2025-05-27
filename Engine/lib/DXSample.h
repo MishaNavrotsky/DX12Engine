@@ -13,6 +13,8 @@
 
 #include "DXSampleHelper.h"
 #include "Win32Application.h"
+#include "Keyboard.h"
+#include "Mouse.h"
 
 class DXSample
 {
@@ -21,9 +23,11 @@ public:
     virtual ~DXSample();
 
     virtual void OnInit() = 0;
-    virtual void OnUpdate() = 0;
+    virtual void OnUpdate(float dt) = 0;
     virtual void OnRender() = 0;
     virtual void OnDestroy() = 0;
+    virtual void OnMouseUpdate(DirectX::Mouse::State state) = 0;
+    virtual void OnKeyboardUpdate(DirectX::Keyboard::State state) = 0;
 
     // Accessors.
     inline UINT GetWidth() const           { return m_width; }

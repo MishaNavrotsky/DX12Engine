@@ -135,36 +135,34 @@ namespace Engine {
 	private:
 
 		void populateScene(Scene* oScene, Camera* camera) {
-			m_scene->getSceneRootNodes().clear();
-			static auto& cpuMaterialManager = CPUMaterialManager::GetInstance();
-			static auto& cpuMeshManager = CPUMeshManager::GetInstance();
-			static auto& modelLoader = Engine::ModelLoader::GetInstance();
-			static auto& uploadQueue = Engine::GPUUploadQueue::GetInstance();
+			//m_scene->getSceneRootNodes().clear();
+			//static auto& cpuMaterialManager = CPUMaterialManager::GetInstance();
+			//static auto& cpuMeshManager = CPUMeshManager::GetInstance();
 
-			auto meshNodes = oScene->getAllMeshNodes();
+			//auto meshNodes = oScene->getAllMeshNodes();
 
-			std::vector<GUID> meshGUIDs;
+			//std::vector<GUID> meshGUIDs;
 
-			for (auto& meshNode : meshNodes) {
-				auto worldSpace = *(&meshNode->getWorldSpaceAABB());
-				DirectX::XMFLOAT3 min;
-				DirectX::XMStoreFloat3(&min, worldSpace.min);
-				DirectX::XMFLOAT3 max;
-				DirectX::XMStoreFloat3(&max, worldSpace.max);
+			//for (auto& meshNode : meshNodes) {
+			//	auto worldSpace = *(&meshNode->getWorldSpaceAABB());
+			//	DirectX::XMFLOAT3 min;
+			//	DirectX::XMStoreFloat3(&min, worldSpace.min);
+			//	DirectX::XMFLOAT3 max;
+			//	DirectX::XMStoreFloat3(&max, worldSpace.max);
 
 
 
-				auto cube = Geometry::GenerateCubeFromPoints(min, max);
-				auto cpuMesh = std::make_unique<CPUMesh>();
-				cpuMesh->setIndices(std::vector<uint32_t>(cube.lineListIndices.begin(), cube.lineListIndices.end()));
-				cpuMesh->setVertices(Helpers::FlattenXMFLOAT3Array(cube.vertices));
-				cpuMesh->setNormals(Helpers::FlattenXMFLOAT3Array(cube.normals));
-				cpuMesh->topology = D3D_PRIMITIVE_TOPOLOGY_LINELIST;
-				cpuMesh->topologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
-				cpuMesh->setCPUMaterialId(GUID_NULL);
+			//	auto cube = Geometry::GenerateCubeFromPoints(min, max);
+			//	auto cpuMesh = std::make_unique<CPUMesh>();
+			//	cpuMesh->setIndices(std::vector<uint32_t>(cube.lineListIndices.begin(), cube.lineListIndices.end()));
+			//	cpuMesh->setVertices(Helpers::FlattenXMFLOAT3Array(cube.vertices));
+			//	cpuMesh->setNormals(Helpers::FlattenXMFLOAT3Array(cube.normals));
+			//	cpuMesh->topology = D3D_PRIMITIVE_TOPOLOGY_LINELIST;
+			//	cpuMesh->topologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
+			//	cpuMesh->setCPUMaterialId(GUID_NULL);
 
-				meshGUIDs.push_back(cpuMeshManager.add(std::move(cpuMesh)));
-			}
+			//	meshGUIDs.push_back(cpuMeshManager.add(std::move(cpuMesh)));
+			//}
 
 			//auto& frustrum = camera->getFrustum();
 			//for (int i = 0; i < std::size(frustrum.planes); ++i) {
@@ -183,11 +181,11 @@ namespace Engine {
 			//	meshGUIDs.push_back(cpuMeshManager.add(std::move(cpuMesh)));
 			//}
 
-			auto o = ModelSceneNode::CreateFromGeometry(meshGUIDs);
-			modelLoader.waitForQueueEmpty();
-			uploadQueue.execute();
-			o->waitUntilLoadComplete();
-			m_scene->addNode(std::move(o));
+			//auto o = ModelSceneNode::CreateFromGeometry(meshGUIDs);
+			//modelLoader.waitForQueueEmpty();
+			//uploadQueue.execute();
+			//o->waitUntilLoadComplete();
+			//m_scene->addNode(std::move(o));
 		}
 		void cloneDepthBuffer(Memory::Resource* srcDepthBuffer) {
 			auto b = CD3DX12_RESOURCE_BARRIER::Transition(

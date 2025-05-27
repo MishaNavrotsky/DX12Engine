@@ -57,10 +57,10 @@ void Renderer::LoadPipeline()
 
 	m_device->SetStablePowerState(TRUE);
 
-	m_uploadQueue.registerDevice(m_device);
 	m_bindlessHeapDescriptor.registerDevice(m_device);
 	Engine::Device::SetDevice(m_device);
 	Engine::InitializeDefault::Initialize(m_device.Get(), &m_bindlessHeapDescriptor.GetInstance());
+	Engine::Component::Initialize();
 
 
 	D3D12_COMMAND_QUEUE_DESC directQueueDesc = {};
@@ -139,18 +139,30 @@ void Renderer::LoadPipeline()
 void Renderer::LoadAssets()
 {
 	{
-		m_scene.addNode(Engine::ModelSceneNode::CreateFromGLTFFile(L"assets\\models\\alicev2rigged.glb"));
-		auto o = Engine::ModelSceneNode::CreateFromGLTFFile(L"assets\\models\\alicev2rigged_c.glb");
-		Engine::ModelMatrix modelMatrix;
-		modelMatrix.setPosition(8000, 0, 0);
-		modelMatrix.update();
-		o.get()->setLocalModelMatrix(modelMatrix);
-		m_scene.addNode(o);
+		//m_scene.addNode(Engine::ModelSceneNode::CreateFromGLTFFile(L"assets\\models\\alicev2rigged.glb"));
+		//auto o = Engine::ModelSceneNode::CreateFromGLTFFile(L"assets\\models\\alicev2rigged_c.glb");
+		//Engine::ModelMatrix modelMatrix;
+		//modelMatrix.setPosition(8000, 0, 0);
+		//modelMatrix.update();
+		//o.get()->setLocalModelMatrix(modelMatrix);
+		//m_scene.addNode(o);
+		Engine::EntityManager entityManager;
+		auto entity = entityManager.createEntity();
+		entityManager.addComponent(entity);
+		entityManager.addComponent(entity, Engine::Component::ComponentTestA{ .x = 10.0 }, Engine::Component::ComponentTestB{ .x = 20.0 }, Engine::Component::ComponentTestC{ .x = 20.0 });
+		entityManager.addComponent(entity, Engine::Component::ComponentTestA {.x=20.0}, Engine::Component::ComponentTestC{ .x = 30.0 });
+		entityManager.addComponent(entity, Engine::Component::ComponentTestB{ .y = 50.0 });
+		entityManager.removeComponent<Engine::Component::ComponentTestA>(entity);
 
-		auto h = Engine::Asset::AssetReader::ReadMeshHeaders("D:\\DX12En\\AssetsCreator\\assets\\alicev2rigged_0.mesh.asset");
+		auto entity1 = entityManager.createEntity();
+		entityManager.addComponent(entity1, Engine::Component::ComponentTestB{ .y = 120.0 });
 
-		m_modelLoader.waitForQueueEmpty();
-		m_uploadQueue.execute().wait();
+
+		auto& o = entityManager.getComponent<Engine::Component::ComponentTestB>(entity);
+		auto& o1 = entityManager.getComponent<Engine::Component::ComponentTestB>(entity1);
+
+
+
 		WaitForCommandQueueExecute();
 	}
 
@@ -166,27 +178,19 @@ void Renderer::LoadAssets()
 	}
 }
 
-void Renderer::OnUpdate()
+void Renderer::OnMouseUpdate(DirectX::Mouse::State state) {
+	trackerMouse.Update(state);
+}
+
+void Renderer::OnKeyboardUpdate(DirectX::Keyboard::State state) {
+	trackerKeyboard.Update(state);
+}
+
+void Renderer::OnUpdate(float dt)
 {
-	static auto keyboard = Win32Application::GetKeyboard();
-	static auto mouse = Win32Application::GetMouse();
-	tracker.Update(keyboard->GetState());
-
-	if (tracker.released.Escape) { 
-		isCursorCaptured = !isCursorCaptured; 
-		mouse->SetVisible(!isCursorCaptured);
-		if (isCursorCaptured) mouse->SetMode(DirectX::Mouse::MODE_RELATIVE);
-		if (!isCursorCaptured) mouse->SetMode(DirectX::Mouse::MODE_ABSOLUTE);
-	}
-
-
-	if (isCursorCaptured) {
-		this->OnMouseMove();
-		this->OnKeyDown();
-	}
-
-
 	m_camera->update();
+
+	this->OnRender();
 }
 
 static void setCursorToCenterOfTheWindow() {
@@ -299,71 +303,71 @@ void Renderer::WaitForCommandQueueExecute()
 	}
 }
 
-void Renderer::OnKeyDown()
-{
-	static auto keyboard = Win32Application::GetKeyboard();
-	auto state = keyboard->GetState();
-	HWND hWnd = GetFocus();
-	if (!hWnd) return;
-
-	auto cameraPos = m_camera->getPosition();
-	auto cameraLookAt = m_camera->getLookAt();
-	auto cameraSpeed = 10.0f;
-
-	if (state.LeftShift) { // Shift key
-		cameraSpeed *= 10.0f;
-	}
-
-	if (state.LeftControl) { // Left Ctrl key
-		cameraSpeed *= 0.1f;
-	}
-
-
-
-	if (state.W) { // W key
-		cameraPos += cameraLookAt * cameraSpeed;
-	}
-	if (state.A) { // A key
-		cameraPos += XMVector3Normalize(XMVector3Cross(cameraLookAt, XMVectorSet(0, 1, 0, 0))) * cameraSpeed;
-	}
-	if (state.S) { // S key
-		cameraPos -= cameraLookAt * cameraSpeed;
-	}
-	if (state.D) { // D key
-		cameraPos -= XMVector3Normalize(XMVector3Cross(cameraLookAt, XMVectorSet(0, 1, 0, 0))) * cameraSpeed;;
-	}
-
-	m_camera->setPosition(cameraPos);
-}
-
-void Renderer::OnMouseMove()
-{
-	static auto mouse = Win32Application::GetMouse();
-	auto state = mouse->GetState();
-
-	HWND hWnd = GetFocus();
-	if (!hWnd) return;
-
-	float speed = 0.1f;
-
-	yaw += -state.x * speed;
-	pitch += -state.y * speed;
-	if (pitch > 89.0f) {
-		pitch = 89.0f;
-	}
-	if (pitch < -89.0f) {
-		pitch = -89.0f;
-	}
-	XMVECTOR cameraPos = m_camera->getPosition();
-
-	XMVECTOR direction = XMVectorSet(
-		cosf(XMConvertToRadians(yaw)) * cosf(XMConvertToRadians(pitch)),
-		sinf(XMConvertToRadians(pitch)),
-		sinf(XMConvertToRadians(yaw)) * cosf(XMConvertToRadians(pitch)),
-		1.0f);
-	direction = XMVector3Normalize(direction);
-
-	m_camera->setLookAt(direction);
-
-	setCursorToCenterOfTheWindow();
-}
+//void Renderer::OnKeyDown()
+//{
+//	static auto keyboard = Win32Application::GetKeyboard();
+//	auto state = keyboard->GetState();
+//	HWND hWnd = GetFocus();
+//	if (!hWnd) return;
+//
+//	auto cameraPos = m_camera->getPosition();
+//	auto cameraLookAt = m_camera->getLookAt();
+//	auto cameraSpeed = 10.0f;
+//
+//	if (state.LeftShift) { // Shift key
+//		cameraSpeed *= 10.0f;
+//	}
+//
+//	if (state.LeftControl) { // Left Ctrl key
+//		cameraSpeed *= 0.1f;
+//	}
+//
+//
+//
+//	if (state.W) { // W key
+//		cameraPos += cameraLookAt * cameraSpeed;
+//	}
+//	if (state.A) { // A key
+//		cameraPos += XMVector3Normalize(XMVector3Cross(cameraLookAt, XMVectorSet(0, 1, 0, 0))) * cameraSpeed;
+//	}
+//	if (state.S) { // S key
+//		cameraPos -= cameraLookAt * cameraSpeed;
+//	}
+//	if (state.D) { // D key
+//		cameraPos -= XMVector3Normalize(XMVector3Cross(cameraLookAt, XMVectorSet(0, 1, 0, 0))) * cameraSpeed;;
+//	}
+//
+//	m_camera->setPosition(cameraPos);
+//}
+//
+//void Renderer::OnMouseMove()
+//{
+//	static auto mouse = Win32Application::GetMouse();
+//	auto state = mouse->GetState();
+//
+//	HWND hWnd = GetFocus();
+//	if (!hWnd) return;
+//
+//	float speed = 0.1f;
+//
+//	yaw += -state.x * speed;
+//	pitch += -state.y * speed;
+//	if (pitch > 89.0f) {
+//		pitch = 89.0f;
+//	}
+//	if (pitch < -89.0f) {
+//		pitch = -89.0f;
+//	}
+//	XMVECTOR cameraPos = m_camera->getPosition();
+//
+//	XMVECTOR direction = XMVectorSet(
+//		cosf(XMConvertToRadians(yaw)) * cosf(XMConvertToRadians(pitch)),
+//		sinf(XMConvertToRadians(pitch)),
+//		sinf(XMConvertToRadians(yaw)) * cosf(XMConvertToRadians(pitch)),
+//		1.0f);
+//	direction = XMVector3Normalize(direction);
+//
+//	m_camera->setLookAt(direction);
+//
+//	setCursorToCenterOfTheWindow();
+//}
