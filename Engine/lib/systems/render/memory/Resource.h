@@ -2,11 +2,10 @@
 
 #pragma once
 
-#include "../DXSampleHelper.h"
+#include "../../../helpers.h"
 #include "../Device.h"
 
-namespace Engine::Memory {
-	using namespace Microsoft::WRL;
+namespace Engine::Render::Memory {
 	enum class ResourceTypes {
 		Commited,
 		Placed,
@@ -63,7 +62,7 @@ namespace Engine::Memory {
 		}
 
 		uint64_t copyData(ID3D12GraphicsCommandList* cmdList, Resource* src, uint64_t sourceOffset, uint64_t size, uint64_t alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT) {
-			uint64_t alignedOffset = Align(m_currentOffset, alignment);
+			uint64_t alignedOffset = Helpers::Align(m_currentOffset, alignment);
 
 			if (alignedOffset + size > m_allocatedSize) {
 				throw std::runtime_error("Resource: Not enough space to copy data.");
@@ -92,7 +91,7 @@ namespace Engine::Memory {
 				throw std::runtime_error("WriteData is only valid on UPLOAD or READBACK heap types");
 			}
 
-			uint64_t alignedOffset = Align(m_currentOffset, alignment);
+			uint64_t alignedOffset = Helpers::Align(m_currentOffset, alignment);
 
 			if (alignedOffset + size > m_allocatedSize) {
 				throw std::runtime_error("Resource: Not enough space for WriteData.");
@@ -224,7 +223,7 @@ namespace Engine::Memory {
 			ThrowIfFailed(device->CreateCommittedResource(pHeapProperties, HeapFlags, pDesc, InitialResourceState, m_clearValue.get(), IID_PPV_ARGS(&m_resource)));
 		}
 
-		ComPtr<ID3D12Resource> m_resource;
+		WPtr<ID3D12Resource> m_resource;
 
 		uint64_t m_allocatedSize = 0;
 		std::unique_ptr<D3D12_CLEAR_VALUE> m_clearValue;

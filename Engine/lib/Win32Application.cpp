@@ -5,14 +5,14 @@
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 HWND Win32Application::m_hwnd = nullptr;
-std::unique_ptr<DirectX::Keyboard> Win32Application::m_keyboard = std::make_unique<DirectX::Keyboard>();
-std::unique_ptr<DirectX::Mouse> Win32Application::m_mouse = std::make_unique<DirectX::Mouse>();
-ThreadSafeQueue<DirectX::Keyboard::State> Win32Application::m_keyboardStateQueue;
-ThreadSafeQueue<DirectX::Mouse::State> Win32Application::m_mouseStateQueue;
+std::unique_ptr<DX::Keyboard> Win32Application::m_keyboard = std::make_unique<DX::Keyboard>();
+std::unique_ptr<DX::Mouse> Win32Application::m_mouse = std::make_unique<DX::Mouse>();
+ThreadSafeQueue<DX::Keyboard::State> Win32Application::m_keyboardStateQueue;
+ThreadSafeQueue<DX::Mouse::State> Win32Application::m_mouseStateQueue;
 
 std::atomic<bool> Win32Application::m_windowClosed = false;
 
-void Win32Application::RunMainEngineLoop(DXSample* pSample)
+void Win32Application::RunMainEngineLoop(Engine::Engine* engine)
 {
 	using namespace std::chrono;
 	auto previousTime = high_resolution_clock::now();
@@ -28,15 +28,15 @@ void Win32Application::RunMainEngineLoop(DXSample* pSample)
 		auto mouseStates = m_mouseStateQueue.popAll();
 		if (keyboardStates.size() > 0)
 		{
-			pSample->OnKeyboardUpdate(keyboardStates.back());
+			engine->onKeyboardUpdate(keyboardStates.back());
 
 		}
 		if (mouseStates.size() > 0)
 		{
-			pSample->OnMouseUpdate(mouseStates.back());
+			engine->onMouseUpdate(mouseStates.back());
 		}
 
-		pSample->OnUpdate(deltaTime);
+		engine->update(deltaTime);
 
 		//sleap
 		std::this_thread::sleep_for(std::chrono::milliseconds(30)); // Roughly 60 FPS
@@ -81,30 +81,30 @@ char Win32Application::RunMainEventLoop()
 	return static_cast<char>(msg.wParam);
 }
 
-int Win32Application::Run(DXSample* pSample, HINSTANCE hInstance, int nCmdShow)
+int Win32Application::Run(Engine::Engine* engine, HINSTANCE hInstance, int nCmdShow)
 {
 	int argc;
 	LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
-	pSample->ParseCommandLineArgs(argv, argc);
+	engine->parseCommandLineArgs(argv, argc);
 	LocalFree(argv);
 
-	RECT windowRect = { 0, 0, static_cast<LONG>(pSample->GetWidth()), static_cast<LONG>(pSample->GetHeight()) };
+	RECT windowRect = { 0, 0, static_cast<LONG>(engine->getWidth()), static_cast<LONG>(engine->getHeight()) };
 	AdjustWindowRect(&windowRect, WS_OVERLAPPEDWINDOW, FALSE);
 
-	CreateMainWindow(windowRect, pSample->GetTitle(), hInstance, nCmdShow);
+	CreateMainWindow(windowRect, engine->getTitle().c_str(), hInstance, nCmdShow);
 	m_mouse->SetWindow(m_hwnd);
 	ShowCursor(true);
 
-	pSample->OnInit();
+	engine->initialize();
 
-	std::thread mainEngineLoopThread(RunMainEngineLoop, pSample);
+	std::thread mainEngineLoopThread(RunMainEngineLoop, engine);
 
 	auto exitCode = RunMainEventLoop();
 	m_windowClosed.store(true);
 
 	mainEngineLoopThread.join();
 
-	pSample->OnDestroy();
+	engine->destroy();
 
 	return exitCode;
 }
@@ -121,22 +121,18 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
 			}
 		}
 	}
-	DXSample* pSample = reinterpret_cast<DXSample*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
 
 	switch (message)
 	{
 	case WM_CREATE:
 	{
-		// Save the DXSample* passed in to CreateWindow.
-		//LPCREATESTRUCT pCreateStruct = reinterpret_cast<LPCREATESTRUCT>(lParam);
-		//SetWindowLongPtr(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(pCreateStruct->lpCreateParams));
 	}
 	return 0;
 	case WM_ACTIVATEAPP:
-		//m_keyboard->ProcessMessage(message, wParam, lParam);
-		//m_mouse->ProcessMessage(message, wParam, lParam);
-		//m_keyboardStateQueue.push(m_keyboard->GetState());
-		//m_mouseStateQueue.push(m_mouse->GetState());
+		m_keyboard->ProcessMessage(message, wParam, lParam);
+		m_mouse->ProcessMessage(message, wParam, lParam);
+		m_keyboardStateQueue.push(m_keyboard->GetState());
+		m_mouseStateQueue.push(m_mouse->GetState());
 		break;
 	case WM_ACTIVATE:
 	case WM_INPUT:

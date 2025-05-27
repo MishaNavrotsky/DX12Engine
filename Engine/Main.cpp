@@ -1,8 +1,8 @@
 #include "stdafx.h"
-#include "lib/Renderer.h"
 #include <iostream>
-#include "DirectXTex.h"
-#include "lib/managers/ResourceManager.h"
+
+#include "lib/Engine.h"
+#include "lib/Win32Application.h"
 
 static void CreateConsole()
 {
@@ -43,6 +43,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
         return -1;
     };
     CreateConsole();
-    Renderer sample(static_cast<UINT>(1280*1.2), static_cast<UINT>(720*1.2), L"Title");
-    return Win32Application::Run(&sample, hInstance, nCmdShow);
+    Engine::Engine engine(static_cast<UINT>(1280*1.2), static_cast<UINT>(720*1.2), L"Title");
+    return Win32Application::Run(&engine, hInstance, nCmdShow);
 }

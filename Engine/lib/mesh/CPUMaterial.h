@@ -2,31 +2,29 @@
 
 #pragma once
 
-#include "helpers.h"
-#include "../managers/helpers.h"
+#include "../helpers.h"
+#include "../structures.h"
 
 namespace Engine {
-	using namespace Microsoft::WRL;
-
 	struct CPUMaterialCBVData {
-		XMFLOAT4 emissiveFactor = { 0.f, 0.f, 0.f, 1.f };
-		XMFLOAT4 baseColorFactor = { 1.f, 1.f, 1.f, 1.f };
-		XMFLOAT4 normalScaleOcclusionStrengthMRFactors = { 1.f, 1.f, 1.f, 1.f };
-		XMUINT4 diffuseEmissiveNormalOcclusionTexSlots = { 
-			static_cast<uint32_t>(DefaultTexturesSlot::BASE_COLOR),
-			static_cast<uint32_t>(DefaultTexturesSlot::EMISSIVE),
-			static_cast<uint32_t>(DefaultTexturesSlot::NORMAL),
-			static_cast<uint32_t>(DefaultTexturesSlot::OCCLUSION)
+		DX::XMFLOAT4 emissiveFactor = { 0.f, 0.f, 0.f, 1.f };
+		DX::XMFLOAT4 baseColorFactor = { 1.f, 1.f, 1.f, 1.f };
+		DX::XMFLOAT4 normalScaleOcclusionStrengthMRFactors = { 1.f, 1.f, 1.f, 1.f };
+		DX::XMUINT4 diffuseEmissiveNormalOcclusionTexSlots = {
+			static_cast<uint32_t>(Structures::DefaultTexturesSlot::BASE_COLOR),
+			static_cast<uint32_t>(Structures::DefaultTexturesSlot::EMISSIVE),
+			static_cast<uint32_t>(Structures::DefaultTexturesSlot::NORMAL),
+			static_cast<uint32_t>(Structures::DefaultTexturesSlot::OCCLUSION)
 		};
-		XMUINT4 MrTexSlots = { static_cast<uint32_t>(DefaultTexturesSlot::METALLIC_ROUGHNESS), 0, 0, 0 };
+		DX::XMUINT4 MrTexSlots = { static_cast<uint32_t>(Structures::DefaultTexturesSlot::METALLIC_ROUGHNESS), 0, 0, 0 };
 
-		XMUINT4 diffuseEmissiveNormalOcclusionSamSlots = {
-			static_cast<uint32_t>(DefaultSamplersSlot::BASE_COLOR),
-			static_cast<uint32_t>(DefaultSamplersSlot::EMISSIVE),
-			static_cast<uint32_t>(DefaultSamplersSlot::NORMAL),
-			static_cast<uint32_t>(DefaultSamplersSlot::OCCLUSION)
+		DX::XMUINT4 diffuseEmissiveNormalOcclusionSamSlots = {
+			static_cast<uint32_t>(Structures::DefaultSamplersSlot::BASE_COLOR),
+			static_cast<uint32_t>(Structures::DefaultSamplersSlot::EMISSIVE),
+			static_cast<uint32_t>(Structures::DefaultSamplersSlot::NORMAL),
+			static_cast<uint32_t>(Structures::DefaultSamplersSlot::OCCLUSION)
 		};
-		XMUINT4 MrSamSlots = { static_cast<uint32_t>(DefaultSamplersSlot::METALLIC_ROUGHNESS), 0, 0, 0 };
+		DX::XMUINT4 MrSamSlots = { static_cast<uint32_t>(Structures::DefaultSamplersSlot::METALLIC_ROUGHNESS), 0, 0, 0 };
 	};
 
 	class CPUMaterial : public IID {
@@ -45,7 +43,7 @@ namespace Engine {
 			return m_cbvDataBindlessHeapSlot;
 		}
 
-		AlphaMode alphaMode = AlphaMode::Opaque;
+		Structures::AlphaMode alphaMode = Structures::AlphaMode::Opaque;
 		D3D12_CULL_MODE cullMode = D3D12_CULL_MODE_BACK;
 		float alphaCutoff = 0.5f;
 

@@ -9,7 +9,7 @@
 #include "components/ComponentRegistry.h"
 #include "components/ComponentGroup.h"
 
-namespace Engine {
+namespace Engine::ECS {
 	class EntityManager {
 	public:
 		EntityManager() {

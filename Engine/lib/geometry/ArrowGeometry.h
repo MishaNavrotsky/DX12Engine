@@ -6,9 +6,9 @@
 #include <DirectXMath.h>
 
 struct ArrowGeometry {
-    std::vector<DirectX::XMFLOAT3> vertices;
+    std::vector<DX::XMFLOAT3> vertices;
     std::vector<unsigned int> indices;
-    std::vector<DirectX::XMFLOAT3> normals;
+    std::vector<DX::XMFLOAT3> normals;
 };
 
 // Combines a cylinder (shaft) and a cone (head) to form an arrow

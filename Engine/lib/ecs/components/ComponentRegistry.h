@@ -8,7 +8,7 @@
 #include <typeindex>
 #include <typeinfo>
 
-namespace Engine {
+namespace Engine::ECS {
     constexpr uint32_t MAX_COMPONENTS = 64;
     struct ComponentOps {
         std::function<void(void*)> construct;

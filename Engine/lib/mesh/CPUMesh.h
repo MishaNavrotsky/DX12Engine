@@ -2,20 +2,18 @@
 
 #pragma once
 
-#include "helpers.h"
+#include "../structures.h"
 #include "../geometry/ModelMatrix.h"
-#include "../DXSampleHelper.h"
 #include "../managers/helpers.h"
+#include "../helpers.h"
 
 namespace Engine {
-	using namespace Microsoft::WRL;
-	using namespace DirectX;
 	struct AABB {
-		XMVECTOR min;
-		XMVECTOR max;
+		DX::XMVECTOR min;
+		DX::XMVECTOR max;
 	};
 
-	class CPUMesh: public IID {
+	class CPUMesh: public Structures::IID {
 	public:
 		void setVertices(std::vector<float>&& v) noexcept {
 			m_vertices = std::move(v);
@@ -94,14 +92,14 @@ namespace Engine {
 		std::unordered_set<GUID, GUIDHash, GUIDEqual> m_modelsIds;
 
 		void computeAABB() {
-			m_aabb.min = XMVectorReplicate(std::numeric_limits<float>::max());
-			m_aabb.max = XMVectorReplicate(std::numeric_limits<float>::lowest());
+			m_aabb.min = DX::XMVectorReplicate(std::numeric_limits<float>::max());
+			m_aabb.max = DX::XMVectorReplicate(std::numeric_limits<float>::lowest());
 
-			auto xmv = convertToXMVectors(m_vertices);
+			auto xmv = Helpers::convertToXMVectors(m_vertices);
 
 			for (const auto& v : xmv) {
-				m_aabb.min = XMVectorMin(m_aabb.min, v);
-				m_aabb.max = XMVectorMax(m_aabb.max, v);
+				m_aabb.min = DX::XMVectorMin(m_aabb.min, v);
+				m_aabb.max = DX::XMVectorMax(m_aabb.max, v);
 			}
 		}
 	};

@@ -3,11 +3,8 @@
 #pragma once
 
 #include "helpers.h"
-#include "../managers/helpers.h"
 
 namespace Engine {
-	using namespace Microsoft::WRL;
-
 	class Sampler: public IID {
 	public:
 		Sampler() = default;

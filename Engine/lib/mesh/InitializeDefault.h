@@ -11,8 +11,6 @@
 
 
 namespace Engine {
-	using namespace Microsoft::WRL;
-
 	class InitializeDefault {
 	public:
 		static void Initialize(ID3D12Device* device, BindlessHeapDescriptor* heapDesc) {

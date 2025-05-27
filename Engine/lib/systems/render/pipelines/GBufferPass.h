@@ -2,20 +2,15 @@
 
 #pragma once
 
-#include "../Device.h"
-#include "../DXSampleHelper.h"
 #include "PSOShader.h"
-#include "../camera/Camera.h"
-#include "../mesh/CPUMesh.h"
-#include "../mesh/CPUMaterial.h"
-#include "../scene/SceneNode.h"
 #include "../memory/Resource.h"
+#include "../descriptors/BindlessHeapDescriptor.h"
 
 
-const uint32_t N_OF_RTVS = 7;
 
-namespace Engine {
-	using namespace Microsoft::WRL;
+namespace Engine::Render::Pipeline {
+	const uint32_t N_OF_RTVS = 7;
+
 	class GBufferPass {
 		struct EnumKey {
 			D3D12_CULL_MODE cullMode;
@@ -33,8 +28,8 @@ namespace Engine {
 			}
 		};
 	public:
-		GBufferPass(ComPtr<ID3D12Device> device, UINT width, UINT height) : m_device(device), m_width(width), m_height(height) {
-			Engine::PSOShaderCreate psoSC;
+		GBufferPass(WPtr<ID3D12Device> device, UINT width, UINT height) : m_device(device), m_width(width), m_height(height) {
+			PSOShaderCreate psoSC;
 			psoSC.PS = L"assets\\shaders\\gbuffers.hlsl";
 			psoSC.VS = L"assets\\shaders\\gbuffers.hlsl";
 			psoSC.PSEntry = L"PSMain";
@@ -60,7 +55,7 @@ namespace Engine {
 			m_scissorRect = CD3DX12_RECT(0, 0, static_cast<LONG>(width), static_cast<LONG>(height));
 		}
 
-		std::array<ID3D12CommandList*, 2> renderGBuffers(Scene* scene, Camera* camera) {
+		std::array<ID3D12CommandList*, 2> renderGBuffers() {
 			ThrowIfFailed(m_commandAllocator->Reset());
 			ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), nullptr));
 			{
@@ -74,7 +69,7 @@ namespace Engine {
 			}
 
 			m_commandList->SetGraphicsRootSignature(getRootSignature());
-			m_commandList->SetGraphicsRootConstantBufferView(0, camera->getResource()->GetGPUVirtualAddress());
+			//m_commandList->SetGraphicsRootConstantBufferView(0, camera->getResource()->GetGPUVirtualAddress());
 
 			ID3D12DescriptorHeap* heaps[] = { m_bindlessHeapDescriptor.getSrvDescriptorHeap(), m_bindlessHeapDescriptor.getSamplerDescriptorHeap() };
 			m_commandList->SetDescriptorHeaps(_countof(heaps), heaps);
@@ -96,15 +91,15 @@ namespace Engine {
 			}
 			m_commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 0.0f, 0, 0, nullptr);
 
-			m_commandList->SetGraphicsRootConstantBufferView(0, camera->getResource()->GetGPUVirtualAddress());
-			auto lambda = std::function([&](CPUMesh& mesh, CPUMaterial& material, SceneNode* node) {
-				m_commandList->IASetPrimitiveTopology(mesh.topology);
-				m_commandList->SetPipelineState(getPso({ material.cullMode, mesh.topologyType }));
-				m_commandList->SetGraphicsRootConstantBufferView(1, node->getResource()->GetGPUVirtualAddress());
-				return false;
-				});
+			//m_commandList->SetGraphicsRootConstantBufferView(0, camera->getResource()->GetGPUVirtualAddress());
+			//auto lambda = std::function([&](CPUMesh& mesh, CPUMaterial& material, SceneNode* node) {
+			//	m_commandList->IASetPrimitiveTopology(mesh.topology);
+			//	m_commandList->SetPipelineState(getPso({ material.cullMode, mesh.topologyType }));
+			//	m_commandList->SetGraphicsRootConstantBufferView(1, node->getResource()->GetGPUVirtualAddress());
+			//	return false;
+			//	});
 
-			scene->draw(m_commandList.Get(), camera, true, lambda);
+			//scene->draw(m_commandList.Get(), camera, true, lambda);
 
 			ThrowIfFailed(m_commandList->Close());
 
@@ -290,7 +285,7 @@ namespace Engine {
 				m_dsvHeap->GetCPUDescriptorHandleForHeapStart()
 			);
 		}
-		ComPtr<ID3D12PipelineState> createPso(const EnumKey key) {
+		WPtr<ID3D12PipelineState> createPso(const EnumKey key) {
 			CD3DX12_DEPTH_STENCIL_DESC depthStencilDesc = {};
 			depthStencilDesc.DepthEnable = TRUE;
 			depthStencilDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
@@ -318,7 +313,7 @@ namespace Engine {
 			}
 			psoDesc.SampleDesc.Count = 1;
 
-			ComPtr<ID3D12PipelineState> pso;
+			WPtr<ID3D12PipelineState> pso;
 			ThrowIfFailed(m_device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pso)));
 			m_psos.insert({ key, pso });
 
@@ -328,19 +323,19 @@ namespace Engine {
 			D3D12_DESCRIPTOR_RANGE descriptorRanges[3] = {};
 
 			descriptorRanges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-			descriptorRanges[0].NumDescriptors = N_SRV_DESCRIPTORS;
+			descriptorRanges[0].NumDescriptors = Descriptor::N_SRV_DESCRIPTORS;
 			descriptorRanges[0].BaseShaderRegister = 0; // t0
 			descriptorRanges[0].RegisterSpace = 0;
 			descriptorRanges[0].OffsetInDescriptorsFromTableStart = 0;
 
 			descriptorRanges[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-			descriptorRanges[1].NumDescriptors = N_CBV_DESCRIPTORS;
+			descriptorRanges[1].NumDescriptors = Descriptor::N_CBV_DESCRIPTORS;
 			descriptorRanges[1].BaseShaderRegister = 2; // b2 (b0 and b1 are non-bindless)
 			descriptorRanges[1].RegisterSpace = 0;
 			descriptorRanges[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
 			descriptorRanges[2].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
-			descriptorRanges[2].NumDescriptors = N_SAMPLERS;
+			descriptorRanges[2].NumDescriptors = Descriptor::N_SAMPLERS;
 			descriptorRanges[2].BaseShaderRegister = 0; // s0
 			descriptorRanges[2].RegisterSpace = 0;
 			descriptorRanges[2].OffsetInDescriptorsFromTableStart = 0;
@@ -384,7 +379,7 @@ namespace Engine {
 				| D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED
 				| D3D12_ROOT_SIGNATURE_FLAG_SAMPLER_HEAP_DIRECTLY_INDEXED;
 
-			ComPtr<ID3DBlob> signatureBlob, errorBlob;
+			WPtr<ID3DBlob> signatureBlob, errorBlob;
 			ThrowIfFailed(D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signatureBlob, &errorBlob));
 
 			ThrowIfFailed(m_device->CreateRootSignature(0, signatureBlob->GetBufferPointer(), signatureBlob->GetBufferSize(), IID_PPV_ARGS(&m_rootSignature)));
@@ -403,10 +398,10 @@ namespace Engine {
 		};
 		D3D12_CLEAR_VALUE m_rtvClearValues[N_OF_RTVS];
 
-		std::unordered_map<EnumKey, ComPtr<ID3D12PipelineState>, EnumKeyHash> m_psos;
-		ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
-		ComPtr<ID3D12Device> m_device;
-		ComPtr<ID3D12RootSignature> m_rootSignature;
+		std::unordered_map<EnumKey, WPtr<ID3D12PipelineState>, EnumKeyHash> m_psos;
+		WPtr<ID3D12DescriptorHeap> m_rtvHeap;
+		WPtr<ID3D12Device> m_device;
+		WPtr<ID3D12RootSignature> m_rootSignature;
 		D3D12_INPUT_ELEMENT_DESC m_inputElementDescs[4] =
 		{
 			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
@@ -420,15 +415,15 @@ namespace Engine {
 
 
 		std::unique_ptr<Memory::Resource> m_depthStencilBuffer;
-		ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
+		WPtr<ID3D12DescriptorHeap> m_dsvHeap;
 		std::unique_ptr<PSOShader> m_shaders;
 
-		ComPtr<ID3D12CommandAllocator> m_commandAllocator;
-		ComPtr<ID3D12CommandAllocator> m_commandAllocatorBarrier;
+		WPtr<ID3D12CommandAllocator> m_commandAllocator;
+		WPtr<ID3D12CommandAllocator> m_commandAllocatorBarrier;
 
-		ComPtr<ID3D12GraphicsCommandList> m_commandList;
-		ComPtr<ID3D12GraphicsCommandList> m_commandListBarrier;
-		Engine::BindlessHeapDescriptor& m_bindlessHeapDescriptor = Engine::BindlessHeapDescriptor::GetInstance();
+		WPtr<ID3D12GraphicsCommandList> m_commandList;
+		WPtr<ID3D12GraphicsCommandList> m_commandListBarrier;
+		Descriptor::BindlessHeapDescriptor& m_bindlessHeapDescriptor = Descriptor::BindlessHeapDescriptor::GetInstance();
 
 		CD3DX12_VIEWPORT m_viewport;
 		CD3DX12_RECT m_scissorRect;

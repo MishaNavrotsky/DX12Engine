@@ -2,19 +2,17 @@
 
 #pragma once
 
-#include "../../../external/imgui.h"
-#include "../../../external/imgui_impl_win32.h"
-#include "../../../external/imgui_impl_dx12.h"
+#include "../external/imgui.h"
+#include "../external/imgui_impl_win32.h"
+#include "../external/imgui_impl_dx12.h"
 #include "../../memory/Resource.h"
-#include "../../DXSampleHelper.h"
 
 
-namespace Engine {
-	using namespace Microsoft::WRL;
-	using namespace DirectX;
+
+namespace Engine::Render::Pipeline {
 	class UIPass {
 	public:
-		UIPass(HWND hwnd, ComPtr<ID3D12Device> device, ComPtr<ID3D12CommandQueue> directCommandQueue, uint32_t frameCount, uint32_t width, uint32_t height)
+		UIPass(HWND hwnd, WPtr<ID3D12Device> device, WPtr<ID3D12CommandQueue> directCommandQueue, uint32_t frameCount, uint32_t width, uint32_t height)
 			: m_frameCount(frameCount), m_width(width), m_height(height), m_device(device) {
 			m_frameCount = frameCount;
 			m_width = width;
@@ -175,14 +173,14 @@ namespace Engine {
 			}
 		}
 
-		ComPtr<ID3D12Device> m_device;
+		WPtr<ID3D12Device> m_device;
 		uint32_t m_width;
 		uint32_t m_height;
 		uint32_t m_frameCount;
-		ComPtr<ID3D12GraphicsCommandList> m_commandList, m_commandAllocatorList;
-		ComPtr<ID3D12CommandAllocator> m_commandAllocator, m_commandAllocatorBarrier;
-		ComPtr<ID3D12DescriptorHeap> m_guidDescriptorHeap;
-		ComPtr<ID3D12DescriptorHeap> m_rtvDescriptorHeap;
+		WPtr<ID3D12GraphicsCommandList> m_commandList, m_commandAllocatorList;
+		WPtr<ID3D12CommandAllocator> m_commandAllocator, m_commandAllocatorBarrier;
+		WPtr<ID3D12DescriptorHeap> m_guidDescriptorHeap;
+		WPtr<ID3D12DescriptorHeap> m_rtvDescriptorHeap;
 		uint32_t m_rtvDescriptorSize = 0;
 		std::vector<std::unique_ptr<Memory::Resource>> m_renderTargets;
 	};

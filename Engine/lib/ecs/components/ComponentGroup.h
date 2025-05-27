@@ -5,7 +5,7 @@
 #include "../entity/Entity.h"
 #include "ComponentRegistry.h"
 
-namespace Engine {
+namespace Engine::ECS {
 	using ComponentSignature = std::bitset<MAX_COMPONENTS>;
 
 	class IComponentGroup {

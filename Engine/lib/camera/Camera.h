@@ -6,9 +6,6 @@
 #include "../Device.h"
 
 namespace Engine {
-	using namespace DirectX;
-	using namespace Microsoft::WRL;
-
 	struct CBVCameraData {
 		XMFLOAT4X4 projectionMatrix;
 		XMFLOAT4X4 projectionReverseDepthMatrix;
@@ -27,7 +24,7 @@ namespace Engine {
 	public:
 		struct Frustum {
 			// x,y,z = normal, w = distance
-			DirectX::XMVECTOR planes[6]; // 0: left, 1: right, 2: top, 3: bottom, 4: near, 5: far
+			DX::XMVECTOR planes[6]; // 0: left, 1: right, 2: top, 3: bottom, 4: near, 5: far
 		};
 
 		Camera(float fov, int width, int height, float nearPlane, float farPlane) :

@@ -6,9 +6,9 @@
 #include <DirectXMath.h>
 
 struct CylinderGeometry {
-    std::vector<DirectX::XMFLOAT3> vertices;
+    std::vector<DX::XMFLOAT3> vertices;
     std::vector<unsigned int> indices;
-    std::vector<DirectX::XMFLOAT3> normals;
+    std::vector<DX::XMFLOAT3> normals;
 };
 
 CylinderGeometry GenerateCylinder(float radius, float height, int segments) {

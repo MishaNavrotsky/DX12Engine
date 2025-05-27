@@ -6,9 +6,9 @@
 #include <DirectXMath.h>
 
 struct ConeGeometry {
-    std::vector<DirectX::XMFLOAT3> vertices;
+    std::vector<DX::XMFLOAT3> vertices;
     std::vector<unsigned int> indices;
-    std::vector<DirectX::XMFLOAT3> normals;
+    std::vector<DX::XMFLOAT3> normals;
 };
 
 // Generates a cone aligned along the Y axis with its base centered at the origin

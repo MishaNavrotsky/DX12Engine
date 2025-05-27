@@ -6,9 +6,9 @@
 #include <cmath>
 
 struct SphereGeometry {
-    std::vector<DirectX::XMFLOAT3> vertices;
+    std::vector<DX::XMFLOAT3> vertices;
     std::vector<unsigned int> indices;
-    std::vector<DirectX::XMFLOAT3> normals;
+    std::vector<DX::XMFLOAT3> normals;
 };
 
 SphereGeometry GenerateSphere(float radius, int latitudeSegments, int longitudeSegments) {

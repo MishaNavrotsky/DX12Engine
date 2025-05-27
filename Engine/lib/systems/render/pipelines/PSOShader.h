@@ -1,9 +1,9 @@
 #pragma once
 
-#include "../DXSampleHelper.h"
 #include <filesystem>
+#include "../../../helpers.h"
 
-namespace Engine {
+namespace Engine::Render::Pipeline {
 	struct PSOShaderCreate {
 		std::filesystem::path VS;
 		std::filesystem::path PS;
@@ -14,7 +14,7 @@ namespace Engine {
 		std::wstring CSEntry;
 
 	};
-	using namespace Microsoft::WRL;
+
 	class PSOShader {
 	public:
 		static std::unique_ptr<PSOShader> Create(const PSOShaderCreate& settings);
@@ -22,12 +22,12 @@ namespace Engine {
 		IDxcBlob* getPS() const;
 		IDxcBlob* getCOM() const;
 	private:
-		static ComPtr<IDxcCompiler3> m_compiler;
-		static ComPtr<IDxcLibrary> m_library;
-		PSOShader(ComPtr<IDxcBlob> vs = nullptr, ComPtr<IDxcBlob> ps = nullptr, ComPtr<IDxcBlob> com = nullptr);
+		static WPtr<IDxcCompiler3> m_compiler;
+		static WPtr<IDxcLibrary> m_library;
+		PSOShader(WPtr<IDxcBlob> vs = nullptr, WPtr<IDxcBlob> ps = nullptr, WPtr<IDxcBlob> com = nullptr);
 
-		ComPtr<IDxcBlob> m_vs;
-		ComPtr<IDxcBlob> m_ps;
-		ComPtr<IDxcBlob> m_com;
+		WPtr<IDxcBlob> m_vs;
+		WPtr<IDxcBlob> m_ps;
+		WPtr<IDxcBlob> m_com;
 	};
 }

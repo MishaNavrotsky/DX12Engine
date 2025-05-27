@@ -1,12 +1,10 @@
 #include "stdafx.h"
 #pragma once
 
-#include "helpers.h"
+#include "../structures.h"
 
 namespace Engine {
-	using namespace Microsoft::WRL;
-
-	class GPUMesh : public IID {
+	class GPUMesh : public Structures::IID {
 	public:
 		GPUMesh(
 			D3D12_VERTEX_BUFFER_VIEW vertexBufferView,

@@ -2,11 +2,10 @@
 
 #pragma once
 
-#include "../DXSampleHelper.h"
 #include "../Device.h"
 #include "../memory/Resource.h"
 
-namespace Engine {
+namespace Engine::Render::Manager {
 	class ResourceManager {
     public:
         enum class ManagerState {

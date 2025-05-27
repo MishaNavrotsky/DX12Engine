@@ -7,7 +7,7 @@
 #include "../mesh/ModelHeaps.h"
 
 namespace Engine {
-	using Microsoft::WRL::ComPtr;
+	using WPtr;
 
 	class ModelHeapsManager : public IManager<ModelHeaps, ModelHeapsManager> {};
 }

@@ -2,24 +2,16 @@
 
 #pragma once
 
-#include "../Device.h"
-#include "../DXSampleHelper.h"
 #include "PSOShader.h"
-#include "../camera/Camera.h"
-#include "../mesh/CPUMesh.h"
-#include "../mesh/CPUMaterial.h"
-#include "../scene/SceneNode.h"
-#include "../geometry/PlaneGeometry.h"
-#include "../helpers.h"
+#include "GBufferPass.h"
 #include "../memory/Resource.h"
 
-namespace Engine {
-	using namespace Microsoft::WRL;
+namespace Engine::Render::Pipeline {
 
 	class CompositionPass {
 	public:
-		CompositionPass(ComPtr<ID3D12Device> device, UINT width, UINT height) : m_device(device), m_width(width), m_height(height) {
-			Engine::PSOShaderCreate psoSC;
+		CompositionPass(WPtr<ID3D12Device> device, UINT width, UINT height) : m_device(device), m_width(width), m_height(height) {
+			PSOShaderCreate psoSC;
 			psoSC.PS = L"assets\\shaders\\composition.hlsl";
 			psoSC.VS = L"assets\\shaders\\composition.hlsl";
 			psoSC.PSEntry = L"PSMain";
@@ -45,7 +37,7 @@ namespace Engine {
 			m_viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, static_cast<float>(m_width), static_cast<float>(height));
 			m_scissorRect = CD3DX12_RECT(0, 0, static_cast<LONG>(m_width), static_cast<LONG>(height));
 		}
-		std::array<ID3D12CommandList*, 2> renderComposition(Memory::Resource* lightningPassTexture, Memory::Resource* gizmosPassTexture, Memory::Resource* uiPassTexture, Camera* camera) {
+		std::array<ID3D12CommandList*, 2> renderComposition(Memory::Resource* lightningPassTexture, Memory::Resource* gizmosPassTexture, Memory::Resource* uiPassTexture) {
 			ThrowIfFailed(m_commandAllocator->Reset());
 			ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), nullptr));
 			{
@@ -56,7 +48,7 @@ namespace Engine {
 				m_commandList->ResourceBarrier(1, &barrierBack);
 			}
 			m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
-			m_commandList->SetGraphicsRootConstantBufferView(1, camera->getResource()->GetGPUVirtualAddress());
+			//m_commandList->SetGraphicsRootConstantBufferView(1, camera->getResource()->GetGPUVirtualAddress());
 
 			populateSrvDescriptorHeap(lightningPassTexture->getResource(), gizmosPassTexture->getResource(), uiPassTexture->getResource());
 			ID3D12DescriptorHeap* heaps[] = { m_srvDescriptorHeap.Get()};
@@ -72,9 +64,9 @@ namespace Engine {
 			m_commandList->SetPipelineState(m_pso.Get());
 
 
-			m_scene->draw(m_commandList.Get(), camera, false, [&](CPUMesh& mesh, CPUMaterial& material, SceneNode* node) {
-				return false;
-				});
+			//m_scene->draw(m_commandList.Get(), camera, false, [&](CPUMesh& mesh, CPUMaterial& material, SceneNode* node) {
+			//	return false;
+			//	});
 
 
 			ThrowIfFailed(m_commandList->Close());
@@ -142,22 +134,22 @@ namespace Engine {
 			m_rtvResource->getResource()->SetName(L"Overlay Texture");
 		}
 		void createFullScreenQuad() {
-			static auto& cpuMaterialManager = CPUMaterialManager::GetInstance();
-			static auto& cpuMeshManager = CPUMeshManager::GetInstance();
+			//static auto& cpuMaterialManager = CPUMaterialManager::GetInstance();
+			//static auto& cpuMeshManager = CPUMeshManager::GetInstance();
 			//static auto& modelLoader = Engine::ModelLoader::GetInstance();
 			//static auto& uploadQueue = Engine::GPUUploadQueue::GetInstance();
 
 
-			std::vector<GUID> meshGUIDs;
+			//std::vector<GUID> meshGUIDs;
 
-			auto fullscreenQuad = Engine::Geometry::GeneratePlane(2.0f, 2.0f, 1, 1);
-			auto cpuMesh = std::make_unique<CPUMesh>();
-			cpuMesh->setVertices(Helpers::FlattenXMFLOAT3Vector(fullscreenQuad.vertices));
-			cpuMesh->setIndices(std::move(fullscreenQuad.indices));
-			cpuMesh->topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-			cpuMesh->topologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-			cpuMesh->setCPUMaterialId(GUID_NULL);
-			meshGUIDs.push_back(cpuMeshManager.add(std::move(cpuMesh)));
+			//auto fullscreenQuad = Engine::Geometry::GeneratePlane(2.0f, 2.0f, 1, 1);
+			//auto cpuMesh = std::make_unique<CPUMesh>();
+			//cpuMesh->setVertices(Helpers::FlattenXMFLOAT3Vector(fullscreenQuad.vertices));
+			//cpuMesh->setIndices(std::move(fullscreenQuad.indices));
+			//cpuMesh->topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+			//cpuMesh->topologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+			//cpuMesh->setCPUMaterialId(GUID_NULL);
+			//meshGUIDs.push_back(cpuMeshManager.add(std::move(cpuMesh)));
 			//auto modelSceneNode = ModelSceneNode::CreateFromGeometry(meshGUIDs);
 			//modelLoader.waitForQueueEmpty();
 			//uploadQueue.execute();
@@ -205,8 +197,8 @@ namespace Engine {
 			CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc;
 			rootSigDesc.Init(_countof(rootParameters), rootParameters, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
-			ComPtr<ID3DBlob> signature;
-			ComPtr<ID3DBlob> error;
+			WPtr<ID3DBlob> signature;
+			WPtr<ID3DBlob> error;
 			D3D12SerializeRootSignature(&rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1_0, &signature, &error);
 			m_device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_rootSignature));
 		}
@@ -234,17 +226,17 @@ namespace Engine {
 			handle.Offset(1, m_cbvSrvUavDescriptorSize);
 			m_device->CreateShaderResourceView(uiTexture, &srvDesc, handle);
 		}
-		ComPtr<ID3D12RootSignature> m_rootSignature;
-		ComPtr<ID3D12PipelineState> m_pso;
+		WPtr<ID3D12RootSignature> m_rootSignature;
+		WPtr<ID3D12PipelineState> m_pso;
 
-		ComPtr<ID3D12Device> m_device;
+		WPtr<ID3D12Device> m_device;
 		UINT m_width;
 		UINT m_height;
 
 		std::unique_ptr<PSOShader> m_shaders;
 
-		ComPtr<ID3D12CommandAllocator> m_commandAllocator, m_commandAllocatorBarrier;
-		ComPtr<ID3D12GraphicsCommandList> m_commandList, m_commandListBarrier;
+		WPtr<ID3D12CommandAllocator> m_commandAllocator, m_commandAllocatorBarrier;
+		WPtr<ID3D12GraphicsCommandList> m_commandList, m_commandListBarrier;
 		D3D12_INPUT_ELEMENT_DESC m_inputElementDescs[4] =
 		{
 			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
@@ -256,11 +248,11 @@ namespace Engine {
 		CD3DX12_VIEWPORT m_viewport;
 		CD3DX12_RECT m_scissorRect;
 
-		ComPtr<ID3D12DescriptorHeap> m_rtvDescriptorHeap, m_srvDescriptorHeap;
+		WPtr<ID3D12DescriptorHeap> m_rtvDescriptorHeap, m_srvDescriptorHeap;
 		UINT m_cbvSrvUavDescriptorSize;
 		std::unique_ptr<Memory::Resource> m_rtvResource;
 		D3D12_CPU_DESCRIPTOR_HANDLE m_rtvHandle;
 
-		std::unique_ptr<Scene> m_scene = std::make_unique<Engine::Scene>();
+		//std::unique_ptr<Scene> m_scene = std::make_unique<Engine::Scene>();
 	};
 }

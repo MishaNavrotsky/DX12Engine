@@ -2,19 +2,15 @@
 
 #pragma once
 
-#include "../Device.h"
-#include "../DXSampleHelper.h"
 #include "GBufferPass.h"
 #include "PSOShader.h"
-#include "../camera/Camera.h"
 #include "../memory/Resource.h"
 
-namespace Engine {
-	using namespace Microsoft::WRL;
+namespace Engine::Render::Pipeline {
 	class LightingPass {
 	public:
-		LightingPass(ComPtr<ID3D12Device> device, UINT width, UINT height) : m_device(device), m_width(width), m_height(height) {
-			Engine::PSOShaderCreate psoSC;
+		LightingPass(WPtr<ID3D12Device> device, UINT width, UINT height) : m_device(device), m_width(width), m_height(height) {
+			PSOShaderCreate psoSC;
 			psoSC.CS = L"assets\\shaders\\lighting.hlsl";;
 			psoSC.CSEntry = L"main";
 			m_shaders = PSOShader::Create(psoSC);
@@ -28,14 +24,14 @@ namespace Engine {
 			createRWTex();
 		}
 
-		std::array<ID3D12CommandList*, 1> computeLighting(GBufferPass* gbufferPass, Camera* camera) {
+		std::array<ID3D12CommandList*, 1> computeLighting(GBufferPass* gbufferPass) {
 			createDescriptorHeap(gbufferPass->getRtvResources());
 
 			ThrowIfFailed(m_commandAllocator->Reset());
 			ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), m_pso.Get()));
 			m_commandList->SetPipelineState(m_pso.Get());
 			m_commandList->SetComputeRootSignature(m_rootSignature.Get());
-			m_commandList->SetComputeRootConstantBufferView(0, camera->getResource()->GetGPUVirtualAddress());
+			//m_commandList->SetComputeRootConstantBufferView(0, camera->getResource()->GetGPUVirtualAddress());
 
 			ID3D12DescriptorHeap* descriptorHeaps[] = { m_descriptorHeap.Get()};
 			m_commandList->SetDescriptorHeaps(1, descriptorHeaps);
@@ -112,15 +108,15 @@ namespace Engine {
 			CD3DX12_CPU_DESCRIPTOR_HANDLE uavHandle(m_descriptorHeap->GetCPUDescriptorHandleForHeapStart(), 7, descriptorSize);
 			m_device->CreateUnorderedAccessView(m_rwTexture->getResource(), nullptr, &uavDesc, uavHandle);
 		}
-		ComPtr<ID3D12Device> m_device;
-		ComPtr<ID3D12PipelineState> m_pso;
-		ComPtr<ID3D12RootSignature> m_rootSignature;
-		ComPtr<ID3D12GraphicsCommandList> m_commandList;
-		ComPtr<ID3D12CommandAllocator> m_commandAllocator;
+		WPtr<ID3D12Device> m_device;
+		WPtr<ID3D12PipelineState> m_pso;
+		WPtr<ID3D12RootSignature> m_rootSignature;
+		WPtr<ID3D12GraphicsCommandList> m_commandList;
+		WPtr<ID3D12CommandAllocator> m_commandAllocator;
 		std::unique_ptr<PSOShader> m_shaders;
 
 		std::unique_ptr<Memory::Resource> m_rwTexture;
-		ComPtr<ID3D12DescriptorHeap> m_descriptorHeap = nullptr;
+		WPtr<ID3D12DescriptorHeap> m_descriptorHeap = nullptr;
 
 
 		UINT m_width;

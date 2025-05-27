@@ -4,7 +4,7 @@
 
 #include "../entity/Entity.h"
 
-namespace Engine::Component {
+namespace Engine::ECS::Component {
 	class ComponentTestA {
 	public:
 		float x, y, z;

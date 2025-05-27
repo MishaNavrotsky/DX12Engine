@@ -5,8 +5,6 @@
 #include "helpers.h"
 
 namespace Engine {
-	using namespace Microsoft::WRL;
-
 	class GPUTexture : public IID {
 	public:
 		GPUTexture() = default;

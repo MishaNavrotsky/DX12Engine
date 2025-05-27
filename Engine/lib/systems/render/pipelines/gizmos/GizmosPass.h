@@ -2,30 +2,12 @@
 
 #pragma once
 
-#include "../../Device.h"
-#include "../../DXSampleHelper.h"
 #include "../PSOShader.h"
-#include "../../camera/Camera.h"
-#include "../../mesh/CPUMesh.h"
-#include "../../mesh/CPUMaterial.h"
-#include "../../mesh/GPUMesh.h"
-#include "../../scene/SceneNode.h"
-#include "../../scene/Scene.h"
-#include "../../geometry/CubeGeometry.h"
-#include "../../geometry/PlaneGeometry.h"
-#include "../../helpers.h"
-
-#include "../../managers/CPUMaterialManager.h"
-#include "../../managers/CPUMeshManager.h"
-#include "../../managers/ModelManager.h"
-
-#include "../../nodes/ModelSceneNode.h"
 #include "../../memory/Resource.h"
+#include "../../descriptors/BindlessHeapDescriptor.h"
 
 
-namespace Engine {
-	using namespace Microsoft::WRL;
-	using namespace DirectX;
+namespace Engine::Render::Pipeline {
 	struct EnumKey {
 		D3D12_CULL_MODE cullMode;
 		D3D12_PRIMITIVE_TOPOLOGY_TYPE topology;
@@ -43,8 +25,8 @@ namespace Engine {
 	};
 	class GizmosPass {
 	public:
-		GizmosPass(ComPtr<ID3D12Device> device, UINT width, UINT height) : m_device(device), m_width(width), m_height(height) {
-			Engine::PSOShaderCreate psoSC;
+		GizmosPass(WPtr<ID3D12Device> device, UINT width, UINT height) : m_device(device), m_width(width), m_height(height) {
+			PSOShaderCreate psoSC;
 			psoSC.PS = L"assets\\shaders\\gizmos.hlsl";
 			psoSC.VS = L"assets\\shaders\\gizmos.hlsl";
 			psoSC.PSEntry = L"PSMain";
@@ -69,7 +51,7 @@ namespace Engine {
 			m_viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height));
 			m_scissorRect = CD3DX12_RECT(0, 0, static_cast<LONG>(width), static_cast<LONG>(height));
 		}
-		std::array<ID3D12CommandList*, 2> renderGizmos(Scene* scene, Camera* camera, Memory::Resource* srcDepthBuffer) {
+		std::array<ID3D12CommandList*, 2> renderGizmos(Memory::Resource* srcDepthBuffer) {
 			ThrowIfFailed(m_commandAllocator->Reset());
 			ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), nullptr));
 			{
@@ -81,7 +63,7 @@ namespace Engine {
 			}
 			cloneDepthBuffer(srcDepthBuffer);
 			m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
-			m_commandList->SetGraphicsRootConstantBufferView(0, camera->getResource()->GetGPUVirtualAddress());
+			//m_commandList->SetGraphicsRootConstantBufferView(0, camera->getResource()->GetGPUVirtualAddress());
 
 			//ID3D12DescriptorHeap* heaps[] = { m_bindlessHeapDescriptor.getSrvDescriptorHeap(), m_bindlessHeapDescriptor.getSamplerDescriptorHeap() };
 			//m_commandList->SetDescriptorHeaps(_countof(heaps), heaps);
@@ -98,12 +80,12 @@ namespace Engine {
 
 			//populateScene(scene, camera);
 
-			m_scene->draw(m_commandList.Get(), camera, false, [&](CPUMesh& mesh, CPUMaterial& material, SceneNode* node) {
-				m_commandList->IASetPrimitiveTopology(mesh.topology);
-				m_commandList->SetPipelineState(getPso({ material.cullMode, mesh.topologyType }));
-				m_commandList->SetGraphicsRootConstantBufferView(1, node->getResource()->GetGPUVirtualAddress());
-				return false;
-				});
+			//m_scene->draw(m_commandList.Get(), camera, false, [&](CPUMesh& mesh, CPUMaterial& material, SceneNode* node) {
+				//m_commandList->IASetPrimitiveTopology(mesh.topology);
+				//m_commandList->SetPipelineState(getPso({ material.cullMode, mesh.topologyType }));
+				//m_commandList->SetGraphicsRootConstantBufferView(1, node->getResource()->GetGPUVirtualAddress());
+				//return false;
+				//});
 
 
 			ThrowIfFailed(m_commandList->Close());
@@ -134,7 +116,7 @@ namespace Engine {
 		}
 	private:
 
-		void populateScene(Scene* oScene, Camera* camera) {
+		void populateScene() {
 			//m_scene->getSceneRootNodes().clear();
 			//static auto& cpuMaterialManager = CPUMaterialManager::GetInstance();
 			//static auto& cpuMeshManager = CPUMeshManager::GetInstance();
@@ -145,10 +127,10 @@ namespace Engine {
 
 			//for (auto& meshNode : meshNodes) {
 			//	auto worldSpace = *(&meshNode->getWorldSpaceAABB());
-			//	DirectX::XMFLOAT3 min;
-			//	DirectX::XMStoreFloat3(&min, worldSpace.min);
-			//	DirectX::XMFLOAT3 max;
-			//	DirectX::XMStoreFloat3(&max, worldSpace.max);
+			//	DX::XMFLOAT3 min;
+			//	DX::XMStoreFloat3(&min, worldSpace.min);
+			//	DX::XMFLOAT3 max;
+			//	DX::XMStoreFloat3(&max, worldSpace.max);
 
 
 
@@ -299,7 +281,7 @@ namespace Engine {
 			if (m_psos.find(key) != m_psos.end()) return m_psos.at(key).Get();
 			return createPso(key).Get();
 		}
-		ComPtr<ID3D12PipelineState> createPso(const EnumKey key) {
+		WPtr<ID3D12PipelineState> createPso(const EnumKey key) {
 			CD3DX12_DEPTH_STENCIL_DESC depthStencilDesc = {};
 			depthStencilDesc.DepthEnable = TRUE;
 			depthStencilDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
@@ -347,7 +329,7 @@ namespace Engine {
 
 			psoDesc.BlendState = blendDesc;
 
-			ComPtr<ID3D12PipelineState> pso;
+			WPtr<ID3D12PipelineState> pso;
 			ThrowIfFailed(m_device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pso)));
 			m_psos.insert({ key, pso });
 
@@ -378,19 +360,19 @@ namespace Engine {
 				| D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED
 				| D3D12_ROOT_SIGNATURE_FLAG_SAMPLER_HEAP_DIRECTLY_INDEXED;
 
-			ComPtr<ID3DBlob> signatureBlob, errorBlob;
+			WPtr<ID3DBlob> signatureBlob, errorBlob;
 			ThrowIfFailed(D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signatureBlob, &errorBlob));
 
 			ThrowIfFailed(m_device->CreateRootSignature(0, signatureBlob->GetBufferPointer(), signatureBlob->GetBufferSize(), IID_PPV_ARGS(&m_rootSignature)));
 		}
 
-		ComPtr<ID3D12Device> m_device;
+		WPtr<ID3D12Device> m_device;
 		UINT m_width;
 		UINT m_height;
 
-		std::unordered_map<EnumKey, ComPtr<ID3D12PipelineState>, EnumKeyHash> m_psos;
-		ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
-		ComPtr<ID3D12RootSignature> m_rootSignature;
+		std::unordered_map<EnumKey, WPtr<ID3D12PipelineState>, EnumKeyHash> m_psos;
+		WPtr<ID3D12DescriptorHeap> m_rtvHeap;
+		WPtr<ID3D12RootSignature> m_rootSignature;
 		D3D12_INPUT_ELEMENT_DESC m_inputElementDescs[4] =
 		{
 			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
@@ -402,21 +384,21 @@ namespace Engine {
 		std::unique_ptr<Memory::Resource> m_depthStencilBuffer;
 		std::unique_ptr<Memory::Resource> m_rtvResource;
 
-		ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
+		WPtr<ID3D12DescriptorHeap> m_dsvHeap;
 		std::unique_ptr<PSOShader> m_shaders;
 
-		ComPtr<ID3D12CommandAllocator> m_commandAllocator;
-		ComPtr<ID3D12CommandAllocator> m_commandAllocatorBarrier;
+		WPtr<ID3D12CommandAllocator> m_commandAllocator;
+		WPtr<ID3D12CommandAllocator> m_commandAllocatorBarrier;
 
-		ComPtr<ID3D12GraphicsCommandList> m_commandList;
-		ComPtr<ID3D12GraphicsCommandList> m_commandListBarrier;
-		Engine::BindlessHeapDescriptor& m_bindlessHeapDescriptor = Engine::BindlessHeapDescriptor::GetInstance();
+		WPtr<ID3D12GraphicsCommandList> m_commandList;
+		WPtr<ID3D12GraphicsCommandList> m_commandListBarrier;
+		Descriptor::BindlessHeapDescriptor& m_bindlessHeapDescriptor = Descriptor::BindlessHeapDescriptor::GetInstance();
 
 		CD3DX12_VIEWPORT m_viewport;
 		CD3DX12_RECT m_scissorRect;
 
 		UINT m_rtvDescriptorSize = 0;
 
-		std::unique_ptr<Scene> m_scene = std::make_unique<Engine::Scene>();
+		//std::unique_ptr<Scene> m_scene = std::make_unique<Engine::Scene>();
 	};
 }

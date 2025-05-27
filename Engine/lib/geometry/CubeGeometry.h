@@ -6,14 +6,14 @@
 
 namespace Engine::Geometry {
 	struct CubeGeometry {
-		std::array<DirectX::XMFLOAT3, 8> vertices;
+		std::array<DX::XMFLOAT3, 8> vertices;
 		std::array<uint32_t, 36> indices;
 		std::array<uint32_t, 24> lineListIndices;
 
-		std::array<DirectX::XMFLOAT3, 6> normals;
+		std::array<DX::XMFLOAT3, 6> normals;
 	};
 
-	inline CubeGeometry GenerateCube(const std::array<DirectX::XMFLOAT3, 8>& inputVertices) {
+	inline CubeGeometry GenerateCube(const std::array<DX::XMFLOAT3, 8>& inputVertices) {
 		CubeGeometry cube;
 		cube.vertices = inputVertices;
 
@@ -48,28 +48,28 @@ namespace Engine::Geometry {
 
 		// Define normals for basic lighting
 		cube.normals = {
-			DirectX::XMFLOAT3(0.0f,  0.0f,  1.0f),  // Front
-			DirectX::XMFLOAT3(0.0f,  0.0f, -1.0f),  // Back
-			DirectX::XMFLOAT3(-1.0f,  0.0f,  0.0f),  // Left
-			DirectX::XMFLOAT3(1.0f,  0.0f,  0.0f),  // Right
-			DirectX::XMFLOAT3(0.0f,  1.0f,  0.0f),  // Top
-			DirectX::XMFLOAT3(0.0f, -1.0f,  0.0f)   // Bottom
+			DX::XMFLOAT3(0.0f,  0.0f,  1.0f),  // Front
+			DX::XMFLOAT3(0.0f,  0.0f, -1.0f),  // Back
+			DX::XMFLOAT3(-1.0f,  0.0f,  0.0f),  // Left
+			DX::XMFLOAT3(1.0f,  0.0f,  0.0f),  // Right
+			DX::XMFLOAT3(0.0f,  1.0f,  0.0f),  // Top
+			DX::XMFLOAT3(0.0f, -1.0f,  0.0f)   // Bottom
 		};
 
 		return cube;
 	}
 
-	inline CubeGeometry GenerateCubeFromPoints(const DirectX::XMFLOAT3& minPoint, const DirectX::XMFLOAT3& maxPoint) {
+	inline CubeGeometry GenerateCubeFromPoints(const DX::XMFLOAT3& minPoint, const DX::XMFLOAT3& maxPoint) {
 		// Compute 8 cube vertices from min & max bounds
-		std::array<DirectX::XMFLOAT3, 8> vertices = {
-			DirectX::XMFLOAT3(minPoint.x, minPoint.y, minPoint.z), // v0
-			DirectX::XMFLOAT3(maxPoint.x, minPoint.y, minPoint.z), // v1
-			DirectX::XMFLOAT3(maxPoint.x, minPoint.y, maxPoint.z), // v2
-			DirectX::XMFLOAT3(minPoint.x, minPoint.y, maxPoint.z), // v3
-			DirectX::XMFLOAT3(minPoint.x, maxPoint.y, minPoint.z), // v4
-			DirectX::XMFLOAT3(maxPoint.x, maxPoint.y, minPoint.z), // v5
-			DirectX::XMFLOAT3(maxPoint.x, maxPoint.y, maxPoint.z), // v6
-			DirectX::XMFLOAT3(minPoint.x, maxPoint.y, maxPoint.z)  // v7
+		std::array<DX::XMFLOAT3, 8> vertices = {
+			DX::XMFLOAT3(minPoint.x, minPoint.y, minPoint.z), // v0
+			DX::XMFLOAT3(maxPoint.x, minPoint.y, minPoint.z), // v1
+			DX::XMFLOAT3(maxPoint.x, minPoint.y, maxPoint.z), // v2
+			DX::XMFLOAT3(minPoint.x, minPoint.y, maxPoint.z), // v3
+			DX::XMFLOAT3(minPoint.x, maxPoint.y, minPoint.z), // v4
+			DX::XMFLOAT3(maxPoint.x, maxPoint.y, minPoint.z), // v5
+			DX::XMFLOAT3(maxPoint.x, maxPoint.y, maxPoint.z), // v6
+			DX::XMFLOAT3(minPoint.x, maxPoint.y, maxPoint.z)  // v7
 		};
 
 		return GenerateCube(vertices);

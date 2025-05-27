@@ -2,13 +2,12 @@
 
 #pragma once
 
-#include "../DXSampleHelper.h"
 #include "../Device.h"
 #include "Resource.h"
 #include "../managers/ResourceManager.h"
+#include "../../../helpers.h"
 
-namespace Engine::Memory {
-	using namespace Microsoft::WRL;
+namespace Engine::Render::Memory {
 	class Heap {
 	public:
 		using HeapId = uint64_t;
@@ -48,7 +47,7 @@ namespace Engine::Memory {
 		}
 		Resource::PackedHandle createPlacedResource(D3D12_RESOURCE_DESC desc, D3D12_RESOURCE_STATES state, const D3D12_CLEAR_VALUE* clearValue = nullptr) {
 			static auto device = Device::GetDevice();
-			static auto& resourceManager = Engine::ResourceManager::GetInstance();
+			static auto& resourceManager = Manager::ResourceManager::GetInstance();
 			D3D12_RESOURCE_ALLOCATION_INFO allocInfo = device->GetResourceAllocationInfo(
 				0,
 				1,
@@ -59,7 +58,7 @@ namespace Engine::Memory {
 			auto packedHandle = Resource::PackHandle(handle.index, handle.generation);
 			
 			auto resource = new Resource();
-			auto size = Align(allocInfo.SizeInBytes, m_alignment);
+			auto size = Helpers::Align(allocInfo.SizeInBytes, m_alignment);
 
 			auto sizes = allocate(packedHandle, size);
 			if (sizes.first == 0 && sizes.second == 0) {
@@ -90,7 +89,7 @@ namespace Engine::Memory {
 
 		void removePlacedResource(Resource::PackedHandle resourceId) {
 			deallocate(resourceId);
-			static auto& resourceManager = Engine::ResourceManager::GetInstance();
+			static auto& resourceManager = Manager::ResourceManager::GetInstance();
 			resourceManager.remove(resourceId);
 		}
 		  
@@ -111,7 +110,7 @@ namespace Engine::Memory {
 		Heap() = default;
 		void Initialize(D3D12_HEAP_PROPERTIES& props, D3D12_HEAP_FLAGS flag, uint64_t size, uint64_t alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT) {
 			static auto device = Device::GetDevice();
-			m_size = Align(size, alignment);
+			m_size = Helpers::Align(size, alignment);
 			m_alignment = alignment;
 			m_heapType = props.Type;
 			D3D12_HEAP_DESC heapDesc = {};
@@ -191,7 +190,7 @@ namespace Engine::Memory {
 			m_freeMemory[start] = end;
 		}
 	private:
-		ComPtr<ID3D12Heap> m_heap;
+		WPtr<ID3D12Heap> m_heap;
 		uint64_t m_size;
 		D3D12_HEAP_TYPE m_heapType;
 		uint64_t m_alignment;

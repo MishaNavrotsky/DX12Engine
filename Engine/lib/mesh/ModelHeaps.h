@@ -5,8 +5,6 @@
 #include "helpers.h"
 
 namespace Engine {
-	using namespace Microsoft::WRL;
-
 	class ModelHeaps : public IID {
 	public:
 		ModelHeaps() = default;

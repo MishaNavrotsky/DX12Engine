@@ -1,5 +1,5 @@
 #pragma once
 
-namespace Engine{
+namespace Engine::ECS {
 	using Entity = uint32_t;
 }

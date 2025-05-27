@@ -2,74 +2,74 @@
 
 #pragma once
 
-#include "../DXSampleHelper.h"
-#include "../mesh/helpers.h"
+#include "../Device.h"
+
+#include "../../../helpers.h"
+#include "../../../structures.h"
 #include <numeric>
 
-const uint32_t N_SRV_DESCRIPTORS = 1000;
-const uint32_t N_CBV_DESCRIPTORS = 1000;
-const uint32_t N_SAMPLERS = 2048;
 
-inline D3D12_SAMPLER_DESC GetSamplerDescForTexture(Engine::TextureType textureType)
-{
-	D3D12_SAMPLER_DESC samplerDesc = {};
 
-	// Common properties
-	samplerDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;  // Wrap mode for texture tiling
-	samplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	samplerDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	samplerDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
-	samplerDesc.MinLOD = 0.0f;
-	samplerDesc.MaxLOD = D3D12_FLOAT32_MAX;
-	samplerDesc.MipLODBias = 0.0f;
+namespace Engine::Render::Descriptor {
+	const uint32_t N_SRV_DESCRIPTORS = 1000;
+	const uint32_t N_CBV_DESCRIPTORS = 1000;
+	const uint32_t N_SAMPLERS = 2048;
 
-	// Customize sampler properties based on texture type
-	switch (textureType)
+	inline D3D12_SAMPLER_DESC GetSamplerDescForTexture(Structures::TextureType textureType)
 	{
-	case Engine::TextureType::BASE_COLOR:
-		// Linear filtering for base color, no anisotropy
-		samplerDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
-		samplerDesc.MaxAnisotropy = 1;  // No anisotropic filtering for base color
-		break;
+		D3D12_SAMPLER_DESC samplerDesc = {};
 
-	case Engine::TextureType::NORMAL:
-		// Anisotropic filtering for normal maps (improves quality at glancing angles)
-		samplerDesc.Filter = D3D12_FILTER_ANISOTROPIC;
-		samplerDesc.MaxAnisotropy = 16; // 16x anisotropic filtering for normal maps
-		break;
+		// Common properties
+		samplerDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;  // Wrap mode for texture tiling
+		samplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		samplerDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		samplerDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+		samplerDesc.MinLOD = 0.0f;
+		samplerDesc.MaxLOD = D3D12_FLOAT32_MAX;
+		samplerDesc.MipLODBias = 0.0f;
 
-	case Engine::TextureType::METALLIC_ROUGHNESS:
-		// Linear filtering for metallic-roughness map, no anisotropy
-		samplerDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
-		samplerDesc.MaxAnisotropy = 1;
-		break;
+		// Customize sampler properties based on texture type
+		switch (textureType)
+		{
+		case Structures::TextureType::BASE_COLOR:
+			// Linear filtering for base color, no anisotropy
+			samplerDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+			samplerDesc.MaxAnisotropy = 1;  // No anisotropic filtering for base color
+			break;
 
-	case Engine::TextureType::EMISSIVE:
-		// Linear filtering for emissive map, no anisotropy
-		samplerDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
-		samplerDesc.MaxAnisotropy = 1;
-		break;
+		case Structures::TextureType::NORMAL:
+			// Anisotropic filtering for normal maps (improves quality at glancing angles)
+			samplerDesc.Filter = D3D12_FILTER_ANISOTROPIC;
+			samplerDesc.MaxAnisotropy = 16; // 16x anisotropic filtering for normal maps
+			break;
 
-	case Engine::TextureType::OCCLUSION:
-		// Linear filtering for occlusion map, no anisotropy
-		samplerDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
-		samplerDesc.MaxAnisotropy = 1;
-		break;
+		case Structures::TextureType::METALLIC_ROUGHNESS:
+			// Linear filtering for metallic-roughness map, no anisotropy
+			samplerDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+			samplerDesc.MaxAnisotropy = 1;
+			break;
 
-	default:
-		// Default to linear filtering and no anisotropy
-		samplerDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
-		samplerDesc.MaxAnisotropy = 1;
-		break;
+		case Structures::TextureType::EMISSIVE:
+			// Linear filtering for emissive map, no anisotropy
+			samplerDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+			samplerDesc.MaxAnisotropy = 1;
+			break;
+
+		case Structures::TextureType::OCCLUSION:
+			// Linear filtering for occlusion map, no anisotropy
+			samplerDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+			samplerDesc.MaxAnisotropy = 1;
+			break;
+
+		default:
+			// Default to linear filtering and no anisotropy
+			samplerDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+			samplerDesc.MaxAnisotropy = 1;
+			break;
+		}
+
+		return samplerDesc;
 	}
-
-	return samplerDesc;
-}
-
-
-namespace Engine {
-	using Microsoft::WRL::ComPtr;
-	using namespace DirectX;
 
 	struct SamplerHash {
 		std::size_t operator()(const D3D12_SAMPLER_DESC& desc) const {
@@ -104,8 +104,8 @@ namespace Engine {
 			return N_SRV_DESCRIPTORS * srvDescriptorSize;
 		}
 
-		void registerDevice(ComPtr<ID3D12Device> device) {
-			m_device = device;
+		void initialize() {
+			m_device = Device::GetDevice();
 
 			D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
 			srvHeapDesc.NumDescriptors = N_SRV_DESCRIPTORS + N_CBV_DESCRIPTORS;
@@ -124,21 +124,21 @@ namespace Engine {
 			ZeroOutDescriptors(m_samplerDescriptorHeap.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, N_SAMPLERS);
 
 
-			m_defaultPBRTextures = CreateDefaultPBRTextures(device.Get());
+			m_defaultPBRTextures = Helpers::CreateDefaultPBRTextures(m_device.Get());
 			this->addTexture(m_defaultPBRTextures.baseColor);
 			this->addTexture(m_defaultPBRTextures.emissive);
 			this->addTexture(m_defaultPBRTextures.metallicRoughness);
 			this->addTexture(m_defaultPBRTextures.normal);
 			this->addTexture(m_defaultPBRTextures.occlusion);
 
-			this->addSampler(GetSamplerDescForTexture(TextureType::BASE_COLOR));
-			this->addSampler(GetSamplerDescForTexture(TextureType::EMISSIVE));
-			this->addSampler(GetSamplerDescForTexture(TextureType::METALLIC_ROUGHNESS));
-			this->addSampler(GetSamplerDescForTexture(TextureType::NORMAL));
-			this->addSampler(GetSamplerDescForTexture(TextureType::OCCLUSION));
+			this->addSampler(GetSamplerDescForTexture(Structures::TextureType::BASE_COLOR));
+			this->addSampler(GetSamplerDescForTexture(Structures::TextureType::EMISSIVE));
+			this->addSampler(GetSamplerDescForTexture(Structures::TextureType::METALLIC_ROUGHNESS));
+			this->addSampler(GetSamplerDescForTexture(Structures::TextureType::NORMAL));
+			this->addSampler(GetSamplerDescForTexture(Structures::TextureType::OCCLUSION));
 		}
 
-		uint32_t addTexture(ComPtr<ID3D12Resource> texture) {
+		uint32_t addTexture(WPtr<ID3D12Resource> texture) {
 			std::lock_guard lock(m_texture);
 
 			if (m_freeSrvSlots.empty()) {
@@ -187,7 +187,7 @@ namespace Engine {
 			return slot;
 		}
 
-		uint32_t addCBV(ComPtr<ID3D12Resource> constantBuffer, uint64_t size) {
+		uint32_t addCBV(WPtr<ID3D12Resource> constantBuffer, uint64_t size) {
 			std::lock_guard lock(m_cbv);
 
 			if (m_freeCbvSlots.empty()) {
@@ -311,9 +311,9 @@ namespace Engine {
 			));
 		}
 
-		ComPtr<ID3D12Device> m_device;
-		ComPtr<ID3D12DescriptorHeap> m_srvDescriptorHeap;
-		ComPtr<ID3D12DescriptorHeap> m_samplerDescriptorHeap;
+		WPtr<ID3D12Device> m_device;
+		WPtr<ID3D12DescriptorHeap> m_srvDescriptorHeap;
+		WPtr<ID3D12DescriptorHeap> m_samplerDescriptorHeap;
 
 
 		std::vector<uint32_t> m_freeCbvSlots = std::vector<uint32_t>(N_CBV_DESCRIPTORS);
@@ -326,8 +326,8 @@ namespace Engine {
 		std::mutex m_sampler;
 		std::mutex m_texture;
 
-		DefaultPBRTextures m_defaultPBRTextures;
+		Helpers::DefaultPBRTextures m_defaultPBRTextures;
 
-		ComPtr<ID3D12Resource> m_dummyResource;
+		WPtr<ID3D12Resource> m_dummyResource;
 	};
 }

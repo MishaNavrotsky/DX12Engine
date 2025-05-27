@@ -6,9 +6,9 @@
 #include <DirectXMath.h>
 
 struct CapsuleGeometry {
-    std::vector<DirectX::XMFLOAT3> vertices;
+    std::vector<DX::XMFLOAT3> vertices;
     std::vector<unsigned int> indices;
-    std::vector<DirectX::XMFLOAT3> normals;
+    std::vector<DX::XMFLOAT3> normals;
 };
 
 CapsuleGeometry GenerateCapsule(float radius, float height, int latitudeSegments, int longitudeSegments) {

@@ -8,15 +8,13 @@
 #include "../managers/helpers.h"
 
 namespace Engine {
-	using namespace Microsoft::WRL;
-
 	class CPUTexture: public IID {
 	public:
 		virtual ~CPUTexture() = default;
 
 		CPUTexture() {
 			m_scratchImage->Initialize2D(DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, 1, 1, 1, 0);
-			const DirectX::Image* images = m_scratchImage->GetImages();
+			const DX::Image* images = m_scratchImage->GetImages();
 			for (size_t i = 0; i < m_scratchImage->GetImageCount(); ++i) {
 				memset(images[i].pixels, 0, images[i].slicePitch);
 			}
@@ -31,11 +29,11 @@ namespace Engine {
 		CPUTexture(const CPUTexture& other) = delete;
 		CPUTexture& operator=(const CPUTexture&) = delete;
 
-		void setScratchImage(std::unique_ptr<DirectX::ScratchImage>&& bitmapData) {
+		void setScratchImage(std::unique_ptr<DX::ScratchImage>&& bitmapData) {
 			m_isDefaultScratchImage = false;
 			m_scratchImage = std::move(bitmapData);
 		}
-		DirectX::ScratchImage& getScratchImage() {
+		DX::ScratchImage& getScratchImage() {
 			return *m_scratchImage;
 		}
 		bool getIsDefaultScratchImage() const {
@@ -70,7 +68,7 @@ namespace Engine {
 
 		uint32_t bindlessHeapSlot = 0;
 	protected:
-		std::unique_ptr<DirectX::ScratchImage> m_scratchImage = std::make_unique<DirectX::ScratchImage>();
+		std::unique_ptr<DX::ScratchImage> m_scratchImage = std::make_unique<DX::ScratchImage>();
 		bool m_isDefaultScratchImage = true;
 		std::unordered_set<GUID, GUIDHash, GUIDEqual> m_cpuMaterialsIds;
 		GUID m_samplerId = GUID_NULL;
