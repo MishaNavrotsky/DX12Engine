@@ -7,7 +7,7 @@
 
 
 namespace Engine::ECS::Class {
-	class Camera {
+	class ClassCamera {
 	public:
 		struct CameraData {
 			DX::XMFLOAT4X4 viewMatrix;
@@ -26,7 +26,7 @@ namespace Engine::ECS::Class {
 			DX::XMFLOAT4 lookAt;
 		};
 
-		Camera(Component::ComponentCamera componentCamera, Component::ComponentTransform componentTransform) : m_componentCamera(componentCamera), m_componentTransform(componentTransform) {
+		ClassCamera(Component::ComponentCamera componentCamera, Component::ComponentTransform componentTransform) : m_componentCamera(componentCamera), m_componentTransform(componentTransform) {
 
 			updateProjectionMatrix();
 			updateViewMatrix();

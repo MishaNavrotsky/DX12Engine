@@ -61,7 +61,7 @@ namespace Engine::ECS {
 			return m_bitset;
 		}
 
-		Component& getComponent(Entity entity) {
+		inline Component& getComponent(Entity entity) {
 			return m_components[m_entitiesPosition[entity]];
 		}
 

@@ -139,6 +139,9 @@
     <ClInclude Include="external\imstb_textedit.h" />
     <ClInclude Include="external\imstb_truetype.h" />
     <ClInclude Include="lib\ecs\classes\Camera.h" />
+    <ClInclude Include="lib\ecs\classes\ClassCamera.h" />
+    <ClInclude Include="lib\ecs\classes\ClassTransform.h" />
+    <ClInclude Include="lib\ecs\classes\ModelMatrix.h" />
     <ClInclude Include="lib\ecs\components\ComponentCamera.h" />
     <ClInclude Include="lib\ecs\components\ComponentMesh.h" />
     <ClInclude Include="lib\ecs\components\ComponentWrapper.h" />
@@ -157,33 +160,12 @@
     <ClInclude Include="lib\geometry\ModelMatrix.h" />
     <ClInclude Include="lib\geometry\PlaneGeometry.h" />
     <ClInclude Include="lib\geometry\SphereGeometry.h" />
-    <ClInclude Include="lib\managers\CPUGPUManager.h" />
     <ClInclude Include="lib\systems\render\managers\ResourceManager.h" />
     <ClInclude Include="lib\systems\render\memory\Heap.h" />
     <ClInclude Include="lib\systems\render\memory\pools\IBufferPool.h" />
     <ClInclude Include="lib\systems\render\memory\Resource.h" />
-    <ClInclude Include="lib\mesh\InitializeDefault.h" />
     <ClInclude Include="lib\nodes\MeshSceneNode.h" />
     <ClInclude Include="lib\helpers.h" />
-    <ClInclude Include="lib\managers\CPUMaterialManager.h" />
-    <ClInclude Include="lib\managers\CPUMeshManager.h" />
-    <ClInclude Include="lib\managers\CPUTextureManager.h" />
-    <ClInclude Include="lib\managers\GPUMaterialManager.h" />
-    <ClInclude Include="lib\managers\GPUMeshManager.h" />
-    <ClInclude Include="lib\managers\GPUTextureManager.h" />
-    <ClInclude Include="lib\managers\helpers.h" />
-    <ClInclude Include="lib\managers\IManager.h" />
-    <ClInclude Include="lib\managers\ModelManager.h" />
-    <ClInclude Include="lib\managers\SamplerManager.h" />
-    <ClInclude Include="lib\managers\ModelHeapsManager.h" />
-    <ClInclude Include="lib\mesh\GPUMaterial.h" />
-    <ClInclude Include="lib\mesh\GPUMesh.h" />
-    <ClInclude Include="lib\mesh\GPUTexture.h" />
-    <ClInclude Include="lib\mesh\CPUMaterial.h" />
-    <ClInclude Include="lib\mesh\CPUMesh.h" />
-    <ClInclude Include="lib\mesh\CPUTexture.h" />
-    <ClInclude Include="lib\mesh\ModelHeaps.h" />
-    <ClInclude Include="lib\mesh\Model.h" />
     <ClInclude Include="lib\nodes\ModelSceneNode.h" />
     <ClInclude Include="lib\structures.h" />
     <ClInclude Include="lib\systems\input\InputSystem.h" />
@@ -192,7 +174,6 @@
     <ClInclude Include="lib\systems\render\pipelines\LightingPass.h" />
     <ClInclude Include="lib\systems\render\pipelines\GBufferPass.h" />
     <ClInclude Include="lib\systems\render\pipelines\CompositionPass.h" />
-    <ClInclude Include="lib\renderable\MeshRenderable.h" />
     <ClInclude Include="lib\scene\SceneNode.h" />
     <ClInclude Include="lib\scene\Scene.h" />
     <ClInclude Include="lib\systems\render\pipelines\PSOShader.h" />
@@ -202,7 +183,6 @@
     <ClInclude Include="lib\ThreadSafeQueue.h" />
     <ClInclude Include="lib\Win32Application.h" />
     <ClInclude Include="lib\Engine.h" />
-    <ClInclude Include="lib\mesh\Sampler.h" />
     <ClInclude Include="stdafx.h" />
   </ItemGroup>
   <ItemGroup>
@@ -234,7 +214,6 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="lib\renderable\MeshRenderable.cpp" />
     <ClCompile Include="lib\systems\render\pipelines\PSOShader.cpp" />
     <ClCompile Include="lib\Win32Application.cpp" />
     <ClCompile Include="lib\systems\render\old.cpp" />

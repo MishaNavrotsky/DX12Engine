@@ -8,25 +8,8 @@
 namespace Engine::Render {
 	class Device {
 	public:
-		static  WPtr<ID3D12Device> Initialize(bool useWarpDevice) {
+		static  WPtr<ID3D12Device> Initialize(IDXGIFactory4* factory,bool useWarpDevice) {
 			m_useWarpDevice = useWarpDevice;
-
-			UINT dxgiFactoryFlags = 0;
-
-#if defined(_DEBUG)
-			{
-				WPtr<ID3D12Debug> debugController;
-				if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
-				{
-					debugController->EnableDebugLayer();
-
-					dxgiFactoryFlags |= DXGI_CREATE_FACTORY_DEBUG;
-				}
-			}
-#endif
-
-			WPtr<IDXGIFactory4> factory;
-			ThrowIfFailed(CreateDXGIFactory2(dxgiFactoryFlags, IID_PPV_ARGS(&factory)));
 
 			if (useWarpDevice)
 			{
@@ -42,7 +25,7 @@ namespace Engine::Render {
 			else
 			{
 				WPtr<IDXGIAdapter1> hardwareAdapter;
-				GetHardwareAdapter(factory.Get(), &hardwareAdapter, true);
+				GetHardwareAdapter(factory, &hardwareAdapter, true);
 
 				ThrowIfFailed(D3D12CreateDevice(
 					hardwareAdapter.Get(),
