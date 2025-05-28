@@ -3,12 +3,14 @@
 #pragma once
 
 #include "ComponentRegistry.h"
-#include "ComponentTest.h"
+#include "ComponentCamera.h"
+#include "ComponentTransform.h"
+#include "ComponentMesh.h"
 
 namespace Engine::ECS::Component {
 	inline static void Initialize() {
-		ComponentRegistry::RegisterComponent<ComponentTestA>();
-		ComponentRegistry::RegisterComponent<ComponentTestB>();
-		ComponentRegistry::RegisterComponent<ComponentTestC>();
+		ComponentRegistry::RegisterComponent<WComponentCamera>();
+		ComponentRegistry::RegisterComponent<WComponentTransform>();
+		ComponentRegistry::RegisterComponent<WComponentMesh>();
 	}
 }

@@ -95,7 +95,7 @@ int Win32Application::Run(Engine::Engine* engine, HINSTANCE hInstance, int nCmdS
 	m_mouse->SetWindow(m_hwnd);
 	ShowCursor(true);
 
-	engine->initialize();
+	engine->initialize(m_hwnd);
 
 	std::thread mainEngineLoopThread(RunMainEngineLoop, engine);
 

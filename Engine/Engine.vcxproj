@@ -138,12 +138,15 @@
     <ClInclude Include="external\imstb_rectpack.h" />
     <ClInclude Include="external\imstb_textedit.h" />
     <ClInclude Include="external\imstb_truetype.h" />
-    <ClInclude Include="lib\camera\Camera.h" />
+    <ClInclude Include="lib\ecs\classes\Camera.h" />
+    <ClInclude Include="lib\ecs\components\ComponentCamera.h" />
+    <ClInclude Include="lib\ecs\components\ComponentMesh.h" />
+    <ClInclude Include="lib\ecs\components\ComponentWrapper.h" />
+    <ClInclude Include="lib\ecs\components\ComponentTransform.h" />
     <ClInclude Include="lib\systems\render\descriptors\BindlessHeapDescriptor.h" />
     <ClInclude Include="lib\ecs\components\ComponentGroup.h" />
     <ClInclude Include="lib\ecs\components\ComponentRegistry.h" />
     <ClInclude Include="lib\ecs\components\Initialize.h" />
-    <ClInclude Include="lib\ecs\components\ComponentTest.h" />
     <ClInclude Include="lib\ecs\EntityManager.h" />
     <ClInclude Include="lib\ecs\entity\Entity.h" />
     <ClInclude Include="lib\geometry\ArrowGeometry.h" />

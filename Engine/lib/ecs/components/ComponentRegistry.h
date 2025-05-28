@@ -24,6 +24,9 @@ namespace Engine::ECS {
     public:
         template <typename T>
         static size_t RegisterComponent() {
+            static_assert(std::is_standard_layout<T>::value, "Component must have a standard layout.");
+            static_assert(std::is_trivial<T>::value, "Component must be trivial.");
+
             auto it = componentIDs.find(typeid(T));
             if (it != componentIDs.end()) {
                 return std::get<0>(it->second);  

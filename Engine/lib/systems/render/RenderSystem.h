@@ -25,9 +25,15 @@ namespace Engine::System {
 			std::array<ID3D12CommandList*, 2> d_composition;
 		};
 	public:
-		void initialize(ECS::EntityManager& em, bool useWarpDevice) {
-			Render::Device::Initialize(useWarpDevice);
+		void initialize(ECS::EntityManager& em, bool useWarpDevice, HWND hwnd, uint32_t width, uint32_t height) {
+			m_width = width;
+			m_height = height;
+			m_device = Render::Device::Initialize(useWarpDevice);
 			Render::Descriptor::BindlessHeapDescriptor::GetInstance().initialize();
+
+			createDirectQueue();
+			createComputeQueue();
+			createPasses(hwnd);
 		}
 		void update(float dt) override {}
 		void shutdown() override {}
@@ -41,7 +47,7 @@ namespace Engine::System {
 		WPtr<ID3D12CommandAllocator> m_commandAllocator;
 		WPtr<ID3D12DescriptorHeap> m_rtvHeap;
 		WPtr<ID3D12GraphicsCommandList> m_commandList;
-		UINT m_rtvDescriptorSize;
+		uint32_t m_rtvDescriptorSize, m_width, m_height;
 
 		HANDLE m_fenceEvent;
 		WPtr<ID3D12Fence> m_fence;
@@ -54,14 +60,9 @@ namespace Engine::System {
 		std::unique_ptr<Render::Pipeline::CompositionPass> m_compositionPass;
 		std::unique_ptr<Render::Pipeline::UIPass> m_uiPass;
 
+		WPtr<ID3D12CommandQueue> m_directCommandQueue, m_computeCommandQueue;
 
-
-		WPtr<ID3D12CommandQueue> m_directCommandQueue;
-		WPtr<ID3D12CommandQueue> m_computeCommandQueue;
-
-
-		float yaw = 0;
-		float pitch = 0;
+		float yaw = 0, pich = 0;
 		bool isCursorCaptured = false;
 		DX::Keyboard::KeyboardStateTracker trackerKeyboard;
 		DX::Mouse::ButtonStateTracker trackerMouse;
@@ -71,5 +72,27 @@ namespace Engine::System {
 		void LoadAssets() {}
 		CommandLists PopulateCommandLists() {}
 		void WaitForCommandQueueExecute() {}
+
+		void createDirectQueue() {
+			D3D12_COMMAND_QUEUE_DESC directQueueDesc = {};
+			directQueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
+			directQueueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+			ThrowIfFailed(m_device->CreateCommandQueue(&directQueueDesc, IID_PPV_ARGS(&m_directCommandQueue)));
+		}
+		void createComputeQueue() {
+			D3D12_COMMAND_QUEUE_DESC computeQueueDesc = {};
+			computeQueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
+			computeQueueDesc.Type = D3D12_COMMAND_LIST_TYPE_COMPUTE;
+			ThrowIfFailed(m_device->CreateCommandQueue(&computeQueueDesc, IID_PPV_ARGS(&m_computeCommandQueue)));
+		}
+		void createPasses(HWND hwnd) {
+			using namespace Render::Pipeline;
+
+			m_gbufferPass = std::unique_ptr<GBufferPass>(new GBufferPass(m_device, m_width, m_height));
+			m_lightingPass = std::unique_ptr<LightingPass>(new LightingPass(m_device, m_width, m_height));
+			m_gizmosPass = std::unique_ptr<GizmosPass>(new GizmosPass(m_device, m_width, m_height));
+			m_compositionPass = std::unique_ptr<CompositionPass>(new CompositionPass(m_device, m_width, m_height));
+			m_uiPass = std::unique_ptr<UIPass>(new UIPass(hwnd, m_device, m_directCommandQueue, FrameCount, m_width, m_height));
+		}
 	};
 }

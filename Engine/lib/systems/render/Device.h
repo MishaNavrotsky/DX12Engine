@@ -8,7 +8,7 @@
 namespace Engine::Render {
 	class Device {
 	public:
-		static void Initialize(bool useWarpDevice) {
+		static  WPtr<ID3D12Device> Initialize(bool useWarpDevice) {
 			m_useWarpDevice = useWarpDevice;
 
 			UINT dxgiFactoryFlags = 0;
@@ -53,6 +53,7 @@ namespace Engine::Render {
 #if defined(_DEBUG)
 			m_device->SetStablePowerState(TRUE);
 #endif
+			return m_device;
 		}
 
 		static WPtr<ID3D12Device> GetDevice() {

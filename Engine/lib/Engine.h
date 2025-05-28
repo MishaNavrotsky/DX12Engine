@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "ecs/components/Initialize.h"
+
 #include "ecs/EntityManager.h"
 #include "systems/render/RenderSystem.h"
 #include "systems/input/InputSystem.h"
@@ -12,20 +14,15 @@
 namespace Engine {
 	class Engine
 	{
-		//  struct CommandLists {
-			  //std::array<ID3D12CommandList*, 2> d_ui;
-		//      std::array<ID3D12CommandList*, 2> d_gbuffer;
-		//      std::array<ID3D12CommandList*, 2> d_gizmos;
-		//      std::array<ID3D12CommandList*, 1> c_lighting;
-		//      std::array<ID3D12CommandList*, 2> d_composition;
-		//  };
 	public:
 		Engine(UINT width, UINT height, std::wstring name): m_width(width), m_height(height), m_title(name) {};
 
 
-		void initialize() {
+		void initialize(HWND hwnd) {
+			ECS::Component::Initialize();
+
 			m_inputSystem.initialize(m_entityManager);
-			m_renderSystem.initialize(m_entityManager, m_useWarpDevice);
+			m_renderSystem.initialize(m_entityManager, m_useWarpDevice, hwnd, m_width, m_height);
 			
 		}
 		void update(float dt) {
