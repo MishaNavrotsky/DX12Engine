@@ -3,11 +3,12 @@
 #pragma once
 
 #include "ComponentWrapper.h"
+#include "../../scene/assets/AssetStructures.h"
 
 
 namespace Engine::ECS::Component {
 	struct ComponentMesh {
-		GUID assetId;
+		Scene::Asset::MeshAssetId assetId;
 	};
 
 	using WComponentMesh = ComponentWrapper<ComponentMesh>;

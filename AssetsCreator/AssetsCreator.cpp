@@ -10,9 +10,9 @@ int main()
 {
     auto meshes = GLTFLocal::GetMeshesInfo("D:\\DX12En\\Engine\\assets\\glb\\alicev2rigged.glb", true);
     for (auto& mesh : meshes) {
-        Engine::Asset::AssetWriter::Write(*mesh);
+        AssetsCreator::Asset::AssetWriter::Write(*mesh);
     }
-    auto h = Engine::Asset::AssetReader::ReadMeshHeaders("D:\\DX12En\\AssetsCreator\\assets\\alicev2rigged_0.mesh.asset");
+    auto h = AssetsCreator::Asset::AssetReader::ReadMeshHeaders("D:\\DX12En\\AssetsCreator\\assets\\alicev2rigged_0.mesh.asset");
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu

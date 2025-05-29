@@ -170,7 +170,7 @@ inline std::shared_ptr<std::istream> GLTFLocal::GLTFStreamReader::GetInputStream
 	return stream;
 }
 
-std::vector<std::unique_ptr<Engine::Asset::Mesh>> GLTFLocal::GetMeshesInfo(const fs::path& path, bool compressIntoOneMesh) {
+std::vector<std::unique_ptr<AssetsCreator::Asset::Mesh>> GLTFLocal::GetMeshesInfo(const fs::path& path, bool compressIntoOneMesh) {
 	using namespace std;
 
 	auto streamReader = make_unique<GLTFStreamReader>(path.parent_path());
@@ -233,17 +233,17 @@ std::vector<std::unique_ptr<Engine::Asset::Mesh>> GLTFLocal::GetMeshesInfo(const
 	}
 
 
-	std::vector<std::unique_ptr<Engine::Asset::Mesh>> vMeshes;
+	std::vector<std::unique_ptr<AssetsCreator::Asset::Mesh>> vMeshes;
 	auto& meshes = document.meshes.Elements();
 	uint32_t i = 0;
 	for (auto& mesh : meshes) {
-		auto vMesh = std::make_unique<Engine::Asset::Mesh>();
+		auto vMesh = std::make_unique<AssetsCreator::Asset::Mesh>();
 		vMesh->id = pathFileName.generic_string() + "_" + std::to_string(i++);
 
 		auto& primitives = mesh.primitives;
 		uint32_t j = 0;
 		for (auto& primitive : primitives) {
-			auto vSubMesh = std::make_unique<Engine::Asset::SubMesh>();
+			auto vSubMesh = std::make_unique<AssetsCreator::Asset::SubMesh>();
 			vSubMesh->id = vMesh->id + "_" + std::to_string(j++);
 
 			auto& indicesAccessor = document.accessors.Get(primitive.indicesAccessorId);
@@ -256,7 +256,7 @@ std::vector<std::unique_ptr<Engine::Asset::Mesh>> GLTFLocal::GetMeshesInfo(const
 
 			auto& attributes = primitive.attributes;
 			for (auto& attribute : attributes) {
-				auto vAttribute = std::make_unique<Engine::Asset::Attribute>();
+				auto vAttribute = std::make_unique<AssetsCreator::Asset::Attribute>();
 
 				auto& accessor = document.accessors.Get(attribute.second);
 				auto attributeFormat = GetAttributeFormat(accessor.type, accessor.componentType, accessor.normalized);
@@ -271,7 +271,7 @@ std::vector<std::unique_ptr<Engine::Asset::Mesh>> GLTFLocal::GetMeshesInfo(const
 					vAttribute->data = ConvertFloatVectorToByteVector(data);
 					vAttribute->semanticIndex = 0;
 					vAttribute->semanticName = "POSITION";
-					vAttribute->type = Engine::Asset::AttributeType::Position;
+					vAttribute->type = AssetsCreator::Asset::AttributeType::POSITION;
 
 
 					vSubMesh->aabbMin[0] = min.x;
@@ -289,7 +289,7 @@ std::vector<std::unique_ptr<Engine::Asset::Mesh>> GLTFLocal::GetMeshesInfo(const
 					vAttribute->data = ConvertFloatVectorToByteVector(data);
 					vAttribute->semanticIndex = 0;
 					vAttribute->semanticName = "NORMAL";
-					vAttribute->type = Engine::Asset::AttributeType::Normal;
+					vAttribute->type = AssetsCreator::Asset::AttributeType::NORMAL;
 					vSubMesh->attributes.emplace(vAttribute->type, std::move(vAttribute));
 				}
 				else if (attribute.first == ACCESSOR_TEXCOORD_0) {
@@ -297,7 +297,7 @@ std::vector<std::unique_ptr<Engine::Asset::Mesh>> GLTFLocal::GetMeshesInfo(const
 					vAttribute->data = ConvertFloatVectorToByteVector(data);
 					vAttribute->semanticIndex = 0;
 					vAttribute->semanticName = "TEXCOORD";
-					vAttribute->type = Engine::Asset::AttributeType::TEXCOORD;
+					vAttribute->type = AssetsCreator::Asset::AttributeType::TEXCOORD;
 					vSubMesh->attributes.emplace(vAttribute->type, std::move(vAttribute));
 				}
 				else if (attribute.first == ACCESSOR_TEXCOORD_1) {
@@ -305,7 +305,7 @@ std::vector<std::unique_ptr<Engine::Asset::Mesh>> GLTFLocal::GetMeshesInfo(const
 					vAttribute->data = ConvertFloatVectorToByteVector(data);
 					vAttribute->semanticIndex = 1;
 					vAttribute->semanticName = "TEXCOORD";
-					vAttribute->type = Engine::Asset::AttributeType::TEXCOORD;
+					vAttribute->type = AssetsCreator::Asset::AttributeType::TEXCOORD;
 					vSubMesh->attributes.emplace(vAttribute->type, std::move(vAttribute));
 				}
 				else if (attribute.first == ACCESSOR_TANGENT) {
@@ -313,7 +313,7 @@ std::vector<std::unique_ptr<Engine::Asset::Mesh>> GLTFLocal::GetMeshesInfo(const
 					vAttribute->data = ConvertFloatVectorToByteVector(data);
 					vAttribute->semanticIndex = 0;
 					vAttribute->semanticName = "TANGENT";
-					vAttribute->type = Engine::Asset::AttributeType::Tangent;
+					vAttribute->type = AssetsCreator::Asset::AttributeType::TANGENT;
 					vSubMesh->attributes.emplace(vAttribute->type, std::move(vAttribute));
 				}
 				else if (attribute.first == ACCESSOR_JOINTS_0) {
@@ -321,7 +321,7 @@ std::vector<std::unique_ptr<Engine::Asset::Mesh>> GLTFLocal::GetMeshesInfo(const
 					vAttribute->data = ConvertFloatVectorToByteVector(data);
 					vAttribute->semanticIndex = 0;
 					vAttribute->semanticName = "JOINT";
-					vAttribute->type = Engine::Asset::AttributeType::JOINT;
+					vAttribute->type = AssetsCreator::Asset::AttributeType::JOINT;
 					vSubMesh->attributes.emplace(vAttribute->type, std::move(vAttribute));
 				}
 				else if (attribute.first == ACCESSOR_WEIGHTS_0) {
@@ -329,7 +329,7 @@ std::vector<std::unique_ptr<Engine::Asset::Mesh>> GLTFLocal::GetMeshesInfo(const
 					vAttribute->data = ConvertFloatVectorToByteVector(data);
 					vAttribute->semanticIndex = 0;
 					vAttribute->semanticName = "WEIGHT";
-					vAttribute->type = Engine::Asset::AttributeType::WEIGHT;
+					vAttribute->type = AssetsCreator::Asset::AttributeType::WEIGHT;
 					vSubMesh->attributes.emplace(vAttribute->type, std::move(vAttribute));
 				}
 				else if (attribute.first == ACCESSOR_COLOR_0) {
@@ -337,7 +337,7 @@ std::vector<std::unique_ptr<Engine::Asset::Mesh>> GLTFLocal::GetMeshesInfo(const
 					vAttribute->data = ConvertFloatVectorToByteVector(data);
 					vAttribute->semanticIndex = 0;
 					vAttribute->semanticName = "COLOR";
-					vAttribute->type = Engine::Asset::AttributeType::Color;
+					vAttribute->type = AssetsCreator::Asset::AttributeType::COLOR;
 					vSubMesh->attributes.emplace(vAttribute->type, std::move(vAttribute));
 				}
 
@@ -349,7 +349,7 @@ std::vector<std::unique_ptr<Engine::Asset::Mesh>> GLTFLocal::GetMeshesInfo(const
 	}
 
 	if (compressIntoOneMesh) {
-		auto oneMesh = std::make_unique<Engine::Asset::Mesh>();
+		auto oneMesh = std::make_unique<AssetsCreator::Asset::Mesh>();
 		oneMesh->id = vMeshes[0]->id;
 
 		for (auto& mesh : vMeshes) {
@@ -358,7 +358,7 @@ std::vector<std::unique_ptr<Engine::Asset::Mesh>> GLTFLocal::GetMeshesInfo(const
 			}
 		}
 
-		std::vector<std::unique_ptr<Engine::Asset::Mesh>> v;
+		std::vector<std::unique_ptr<AssetsCreator::Asset::Mesh>> v;
 		v.push_back(std::move(oneMesh));
 		return v;
 	}

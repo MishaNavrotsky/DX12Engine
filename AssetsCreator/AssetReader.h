@@ -9,7 +9,7 @@
 #include <algorithm>
 
 
-namespace Engine::Asset {
+namespace AssetsCreator::Asset {
 	namespace fs = std::filesystem;
 
 	class AssetReader {

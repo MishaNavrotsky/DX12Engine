@@ -18,12 +18,12 @@ void CopyStringToChar50(const std::string& input, char(&output)[50]) {
 	std::copy_n(input.c_str(), std::min<std::size_t>(input.size(), sizeof(output) - 1), output);
 }
 
-namespace Engine::Asset {
+namespace AssetsCreator::Asset {
 	namespace fs = std::filesystem;
 
 	class AssetWriter {
 	public:
-		static void Write(const Engine::Asset::Mesh& mesh) {
+		static void Write(const AssetsCreator::Asset::Mesh& mesh) {
 			static fs::path dir = fs::current_path() / "assets";
 			if (!fs::exists(dir)) {
 				fs::create_directories(dir);

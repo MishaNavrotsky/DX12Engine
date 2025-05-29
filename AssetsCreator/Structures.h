@@ -4,17 +4,18 @@
 #include <memory>
 #include <d3d12.h>
 #include <map>
+#include <string>
 
-namespace Engine::Asset {
+namespace AssetsCreator::Asset {
 	enum class AttributeType {
-		Position,    // Vertex position
-		Normal,      // Vertex normal
-		Tangent,     // Tangent vector
-		Bitangent,   // Bitangent vector
+		POSITION,    // Vertex position
+		NORMAL,      // Vertex normal
+		TANGENT,     // Tangent vector
+		BITANGENT,   // Bitangent vector
 		TEXCOORD,    // Texture coordinate
 		JOINT,
 		WEIGHT,
-		Color        // Vertex color
+		COLOR        // Vertex color
 	};
 
 	struct Attribute {
@@ -47,7 +48,7 @@ namespace Engine::Asset {
 	};
 }
 
-namespace Engine::Asset::File {
+namespace AssetsCreator::Asset::File {
 	constexpr uint32_t ASSET_MAGIC = 0x4D404D4; // "MESH"
 	constexpr uint32_t ASSET_MESH = 0x1; // "MESH"
 

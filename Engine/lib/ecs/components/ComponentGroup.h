@@ -4,7 +4,6 @@
 
 #include "../entity/Entity.h"
 #include "ComponentRegistry.h"
-#include "../../../external/unordered_dense.h"
 
 
 namespace Engine::ECS {

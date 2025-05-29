@@ -38,6 +38,9 @@
 #include <stdexcept>
 #include <comdef.h>
 
+#include "external/unordered_dense.h"
+
+
 static std::string HrToString(HRESULT hr)
 {
 	char s_str[64] = {};

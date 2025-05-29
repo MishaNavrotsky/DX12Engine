@@ -144,9 +144,15 @@
     <ClInclude Include="lib\ecs\classes\ClassTransform.h" />
     <ClInclude Include="lib\ecs\classes\ModelMatrix.h" />
     <ClInclude Include="lib\ecs\components\ComponentCamera.h" />
+    <ClInclude Include="lib\ecs\components\ComponentMaterialInstance.h" />
     <ClInclude Include="lib\ecs\components\ComponentMesh.h" />
     <ClInclude Include="lib\ecs\components\ComponentWrapper.h" />
     <ClInclude Include="lib\ecs\components\ComponentTransform.h" />
+    <ClInclude Include="lib\scene\assets\AssetManager.h" />
+    <ClInclude Include="lib\scene\assets\AssetStructures.h" />
+    <ClInclude Include="lib\scene\assets\material\AssetMaterial.h" />
+    <ClInclude Include="lib\scene\assets\mesh\AssetMesh.h" />
+    <ClInclude Include="lib\scene\graph\SceneGraph.h" />
     <ClInclude Include="lib\systems\render\descriptors\BindlessHeapDescriptor.h" />
     <ClInclude Include="lib\ecs\components\ComponentGroup.h" />
     <ClInclude Include="lib\ecs\components\ComponentRegistry.h" />
@@ -177,6 +183,7 @@
     <ClInclude Include="lib\systems\render\pipelines\ui\UIPass.h" />
     <ClInclude Include="lib\systems\ISystem.h" />
     <ClInclude Include="lib\systems\render\RenderSystem.h" />
+    <ClInclude Include="lib\systems\render\RenderStructures.h" />
     <ClInclude Include="lib\ThreadSafeQueue.h" />
     <ClInclude Include="lib\Win32Application.h" />
     <ClInclude Include="lib\Engine.h" />

@@ -38,5 +38,5 @@ namespace GLTFLocal
 		fs::path m_pathBase;
 	};
 
-	std::vector<std::unique_ptr<Engine::Asset::Mesh>> GetMeshesInfo(const fs::path& path, bool compressMesh);
+	std::vector<std::unique_ptr<AssetsCreator::Asset::Mesh>> GetMeshesInfo(const fs::path& path, bool compressMesh);
 }
