@@ -129,6 +129,7 @@
     </FxCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="external\unordered_dense.h" />
     <ClInclude Include="external\BS_thread_pool.hpp" />
     <ClInclude Include="external\imconfig.h" />
     <ClInclude Include="external\imgui.h" />
@@ -157,16 +158,13 @@
     <ClInclude Include="lib\geometry\ConeGeometry.h" />
     <ClInclude Include="lib\geometry\CubeGeometry.h" />
     <ClInclude Include="lib\geometry\CylinderGeometry.h" />
-    <ClInclude Include="lib\geometry\ModelMatrix.h" />
     <ClInclude Include="lib\geometry\PlaneGeometry.h" />
     <ClInclude Include="lib\geometry\SphereGeometry.h" />
     <ClInclude Include="lib\systems\render\managers\ResourceManager.h" />
     <ClInclude Include="lib\systems\render\memory\Heap.h" />
     <ClInclude Include="lib\systems\render\memory\pools\IBufferPool.h" />
     <ClInclude Include="lib\systems\render\memory\Resource.h" />
-    <ClInclude Include="lib\nodes\MeshSceneNode.h" />
     <ClInclude Include="lib\helpers.h" />
-    <ClInclude Include="lib\nodes\ModelSceneNode.h" />
     <ClInclude Include="lib\structures.h" />
     <ClInclude Include="lib\systems\input\InputSystem.h" />
     <ClInclude Include="lib\systems\render\Device.h" />
@@ -174,7 +172,6 @@
     <ClInclude Include="lib\systems\render\pipelines\LightingPass.h" />
     <ClInclude Include="lib\systems\render\pipelines\GBufferPass.h" />
     <ClInclude Include="lib\systems\render\pipelines\CompositionPass.h" />
-    <ClInclude Include="lib\scene\SceneNode.h" />
     <ClInclude Include="lib\scene\Scene.h" />
     <ClInclude Include="lib\systems\render\pipelines\PSOShader.h" />
     <ClInclude Include="lib\systems\render\pipelines\ui\UIPass.h" />

@@ -2,13 +2,13 @@
 
 #pragma once
 
-#include "../ecs/EntityManager.h"
+#include "../scene/Scene.h"
 
 namespace Engine::System {
 	class ISystem {
 	public:
 		virtual ~ISystem() = default;
-		virtual void initialize(ECS::EntityManager& em) {};
+		virtual void initialize(Scene::Scene& scene) {};
 		virtual void update(float dt) = 0;
 		virtual void shutdown() = 0;
 	};

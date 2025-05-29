@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <optional>
 
+#include "../../external/unordered_dense.h"
 #include "entity/Entity.h"
 #include "components/ComponentRegistry.h"
 #include "components/ComponentGroup.h"
@@ -15,6 +16,7 @@ namespace Engine::ECS {
 		EntityManager() {
 			m_nextEntityId.store(1); // Start from 1 to avoid zero entity ID
 			m_componentGroups.resize(MAX_COMPONENTS);
+			m_entitySignatures.reserve(2ULL << 10 * MAX_COMPONENTS);
 		}
 
 		Entity createEntity() {
@@ -103,7 +105,7 @@ namespace Engine::ECS {
 		}
 
 		std::atomic<Entity> m_nextEntityId;
-        std::unordered_map<Entity, ComponentSignature> m_entitySignatures;
+        ankerl::unordered_dense::map<Entity, ComponentSignature> m_entitySignatures;
 		std::vector<std::unique_ptr<IComponentGroup>> m_componentGroups;
 	};
 }

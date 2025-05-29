@@ -4,9 +4,9 @@
 
 #include "ecs/components/Initialize.h"
 
-#include "ecs/EntityManager.h"
 #include "systems/render/RenderSystem.h"
 #include "systems/input/InputSystem.h"
+#include "scene/Scene.h"
 
 #include "Keyboard.h"
 #include "Mouse.h"
@@ -21,8 +21,8 @@ namespace Engine {
 		void initialize(HWND hwnd) {
 			ECS::Component::Initialize();
 
-			m_inputSystem.initialize(m_entityManager);
-			m_renderSystem.initialize(m_entityManager, m_useWarpDevice, hwnd, m_width, m_height);
+			m_inputSystem.initialize(m_scene);
+			m_renderSystem.initialize(m_scene, m_useWarpDevice, hwnd, m_width, m_height);
 			
 		}
 		void update(float dt) {
@@ -61,7 +61,7 @@ namespace Engine {
 		std::wstring m_title;
 		bool m_useWarpDevice = false;
 
-		ECS::EntityManager m_entityManager;
+		Scene::Scene m_scene;
 
 		System::InputSystem m_inputSystem;
 		System::RenderSystem m_renderSystem;

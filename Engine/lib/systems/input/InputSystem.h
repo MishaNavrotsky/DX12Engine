@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "../../ecs/EntityManager.h"
+#include "../../scene/Scene.h"
 #include "../ISystem.h"
 #include "Keyboard.h"
 #include "Mouse.h"
@@ -12,7 +12,7 @@ namespace Engine::System {
 	public:
 		InputSystem() = default;
 		virtual ~InputSystem() = default;
-		void initialize(ECS::EntityManager& em) override {};
+		void initialize(Scene::Scene& scene) override {};
 		void update(float dt) override {};
 		void shutdown() override {};
 		void onMouseUpdate(DX::Mouse::State state) {};

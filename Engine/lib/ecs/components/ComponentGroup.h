@@ -4,6 +4,8 @@
 
 #include "../entity/Entity.h"
 #include "ComponentRegistry.h"
+#include "../../../external/unordered_dense.h"
+
 
 namespace Engine::ECS {
 	using ComponentSignature = std::bitset<MAX_COMPONENTS>;
@@ -24,10 +26,13 @@ namespace Engine::ECS {
 	public:
 		ComponentGroup() {
 			setBitForComponent();
+			m_entitiesPosition.reserve(2ULL << 10);
+			m_entities.reserve(2ULL << 10);
+			m_components.reserve(2ULL << 10);
 		}
 
 		void addEntity(Entity entity, Component&& component) {
-			if (m_entitiesPosition.find(entity) != m_entitiesPosition.end()) {
+			if (!m_entitiesPosition.contains(entity)) {
 				auto pos = m_entitiesPosition[entity];
 				m_components[pos] = std::forward<Component>(component);
 				return;
@@ -77,7 +82,7 @@ namespace Engine::ECS {
 			m_bitset.set(componentID);
 		}
 
-		std::unordered_map<Entity, uint64_t> m_entitiesPosition; //for fast access without find
+		ankerl::unordered_dense::map<Entity, uint64_t> m_entitiesPosition; //for fast access without find
 		std::vector<Entity> m_entities;
 		std::vector<Component> m_components;
 	};

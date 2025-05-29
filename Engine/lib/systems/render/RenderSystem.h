@@ -7,7 +7,7 @@
 
 #include "Device.h"
 #include "descriptors/BindlessHeapDescriptor.h"
-#include "../../ecs/EntityManager.h"
+#include "../../scene/Scene.h"
 #include "../ISystem.h"
 #include "pipelines/CompositionPass.h"
 #include "pipelines/gizmos/GizmosPass.h"
@@ -25,7 +25,7 @@ namespace Engine::System {
 			std::array<ID3D12CommandList*, 2> d_composition;
 		};
 	public:
-		void initialize(ECS::EntityManager& em, bool useWarpDevice, HWND hwnd, uint32_t width, uint32_t height) {
+		void initialize(Scene::Scene& scene, bool useWarpDevice, HWND hwnd, uint32_t width, uint32_t height) {
 			m_width = width;
 			m_height = height;
 			auto factory = createFactory();
