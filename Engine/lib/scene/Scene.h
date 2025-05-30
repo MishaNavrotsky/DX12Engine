@@ -12,6 +12,5 @@ namespace Engine::Scene {
 		SceneGraph sceneGraph;
 		AssetManager assetManager;
 		Render::Manager::ResourceManager resourceManager;
-
 	};
 }

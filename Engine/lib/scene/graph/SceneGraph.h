@@ -4,6 +4,5 @@
 
 namespace Engine::Scene {
 	class SceneGraph {
-
 	};
 }

@@ -28,7 +28,7 @@ namespace AssetsCreator::Asset {
 			if (!fs::exists(dir)) {
 				fs::create_directories(dir);
 			}
-
+			
 			fs::path filename = dir / (mesh.id + ".mesh.asset");
 			std::ofstream file(filename, std::ios::binary);
 
@@ -53,6 +53,7 @@ namespace AssetsCreator::Asset {
 				submeshEntry.attributeBufferIndex = header.attributeBufferCount;
 				submeshEntry.indexBufferIndex = header.indexBufferCount;
 				submeshEntry.skinnedBufferIndex = header.skinnedBufferCount;
+				submeshEntry.topology = submesh->topology;
 				submeshEntry.aabbMin[0] = submesh->aabbMin[0];
 				submeshEntry.aabbMin[1] = submesh->aabbMin[1];
 				submeshEntry.aabbMin[2] = submesh->aabbMin[2];
@@ -68,7 +69,7 @@ namespace AssetsCreator::Asset {
 
 						File::SkinnedBufferEntry skinnedBufferEntry = {};
 						skinnedBufferEntry.format = attribute->format;
-						skinnedBufferEntry.size = attribute->data.size();
+						skinnedBufferEntry.sizeInBytes = attribute->data.size();
 						skinnedBufferEntry.type = attribute->type;
 						skinnedBufferEntry.typeIndex = attribute->semanticIndex;
 						skinnedBufferEntry.vertexCount = static_cast<uint32_t>(attribute->data.size()) / attribute->strideInBytes;
@@ -82,7 +83,7 @@ namespace AssetsCreator::Asset {
 
 						File::AttributeBufferEntry attributeBufferEntry = {};
 						attributeBufferEntry.format = attribute->format;
-						attributeBufferEntry.size = attribute->data.size();
+						attributeBufferEntry.sizeInBytes = attribute->data.size();
 						attributeBufferEntry.type = attribute->type;
 						attributeBufferEntry.typeIndex = attribute->semanticIndex;
 						attributeBufferEntry.vertexCount = static_cast<uint32_t>(attribute->data.size()) / attribute->strideInBytes;
@@ -96,7 +97,7 @@ namespace AssetsCreator::Asset {
 				File::IndexBufferEntry indexBufferEntry = {};
 				indexBufferEntry.format = submesh->indices.format;
 				indexBufferEntry.indexCount = static_cast<uint32_t>(submesh->indices.data.size()) / submesh->indices.strideInBytes;
-				indexBufferEntry.size = submesh->indices.data.size();
+				indexBufferEntry.sizeInBytes = submesh->indices.data.size();
 				vIndexBufferEntryData.push_back(std::move(submesh->indices.data));
 				vIndexBufferEntry.push_back(std::move(indexBufferEntry));
 				header.indexBufferCount++;
@@ -105,20 +106,20 @@ namespace AssetsCreator::Asset {
 			}
 
 			for (auto& v : vAttributeBufferEntryData) {
-				header.attributeSize += v.size();
+				header.attributeSizeInBytes += v.size();
 			}
 			for (auto& v : vIndexBufferEntryData) {
-				header.indexSize += v.size();
+				header.indexSizeInBytes += v.size();
 			}
 			for (auto& v : vSkinnedBufferEntryData) {
-				header.skinnedSize += v.size();
+				header.skinnedSizeInBytes += v.size();
 			}
-			uint64_t nonAlignedAttributeSize = header.attributeSize;
-			uint64_t nonAlignedIndexSize = header.indexSize;
-			uint64_t nonAlignedSkinnedSize = header.skinnedSize;
-			header.attributeSize = Align(header.attributeSize, D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT);
-			header.indexSize = Align(header.indexSize, D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT);
-			header.skinnedSize = Align(header.skinnedSize, D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT);
+			uint64_t nonAlignedAttributeSize = header.attributeSizeInBytes;
+			uint64_t nonAlignedIndexSize = header.indexSizeInBytes;
+			uint64_t nonAlignedSkinnedSize = header.skinnedSizeInBytes;
+			header.attributeSizeInBytes = Align(header.attributeSizeInBytes, D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT);
+			header.indexSizeInBytes = Align(header.indexSizeInBytes, D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT);
+			header.skinnedSizeInBytes = Align(header.skinnedSizeInBytes, D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT);
 
 			header.attributeDataOffset = sizeof(File::MeshHeader)
 				+ sizeof(File::AttributeBufferEntry) * vAttributeBufferEntry.size()
@@ -126,8 +127,8 @@ namespace AssetsCreator::Asset {
 				+ sizeof(File::SkinnedBufferEntry) * vSkinnedBufferEntry.size()
 				+ sizeof(File::SubmeshEntry) * vSubmeshEntry.size();
 
-			header.indexDataOffset = header.attributeDataOffset + header.attributeSize;
-			header.skinnedDataOffset = header.indexDataOffset + header.indexSize;
+			header.indexDataOffset = header.attributeDataOffset + header.attributeSizeInBytes;
+			header.skinnedDataOffset = header.indexDataOffset + header.indexSizeInBytes;
 
 			uint64_t attributeBufferFileOffset = header.attributeDataOffset;
 			for (uint32_t i = 0; i < vAttributeBufferEntry.size(); i++) {
@@ -163,21 +164,21 @@ namespace AssetsCreator::Asset {
 				for (auto& v : vAttributeBufferEntryData) {
 					file.write(reinterpret_cast<const char*>(v.data()), v.size());
 				}
-				auto zeroes = std::vector<char>(header.attributeSize - nonAlignedAttributeSize, 0);
+				auto zeroes = std::vector<char>(header.attributeSizeInBytes - nonAlignedAttributeSize, 0);
 				file.write(zeroes.data(), zeroes.size());
 			}
 			{
 				for (auto& v : vIndexBufferEntryData) {
 					file.write(reinterpret_cast<const char*>(v.data()), v.size());
 				}
-				auto zeroes = std::vector<char>(header.indexSize - nonAlignedIndexSize, 0);
+				auto zeroes = std::vector<char>(header.indexSizeInBytes - nonAlignedIndexSize, 0);
 				file.write(zeroes.data(), zeroes.size());
 			}
 			{
 				for (auto& v : vSkinnedBufferEntryData) {
 					file.write(reinterpret_cast<const char*>(v.data()), v.size());
 				}
-				auto zeroes = std::vector<char>(header.skinnedSize - nonAlignedSkinnedSize, 0);
+				auto zeroes = std::vector<char>(header.skinnedSizeInBytes - nonAlignedSkinnedSize, 0);
 				file.write(zeroes.data(), zeroes.size());
 			}
 		}

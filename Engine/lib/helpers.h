@@ -4,14 +4,10 @@
 
 #include <d3dx12.h>
 #include <DirectXTex.h>
+#include "structures.h"
 
 
 namespace Engine::Helpers {
-	struct AABB {
-		DX::XMVECTOR min;
-		DX::XMVECTOR max;
-	};
-
 	template<size_t N>
 	inline std::vector<float> FlattenXMFLOAT3Array(const std::array<DX::XMFLOAT3, N>& arr) {
 		std::vector<float> flat;
@@ -35,7 +31,7 @@ namespace Engine::Helpers {
 		return flat;
 	}
 
-	inline void TransformAABB_ObjectToWorld(const AABB& objectAABB, const 	DX::XMMATRIX& worldMatrix, AABB& aabb) {
+	inline void TransformAABB_ObjectToWorld(const Engine::Structures::AABB& objectAABB, const 	DX::XMMATRIX& worldMatrix, Engine::Structures::AABB& aabb) {
 		using namespace DirectX;
 		// Load min and max
 		XMVECTOR minV = objectAABB.min;

@@ -8,7 +8,7 @@
 
 namespace Engine::ECS::Component {
 	struct ComponentMaterialInstance {
-		Scene::Asset::MaterialInstanceAssetId assetId;
+		Scene::Asset::MaterialInstanceId assetId;
 	};
 
 	using WComponentMaterialInstance = ComponentWrapper<ComponentMaterialInstance>;

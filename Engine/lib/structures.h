@@ -92,4 +92,9 @@ namespace Engine::Structures {
 			return eq(lhs.first, rhs.first) && eq(lhs.second, rhs.second);
 		}
 	};
+
+	struct AABB {
+		DX::XMVECTOR min;
+		DX::XMVECTOR max;
+	};
 }

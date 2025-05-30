@@ -184,6 +184,9 @@
     <ClInclude Include="lib\systems\ISystem.h" />
     <ClInclude Include="lib\systems\render\RenderSystem.h" />
     <ClInclude Include="lib\systems\render\RenderStructures.h" />
+    <ClInclude Include="lib\systems\stream\GpuUploadSystem.h" />
+    <ClInclude Include="lib\systems\stream\MetadataLoaderSystem.h" />
+    <ClInclude Include="lib\systems\stream\UploadSchedulerSystem.h" />
     <ClInclude Include="lib\ThreadSafeQueue.h" />
     <ClInclude Include="lib\Win32Application.h" />
     <ClInclude Include="lib\Engine.h" />

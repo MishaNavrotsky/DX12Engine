@@ -6,6 +6,7 @@
 
 #include "systems/render/RenderSystem.h"
 #include "systems/input/InputSystem.h"
+#include "systems/stream/MetadataLoaderSystem.h"
 #include "scene/Scene.h"
 
 #include "Keyboard.h"
@@ -21,15 +22,20 @@ namespace Engine {
 		void initialize(HWND hwnd) {
 			ECS::Component::Initialize();
 
+			m_streamSystem.initialize(m_scene);
 			m_inputSystem.initialize(m_scene);
 			m_renderSystem.initialize(m_scene, m_useWarpDevice, hwnd, m_width, m_height);
-			
+
+			//debug
+			m_scene.assetManager.registerMesh(Scene::Asset::UsageMesh::Static, Scene::Asset::SourceMesh::File, Scene::Asset::FileSourceMesh{ std::filesystem::path("D:\\DX12En\\AssetsCreator\\assets\\alicev2rigged_0.mesh.asset") });
 		}
 		void update(float dt) {
+			m_streamSystem.update(dt);
 			m_inputSystem.update(dt);
 			m_renderSystem.update(dt);
 		}
 		void destroy() {
+			m_streamSystem.shutdown();
 			m_inputSystem.shutdown();
 			m_renderSystem.shutdown();
 		}
@@ -65,6 +71,7 @@ namespace Engine {
 
 		System::InputSystem m_inputSystem;
 		System::RenderSystem m_renderSystem;
+		System::MetadataLoaderSystem m_streamSystem;
 		//static const UINT FrameCount = 2;
 
 		//struct Vertex

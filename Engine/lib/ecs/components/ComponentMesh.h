@@ -8,7 +8,7 @@
 
 namespace Engine::ECS::Component {
 	struct ComponentMesh {
-		Scene::Asset::MeshAssetId assetId;
+		Scene::Asset::MeshId assetId;
 	};
 
 	using WComponentMesh = ComponentWrapper<ComponentMesh>;

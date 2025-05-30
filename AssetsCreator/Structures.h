@@ -40,6 +40,7 @@ namespace AssetsCreator::Asset {
 		float aabbMin[3];
 		float aabbMax[3];
 		Indices indices;
+		D3D_PRIMITIVE_TOPOLOGY topology;
 	};
 
 	struct Mesh {
@@ -69,9 +70,9 @@ namespace AssetsCreator::Asset::File {
 		uint64_t indexDataOffset;
 		uint64_t skinnedDataOffset;
 
-		uint64_t attributeSize; // includes 64kb alignment
-		uint64_t indexSize;  // includes 64kb alignment
-		uint64_t skinnedSize; // includes 64kb alignment
+		uint64_t attributeSizeInBytes; // includes 64kb alignment
+		uint64_t indexSizeInBytes;  // includes 64kb alignment
+		uint64_t skinnedSizeInBytes; // includes 64kb alignment
 	};
 
 	struct AttributeBufferEntry {
@@ -80,14 +81,14 @@ namespace AssetsCreator::Asset::File {
 		uint32_t typeIndex;
 		uint32_t vertexCount;
 		uint64_t fileOffset; 
-		uint64_t size;
+		uint64_t sizeInBytes;
 	};
 
 	struct IndexBufferEntry {
 		DXGI_FORMAT format;
 		uint32_t indexCount;
 		uint64_t fileOffset;
-		uint64_t size;
+		uint64_t sizeInBytes;
 	};
 
 	struct SkinnedBufferEntry {
@@ -96,7 +97,7 @@ namespace AssetsCreator::Asset::File {
 		uint32_t typeIndex;
 		uint32_t vertexCount;
 		uint64_t fileOffset;
-		uint64_t size;
+		uint64_t sizeInBytes;
 	};
 
 	struct SubmeshEntry {
@@ -111,6 +112,7 @@ namespace AssetsCreator::Asset::File {
 		float aabbMin[3];
 		float aabbMax[3];
 
+		D3D_PRIMITIVE_TOPOLOGY topology;
 		uint32_t materialID = 0;
 		uint32_t reserved[3] = { 0 };
 	};

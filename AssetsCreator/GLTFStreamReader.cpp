@@ -126,6 +126,31 @@ namespace GLTFLocal {
 		int strideInBytes = numComponents * componentSize;
 		return { strideInBytes, format };
 	}
+
+	D3D_PRIMITIVE_TOPOLOGY MeshModeToD3DPrimitiveTopology(MeshMode mode)
+	{
+		switch (mode)
+		{
+		case MESH_POINTS:
+			return D3D_PRIMITIVE_TOPOLOGY_POINTLIST;
+		case MESH_LINES:
+			return D3D_PRIMITIVE_TOPOLOGY_LINELIST;
+		case MESH_LINE_LOOP:
+			// No direct DX topology for LINE_LOOP
+			return D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
+		case MESH_LINE_STRIP:
+			return D3D_PRIMITIVE_TOPOLOGY_LINESTRIP;
+		case MESH_TRIANGLES:
+			return D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+		case MESH_TRIANGLE_STRIP:
+			return D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP;
+		case MESH_TRIANGLE_FAN:
+			// No direct DX topology for TRIANGLE_FAN
+			return D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
+		default:
+			return D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
+		}
+	}
 }
 
 inline static void GetAssetsPath(_Out_writes_(pathSize) WCHAR* path, UINT pathSize)
@@ -252,6 +277,8 @@ std::vector<std::unique_ptr<AssetsCreator::Asset::Mesh>> GLTFLocal::GetMeshesInf
 			vSubMesh->indices.data = ConvertUint32VectorToByteVector(indices);
 			vSubMesh->indices.format = DXGI_FORMAT_R32_UINT;
 			vSubMesh->indices.strideInBytes = 4;
+
+			vSubMesh->topology = MeshModeToD3DPrimitiveTopology(primitive.mode);
 
 
 			auto& attributes = primitive.attributes;

@@ -6,17 +6,17 @@
 
 
 namespace Engine::Scene::Asset {
-	enum class AssetTypeMaterial {
+	enum class TypeMaterial {
 		PBR,
 		Custom,
 	};
 
-	struct AssetTypePBRMaterialData {
+	struct TypePBRMaterialData {
 		DX::XMFLOAT4 emissiveFactor = { 0.f, 0.f, 0.f, 1.f };
 		DX::XMFLOAT4 baseColorFactor = { 1.f, 1.f, 1.f, 1.f };
 		DX::XMFLOAT4 normalScaleOcclusionStrengthMRFactors = { 1.f, 1.f, 0.f, 1.f };
 	};
-	struct AssetTypePBRMaterialInstanceData {
+	struct TypePBRMaterialInstanceData {
 		std::optional<DX::XMFLOAT4> emissiveFactor;
 		std::optional<DX::XMFLOAT4> baseColorFactor;
 		std::optional<DX::XMFLOAT4> normalScaleOcclusionStrengthMRFactors;
@@ -29,18 +29,18 @@ namespace Engine::Scene::Asset {
 		// 
 	};
 
-	using AssetMaterialData = std::variant<AssetTypePBRMaterialData, CustomMaterialData>;
-	using AssetMaterialInstanceData = std::variant<AssetTypePBRMaterialInstanceData, CustomMaterialInstanceData>;
+	using MaterialData = std::variant<TypePBRMaterialData, CustomMaterialData>;
+	using MaterialInstanceData = std::variant<TypePBRMaterialInstanceData, CustomMaterialInstanceData>;
 
 
-	struct AssetMaterial {
-		AssetTypeMaterial type;
+	struct Material {
+		TypeMaterial type;
 		std::unique_ptr<Render::Pipeline::PSOShader> shader;
 
-		AssetMaterialData data;
+		MaterialData data;
 	};
 
-	struct AssetMaterialInstance {
-		AssetMaterialInstanceData data;
+	struct MaterialInstance {
+		MaterialInstanceData data;
 	};
 }
