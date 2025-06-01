@@ -123,6 +123,31 @@ namespace AssetsCreator::Asset::File {
 		std::vector<IndexBufferEntry> indexBuffers;
 		std::vector<SkinnedBufferEntry> skinnedBuffers;
 		std::vector<SubmeshEntry> submeshes;
+		// Move constructor
+		MeshAsset(MeshAsset&& other) noexcept
+			: header(std::move(other.header)),
+			attributeBuffers(std::move(other.attributeBuffers)),
+			indexBuffers(std::move(other.indexBuffers)),
+			skinnedBuffers(std::move(other.skinnedBuffers)),
+			submeshes(std::move(other.submeshes)) {
+		}
+
+		// Move assignment operator
+		MeshAsset& operator=(MeshAsset&& other) noexcept {
+			if (this != &other) {
+				header = std::move(other.header);
+				attributeBuffers = std::move(other.attributeBuffers);
+				indexBuffers = std::move(other.indexBuffers);
+				skinnedBuffers = std::move(other.skinnedBuffers);
+				submeshes = std::move(other.submeshes);
+			}
+			return *this;
+		}
+
+		// Optional: default constructor/assignment as needed
+		MeshAsset() = default;
+		MeshAsset(const MeshAsset&) = delete;
+		MeshAsset& operator=(const MeshAsset&) = delete;
 		// Raw data sections would follow here in the actual file
 	};
 #pragma pack(pop)

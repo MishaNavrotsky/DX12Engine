@@ -4,6 +4,7 @@
 
 #include "mesh/AssetMesh.h"
 #include "material/AssetMaterial.h"
+#include <Structures.h>
 
 namespace Engine::Scene::Asset {
 	enum class Type {
@@ -36,6 +37,13 @@ namespace Engine::Scene::Asset {
 		//
 	};
 	using MeshSourceData = std::variant<FileSourceMesh, ProceduralSourceMesh>;
+
+	struct FileMeshAdditionalData {
+		AssetsCreator::Asset::File::MeshAsset file;
+	};
+	struct ProceduraMeshAdditionalData {
+	};
+	using MeshAdditionalData = std::variant<FileMeshAdditionalData, ProceduraMeshAdditionalData>;
 
 	enum class UsageMesh {
 		Static,         // Will not change. Can go in large, contiguous GPU heap.
@@ -95,6 +103,7 @@ namespace Engine::Scene::Asset {
 		Mesh asset;
 
 		MeshSourceData sourceData;
+		MeshAdditionalData additionalData;
 	};
 
 	struct MaterialMapValue : public IStatus {

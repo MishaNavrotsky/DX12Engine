@@ -57,13 +57,13 @@
     <OutDir>bin\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>obj\$(Platform)\$(Configuration)\</IntDir>
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
-    <LibraryPath>C:\Users\Misha\DirectXTK12\Bin\Desktop_2022_Win10\x64\Debug;C:\Users\Misha\glTF-SDK\GLTFSDK\Debug;C:\Users\Misha\DirectXTex\build\lib\Debug;$(LibraryPath)</LibraryPath>
+    <LibraryPath>C:\Users\Misha\FiberTaskingLib\third_party\catch2\src\Debug;C:\Users\Misha\FiberTaskingLib\third_party\boost_context\Debug;C:\Users\Misha\FiberTaskingLib\source\Debug;C:\Users\Misha\DirectXTK12\Bin\Desktop_2022_Win10\x64\Debug;C:\Users\Misha\glTF-SDK\GLTFSDK\Debug;C:\Users\Misha\DirectXTex\build\lib\Debug;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <OutDir>bin\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>obj\$(Platform)\$(Configuration)\</IntDir>
-    <LibraryPath>C:\Users\Misha\DirectXTK12\Bin\Desktop_2022_Win10\x64\Release;C:\Users\Misha\glTF-SDK\GLTFSDK\Release;C:\Users\Misha\DirectXTex\build\lib\Release;$(LibraryPath)</LibraryPath>
+    <LibraryPath>C:\Users\Misha\FiberTaskingLib\third_party\boost_context\Release;C:\Users\Misha\FiberTaskingLib\third_party\catch2\src\Release;C:\Users\Misha\FiberTaskingLib\source\Release;C:\Users\Misha\DirectXTK12\Bin\Desktop_2022_Win10\x64\Release;C:\Users\Misha\glTF-SDK\GLTFSDK\Release;C:\Users\Misha\DirectXTex\build\lib\Release;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -72,7 +72,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\Users\Misha\DirectXTK12\Inc;$(ProjectDir);%(AdditionalIncludeDirectories);C:\Users\Misha\glTF-SDK\GLTFSDK\Inc;C:\Users\Misha\DirectXTex\DirectXTex;$(SolutionDir)AssetsCreator</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Misha\FiberTaskingLib\third_party\catch2\generated-includes;C:\Users\Misha\FiberTaskingLib\third_party\boost_context\include;C:\Users\Misha\DirectXTK12\Inc;$(ProjectDir);%(AdditionalIncludeDirectories);C:\Users\Misha\glTF-SDK\GLTFSDK\Inc;C:\Users\Misha\DirectXTex\DirectXTex;$(SolutionDir)AssetsCreator;C:\Users\Misha\FiberTaskingLib\include</AdditionalIncludeDirectories>
       <CompileAsWinRT>false</CompileAsWinRT>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp20</LanguageStandard>
@@ -80,7 +80,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;d3dcompiler.lib;GLTFSDK.lib;%(AdditionalDependencies);DirectXTex.lib;dxcompiler.lib;user32.lib;gdi32.lib;dxguid.lib;DirectXTK12.lib;dstorage.lib</AdditionalDependencies>
+      <AdditionalDependencies>d3d12.lib;dxgi.lib;d3dcompiler.lib;GLTFSDK.lib;%(AdditionalDependencies);DirectXTex.lib;dxcompiler.lib;user32.lib;gdi32.lib;dxguid.lib;DirectXTK12.lib;dstorage.lib;ftl.lib;Catch2d.lib;Catch2Maind.lib;boost_context.lib</AdditionalDependencies>
       <DelayLoadDLLs>d3d12.dll</DelayLoadDLLs>
     </Link>
     <CustomBuildStep>
@@ -104,7 +104,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\Users\Misha\DirectXTK12\Inc;$(ProjectDir);%(AdditionalIncludeDirectories);C:\Users\Misha\glTF-SDK\GLTFSDK\Inc;C:\Users\Misha\DirectXTex\DirectXTex;$(SolutionDir)AssetsCreator</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Misha\FiberTaskingLib\third_party\catch2\generated-includes;C:\Users\Misha\FiberTaskingLib\third_party\boost_context\include;C:\Users\Misha\DirectXTK12\Inc;$(ProjectDir);%(AdditionalIncludeDirectories);C:\Users\Misha\glTF-SDK\GLTFSDK\Inc;C:\Users\Misha\DirectXTex\DirectXTex;$(SolutionDir)AssetsCreator;C:\Users\Misha\FiberTaskingLib\include</AdditionalIncludeDirectories>
       <CompileAsWinRT>false</CompileAsWinRT>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
@@ -113,7 +113,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;d3dcompiler.lib;GLTFSDK.lib;%(AdditionalDependencies);DirectXTex.lib;dxcompiler.lib;user32.lib;gdi32.lib;dxguid.lib;DirectXTK12.lib;dstorage.lib</AdditionalDependencies>
+      <AdditionalDependencies>d3d12.lib;dxgi.lib;d3dcompiler.lib;GLTFSDK.lib;%(AdditionalDependencies);DirectXTex.lib;dxcompiler.lib;user32.lib;gdi32.lib;dxguid.lib;DirectXTK12.lib;dstorage.lib;ftl.lib;Catch2.lib;Catch2Main.lib;boost_context.lib</AdditionalDependencies>
       <DelayLoadDLLs>d3d12.dll</DelayLoadDLLs>
     </Link>
     <CustomBuildStep>
@@ -130,7 +130,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="external\unordered_dense.h" />
-    <ClInclude Include="external\BS_thread_pool.hpp" />
     <ClInclude Include="external\imconfig.h" />
     <ClInclude Include="external\imgui.h" />
     <ClInclude Include="external\imgui_impl_dx12.h" />
@@ -184,9 +183,12 @@
     <ClInclude Include="lib\systems\ISystem.h" />
     <ClInclude Include="lib\systems\render\RenderSystem.h" />
     <ClInclude Include="lib\systems\render\RenderStructures.h" />
-    <ClInclude Include="lib\systems\stream\GpuUploadSystem.h" />
-    <ClInclude Include="lib\systems\stream\MetadataLoaderSystem.h" />
-    <ClInclude Include="lib\systems\stream\UploadSchedulerSystem.h" />
+    <ClInclude Include="lib\systems\stream\controllers\BarrierController.h" />
+    <ClInclude Include="lib\systems\stream\tasks\GpuUploadTask.h" />
+    <ClInclude Include="lib\systems\stream\tasks\MetadataLoaderTask.h" />
+    <ClInclude Include="lib\systems\stream\StreamingSystem.h" />
+    <ClInclude Include="lib\systems\stream\tasks\Structures.h" />
+    <ClInclude Include="lib\systems\stream\tasks\UploadSchedulerTask.h" />
     <ClInclude Include="lib\ThreadSafeQueue.h" />
     <ClInclude Include="lib\Win32Application.h" />
     <ClInclude Include="lib\Engine.h" />

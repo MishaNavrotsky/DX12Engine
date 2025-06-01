@@ -14,9 +14,9 @@
 #include <DirectXMath.h>
 #include "include/d3dx12/d3dx12.h"
 #include <dxcapi.h>
+#include <dstorage.h>
 #include <objbase.h>
 #include <vector>
-#include "external/BS_thread_pool.hpp"
 #include <functional>
 #include <syncstream>
 #include <filesystem>
@@ -31,13 +31,14 @@
 #include <iomanip>
 #include <span>
 #include <array>
-
+#include <variant>
 #include <string>
 #include <wrl.h>
 #include <shellapi.h>
 #include <stdexcept>
 #include <comdef.h>
-
+#include "ftl/task_scheduler.h"
+#include "ftl/wait_group.h"
 #include "external/unordered_dense.h"
 
 
@@ -88,6 +89,14 @@ static void GetAssetsPath(_Out_writes_(pathSize) WCHAR* path, UINT pathSize)
 	{
 		*(lastSlash + 1) = L'\0';
 	}
+}
+static auto programStart = std::chrono::high_resolution_clock::now();
+
+
+static void PrintCurrentTimestampNS() {
+	auto now = std::chrono::high_resolution_clock::now();
+	float ms = std::chrono::duration<float, std::milli>(now - programStart).count();
+	std::cout << "Elapsed time since program start: " << ms << " ms" << std::endl;
 }
 
 template<typename T>
