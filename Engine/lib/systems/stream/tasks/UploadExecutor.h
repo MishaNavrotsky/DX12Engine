@@ -21,15 +21,15 @@ namespace Engine::System::Streaming {
 				auto dqueue = args->streamingSystemArgs->getDqueue();
 				auto dfactory = args->streamingSystemArgs->getDfactory();
 				auto& uploadTypeData = std::get<DSMeshUploadTypeData>(args->uploadPlan.uploadTypeData);
-				if (uploadTypeData.attReq.second) {
-					dqueue->EnqueueRequest(&uploadTypeData.attReq.first);
-				}
-				if (uploadTypeData.indReq.second) {
-					dqueue->EnqueueRequest(&uploadTypeData.indReq.first);
-				}
-				if (uploadTypeData.skiReq.second) {
-					dqueue->EnqueueRequest(&uploadTypeData.skiReq.first);
-				}
+				if (uploadTypeData.attReq)
+					dqueue->EnqueueRequest(&uploadTypeData.attReq.value());
+
+				if (uploadTypeData.indReq)
+					dqueue->EnqueueRequest(&uploadTypeData.indReq.value());
+
+				if (uploadTypeData.skiReq)
+					dqueue->EnqueueRequest(&uploadTypeData.skiReq.value());
+
 
 				dqueue->EnqueueSignal(args->fence.Get(), ++args->fenceValue);
 				dqueue->Submit();

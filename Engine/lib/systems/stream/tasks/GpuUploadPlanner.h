@@ -33,6 +33,22 @@ namespace Engine::System::Streaming {
 
 			return request;
 		}
+		static void PopulateMeshUpload(
+			std::optional<Render::Memory::HeapPool::AllocateResult>& alloc,
+			std::optional<DSTORAGE_REQUEST>& requestSlot,
+			MeshUploadResource& resourceSlot,
+			const uint64_t offset, const uint64_t size,
+			IDStorageFile* storageFile, Render::Manager::ResourceManager& rm
+		) {
+			if (!alloc) return;
+			auto* res = rm.get(alloc->resourceHandle);
+			if (!res) return;
+
+			requestSlot.emplace(CreateDStorageRequest(storageFile, offset, size, res->getResource(), 0, res->getSize()));
+			resourceSlot.resourceHandle = alloc->resourceHandle;
+			resourceSlot.allocateResult = *alloc;
+			resourceSlot.isHeap = true;
+		}
 		static void CreatePlanForMesh(ftl::TaskScheduler* ts, void* arg) {
 			auto args = reinterpret_cast<MeshArgs*>(arg);
 			args->step = StreamingStep::GpuUploadPlanner;
@@ -47,58 +63,58 @@ namespace Engine::System::Streaming {
 				WPtr<IDStorageFile> storageFile;
 				ThrowIfFailed(args->streamingSystemArgs->getDfactory()->OpenFile(sourceData.path.c_str(), IID_PPV_ARGS(&storageFile)));
 
+				std::optional<Render::Memory::HeapPool::AllocateResult> ski, att, ind;
 
+				if (asset.usage == Scene::Asset::UsageMesh::Static) {
+					if (additionalData.file.header.skinnedSizeInBytes) {
+						D3D12_RESOURCE_DESC descSki = CD3DX12_RESOURCE_DESC::Buffer(additionalData.file.header.skinnedSizeInBytes);
+						ski = scene->skiDefaultHeapPool.allocate(descSki, D3D12_RESOURCE_STATE_COPY_DEST);
+					}
+					D3D12_RESOURCE_DESC descAtt = CD3DX12_RESOURCE_DESC::Buffer(additionalData.file.header.attributeSizeInBytes);
+					att = scene->attDefaultHeapPool.allocate(descAtt, D3D12_RESOURCE_STATE_COPY_DEST);
+					D3D12_RESOURCE_DESC descInd = CD3DX12_RESOURCE_DESC::Buffer(additionalData.file.header.indexSizeInBytes);
+					ind = scene->indDefaultHeapPool.allocate(descInd, D3D12_RESOURCE_STATE_COPY_DEST);
+				}
 
-				//if (asset.usage == Scene::Asset::UsageMesh::Static) {
-				//	if (additionalData.file.header.skinnedSizeInBytes) {
-				//		resourceSki = Render::Memory::Resource::Create(D3D12_HEAP_TYPE_DEFAULT, static_cast<uint32_t>(additionalData.file.header.skinnedSizeInBytes), D3D12_RESOURCE_STATE_COMMON);
-				//	}
-				//	resourceAtt = Render::Memory::Resource::Create(D3D12_HEAP_TYPE_DEFAULT, static_cast<uint32_t>(additionalData.file.header.attributeSizeInBytes), D3D12_RESOURCE_STATE_COMMON);
-				//	resourceInd = Render::Memory::Resource::Create(D3D12_HEAP_TYPE_DEFAULT, static_cast<uint32_t>(additionalData.file.header.indexSizeInBytes), D3D12_RESOURCE_STATE_COMMON);
-				//}
+				MeshGpuUploadPlan meshGpuUploadPlan{};
+				meshGpuUploadPlan.assetId = event.id;
+				meshGpuUploadPlan.uploadType = GpuUploadType::DirectStorage;
 
-				//MeshGpuUploadPlan meshGpuUploadPlan{};
-				//meshGpuUploadPlan.assetId = event.id;
-				//meshGpuUploadPlan.uploadType = GpuUploadType::DirectStorage;
-
-				//DSMeshUploadTypeData dsMeshUploadTypeData{};
-				//dsMeshUploadTypeData.storageFile = storageFile;
-				//dsMeshUploadTypeData.attReq.first = CreateDStorageRequest(
-				//	dsMeshUploadTypeData.storageFile.Get(),
-				//	additionalData.file.header.attributeDataOffset,
-				//	additionalData.file.header.attributeDataOffset + additionalData.file.header.attributeSizeInBytes,
-				//	resourceAtt->getResource(),
-				//	0,
-				//	resourceAtt->getSize()
-				//	);
-				//dsMeshUploadTypeData.attReq.second = true;
-				//dsMeshUploadTypeData.indReq.first = CreateDStorageRequest(
-				//	dsMeshUploadTypeData.storageFile.Get(),
-				//	additionalData.file.header.indexDataOffset,
-				//	additionalData.file.header.indexDataOffset + additionalData.file.header.indexSizeInBytes,
-				//	resourceInd->getResource(),
-				//	0,
-				//	resourceInd->getSize()
-				//);
-				//dsMeshUploadTypeData.indReq.second = true;
-				//if (resourceSki) {
-				//	dsMeshUploadTypeData.skiReq.first = CreateDStorageRequest(
-				//		dsMeshUploadTypeData.storageFile.Get(),
-				//		additionalData.file.header.skinnedDataOffset,
-				//		additionalData.file.header.skinnedDataOffset + additionalData.file.header.skinnedSizeInBytes,
-				//		resourceSki->getResource(),
-				//		0,
-				//		resourceSki->getSize()
-				//	);
-				//	dsMeshUploadTypeData.skiReq.second = true;
-				//}
-				//meshGpuUploadPlan.uploadTypeData = std::move(dsMeshUploadTypeData);
-
-				//meshGpuUploadPlan.resourceAtt = std::move(resourceAtt);
-				//meshGpuUploadPlan.resourceInd = std::move(resourceInd);
-				//meshGpuUploadPlan.resourceSki = resourceSki ? nullptr : std::move(resourceSki);
-				//args->uploadPlan = std::move(meshGpuUploadPlan);
-				//ts->AddTask({ UploadExecutor::ExecuteMesh, arg }, ftl::TaskPriority::Normal);
+				DSMeshUploadTypeData dsMeshUploadTypeData{};
+				dsMeshUploadTypeData.storageFile = storageFile;
+				if (att)
+					PopulateMeshUpload(
+						att,
+						dsMeshUploadTypeData.attReq,
+						meshGpuUploadPlan.resourceAtt.emplace(),
+						additionalData.file.header.attributeDataOffset,
+						additionalData.file.header.attributeSizeInBytes,
+						dsMeshUploadTypeData.storageFile.Get(),
+						scene->resourceManager
+					);
+				if (ind)
+					PopulateMeshUpload(
+						ind,
+						dsMeshUploadTypeData.indReq,
+						meshGpuUploadPlan.resourceInd.emplace(),
+						additionalData.file.header.indexDataOffset,
+						additionalData.file.header.indexSizeInBytes,
+						dsMeshUploadTypeData.storageFile.Get(),
+						scene->resourceManager
+					);
+				if (ski)
+					PopulateMeshUpload(
+						ski,
+						dsMeshUploadTypeData.skiReq,
+						meshGpuUploadPlan.resourceSki.emplace(),
+						additionalData.file.header.skinnedDataOffset,
+						additionalData.file.header.skinnedSizeInBytes,
+						dsMeshUploadTypeData.storageFile.Get(),
+						scene->resourceManager
+					);
+				meshGpuUploadPlan.uploadTypeData = std::move(dsMeshUploadTypeData);
+				args->uploadPlan = std::move(meshGpuUploadPlan);
+				ts->AddTask({ UploadExecutor::ExecuteMesh, arg }, ftl::TaskPriority::Normal);
 				return;
 			}
 		}

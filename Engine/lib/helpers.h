@@ -31,7 +31,7 @@ namespace Engine::Helpers {
 		return flat;
 	}
 
-	inline void TransformAABB_ObjectToWorld(const Engine::Structures::AABB& objectAABB, const 	DX::XMMATRIX& worldMatrix, Engine::Structures::AABB& aabb) {
+	inline void TransformAABB_ObjectToWorld(const Structures::AABB& objectAABB, const 	DX::XMMATRIX& worldMatrix, Structures::AABB& aabb) {
 		using namespace DirectX;
 		// Load min and max
 		XMVECTOR minV = objectAABB.min;
@@ -234,11 +234,11 @@ namespace Engine::Helpers {
 
 		// Initialize textures using the upload buffer
 		DefaultPBRTextures textures;
-		textures.baseColor = Engine::Helpers::CreateAndUpload1x1Texture(m_device, cmdList.Get(), baseColor, sizeof(baseColor), DXGI_FORMAT_R8G8B8A8_UNORM, uploadBuffer0);
-		textures.metallicRoughness = Engine::Helpers::CreateAndUpload1x1Texture(m_device, cmdList.Get(), mrPixel, sizeof(mrPixel), DXGI_FORMAT_R8G8B8A8_UNORM, uploadBuffer1);
-		textures.normal = Engine::Helpers::CreateAndUpload1x1Texture(m_device, cmdList.Get(), normalPixel, sizeof(normalPixel), DXGI_FORMAT_R8G8B8A8_UNORM, uploadBuffer2);
-		textures.emissive = Engine::Helpers::CreateAndUpload1x1Texture(m_device, cmdList.Get(), emissivePixel, sizeof(emissivePixel), DXGI_FORMAT_R8G8B8A8_UNORM, uploadBuffer3);
-		textures.occlusion = Engine::Helpers::CreateAndUpload1x1Texture(m_device, cmdList.Get(), occlusionPixel, sizeof(occlusionPixel), DXGI_FORMAT_R8_UNORM, uploadBuffer4);
+		textures.baseColor = CreateAndUpload1x1Texture(m_device, cmdList.Get(), baseColor, sizeof(baseColor), DXGI_FORMAT_R8G8B8A8_UNORM, uploadBuffer0);
+		textures.metallicRoughness = CreateAndUpload1x1Texture(m_device, cmdList.Get(), mrPixel, sizeof(mrPixel), DXGI_FORMAT_R8G8B8A8_UNORM, uploadBuffer1);
+		textures.normal = CreateAndUpload1x1Texture(m_device, cmdList.Get(), normalPixel, sizeof(normalPixel), DXGI_FORMAT_R8G8B8A8_UNORM, uploadBuffer2);
+		textures.emissive = CreateAndUpload1x1Texture(m_device, cmdList.Get(), emissivePixel, sizeof(emissivePixel), DXGI_FORMAT_R8G8B8A8_UNORM, uploadBuffer3);
+		textures.occlusion = CreateAndUpload1x1Texture(m_device, cmdList.Get(), occlusionPixel, sizeof(occlusionPixel), DXGI_FORMAT_R8_UNORM, uploadBuffer4);
 
 		// Finish and execute
 		ThrowIfFailed(cmdList->Close());

@@ -25,7 +25,9 @@ namespace Engine {
 			m_inputSystem.initialize(m_scene);
 			m_renderSystem.initialize(m_scene, m_useWarpDevice, hwnd, m_width, m_height);
 			m_streamSystem.initialize(m_scene);
+			m_scene.initialize();
 			//debug
+			for (uint64_t i = 0; i < 300; i++)
 			m_scene.assetManager.registerMesh(Scene::Asset::UsageMesh::Static, Scene::Asset::SourceMesh::File, Scene::Asset::FileSourceMesh{ std::filesystem::path("D:\\DX12En\\AssetsCreator\\assets\\alicev2rigged_0.mesh.asset") });
 		}
 		void update(float dt) {

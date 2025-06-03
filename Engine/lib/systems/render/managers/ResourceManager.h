@@ -22,10 +22,6 @@ namespace Engine::Render::Manager {
             m_freeSlots.reserve(2048);
         }
 
-        static ResourceManager& GetInstance() {
-            static ResourceManager instance;
-            return instance;
-        }
         Memory::Resource::Handle add(Memory::Resource&& resource) {
             std::lock_guard<std::mutex> lock(m_mutex);
 			if (m_state == ManagerState::Readonly) {

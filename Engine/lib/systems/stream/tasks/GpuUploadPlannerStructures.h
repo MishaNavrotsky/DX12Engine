@@ -14,7 +14,7 @@ namespace Engine::System::Streaming {
 		Procedural,
 	};
 	struct DSMeshUploadTypeData {
-		std::pair<DSTORAGE_REQUEST, bool> attReq{ {},false }, indReq{ {},false }, skiReq{ {},false };
+		std::optional<DSTORAGE_REQUEST> attReq, indReq, skiReq;
 		WPtr<IDStorageFile> storageFile;
 	};
 	struct CSMeshUploadTypeData {
@@ -34,7 +34,7 @@ namespace Engine::System::Streaming {
 		GpuUploadType uploadType;
 
 		
-		MeshUploadResource resourceAtt, resourceInd, resourceSki;
+		std::optional<MeshUploadResource> resourceAtt, resourceInd, resourceSki;
 		MeshUploadTypeData uploadTypeData;
 	};
 }

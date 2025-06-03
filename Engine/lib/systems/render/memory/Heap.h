@@ -17,6 +17,10 @@ namespace Engine::Render::Memory {
 			moveFrom(std::move(other));
 		}
 
+		void initialize(Manager::ResourceManager* resourceManager) {
+			m_resourceManager = resourceManager;
+		}
+
 		Heap& operator=(Heap&& other) noexcept {
 			if (this != &other) {
 				moveFrom(std::move(other));
@@ -93,7 +97,7 @@ namespace Engine::Render::Memory {
 			return m_heap.Get();
 		}
 		uint64_t getSize() const {
-			return m_size;
+			return m_sizeInBytes;
 		}
 		D3D12_HEAP_TYPE getHeapType() const {
 			return m_heapType;
@@ -103,14 +107,13 @@ namespace Engine::Render::Memory {
 		}
 		Resource::PackedHandle createPlacedResource(D3D12_RESOURCE_DESC desc, D3D12_RESOURCE_STATES state, const D3D12_RESOURCE_ALLOCATION_INFO* info = nullptr, const D3D12_CLEAR_VALUE* clearValue = nullptr) {
 			static auto device = Device::GetDevice();
-			static auto& resourceManager = Manager::ResourceManager::GetInstance();
 			D3D12_RESOURCE_ALLOCATION_INFO allocInfo = info ? *info : device->GetResourceAllocationInfo(
 				0,
 				1,
 				&desc
 			);
 
-			auto handle = resourceManager.reserve();
+			auto handle = m_resourceManager->reserve();
 			auto packedHandle = Resource::PackHandle(handle.index, handle.generation);
 			
 			Resource resource;
@@ -118,7 +121,7 @@ namespace Engine::Render::Memory {
 
 			auto sizes = allocate(packedHandle, size);
 			if (sizes.first == 0 && sizes.second == 0) {
-				resourceManager.remove(handle);
+				m_resourceManager->remove(handle);
 				throw std::runtime_error("[Heap] Not enough space to allocate resource.");
 			}
 
@@ -139,23 +142,34 @@ namespace Engine::Render::Memory {
 			resource.m_placedHeapId = m_heapId;
 			resource.m_id = packedHandle;
 
-			resourceManager.assign(handle, std::move(resource));
+			m_resourceManager->assign(handle, std::move(resource));
 			return packedHandle;
 		}
 
 		void removePlacedResource(Resource::PackedHandle resourceId) {
 			deallocate(resourceId);
-			static auto& resourceManager = Manager::ResourceManager::GetInstance();
-			resourceManager.remove(resourceId);
+			m_resourceManager->remove(resourceId);
 		}
-		  
+
+		uint64_t getCommitedResourceSize() {
+			return m_resourceMap.size();
+		}
+
+		uint64_t getFreeSpace() {
+			uint64_t freeSpace = 0;
+			for (auto& m : m_freeMemory) {
+				freeSpace += m.second - m.first + 1;
+			}
+			return freeSpace;
+		}
+
 		~Heap()
 		{
 			if (m_heapType == D3D12_HEAP_TYPE_UPLOAD || m_heapType == D3D12_HEAP_TYPE_READBACK || m_heapType == D3D12_HEAP_TYPE_GPU_UPLOAD) {
-				cpuTotalAllocatedMemory.fetch_sub(m_size, std::memory_order_relaxed);
+				cpuTotalAllocatedMemory.fetch_sub(m_sizeInBytes, std::memory_order_relaxed);
 			}
 			else if (m_heapType == D3D12_HEAP_TYPE_DEFAULT) {
-				gpuTotalAllocatedMemory.fetch_sub(m_size, std::memory_order_relaxed);
+				gpuTotalAllocatedMemory.fetch_sub(m_sizeInBytes, std::memory_order_relaxed);
 			}
 			else if (m_heapType == D3D12_HEAP_TYPE_CUSTOM) {
 				//throw std::runtime_error("[Heap] D3D12_HEAP_TYPE_CUSTOM not yet supported");
@@ -167,16 +181,18 @@ namespace Engine::Render::Memory {
 		void moveFrom(Heap&& other) {
 			// Take ownership
 			m_heap = std::move(other.m_heap);
-			m_size = other.m_size;
+			m_sizeInBytes = other.m_sizeInBytes;
 			m_heapType = other.m_heapType;
 			m_alignment = other.m_alignment;
 			m_heapId = other.m_heapId;
 			m_resourceMap = std::move(other.m_resourceMap);
 			m_freeMemory = std::move(other.m_freeMemory);
+			m_resourceManager = other.m_resourceManager;
 
-			other.m_size = 0;
+			other.m_sizeInBytes = 0;
 			other.m_heapType = D3D12_HEAP_TYPE_CUSTOM;
 			other.m_heapId = 0;
+			other.m_resourceManager = nullptr;
 			other.m_resourceMap.clear();
 			other.m_freeMemory.clear();
 			other.m_heap.Reset();
@@ -184,7 +200,7 @@ namespace Engine::Render::Memory {
 		void Initialize(D3D12_HEAP_PROPERTIES& props, D3D12_HEAP_FLAGS flag, uint64_t size, uint64_t alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT) {
 			m_resourceMap.reserve(256);
 			static auto device = Device::GetDevice();
-			m_size = Helpers::Align(size, alignment);
+			m_sizeInBytes = Helpers::Align(size, alignment);
 			m_alignment = alignment;
 			m_heapType = props.Type;
 			D3D12_HEAP_DESC heapDesc = {};
@@ -193,19 +209,20 @@ namespace Engine::Render::Memory {
 			heapDesc.Flags = flag;
 			heapDesc.Alignment = alignment;
 
+			ThrowIfFailed(device->CreateHeap(&heapDesc, IID_PPV_ARGS(&m_heap)));
+
 			if (m_heapType == D3D12_HEAP_TYPE_UPLOAD || m_heapType == D3D12_HEAP_TYPE_READBACK || m_heapType == D3D12_HEAP_TYPE_GPU_UPLOAD) {
-				cpuTotalAllocatedMemory.fetch_add(m_size, std::memory_order_relaxed);
+				cpuTotalAllocatedMemory.fetch_add(m_sizeInBytes, std::memory_order_relaxed);
 			}
 			else if (m_heapType == D3D12_HEAP_TYPE_DEFAULT) {
-				gpuTotalAllocatedMemory.fetch_add(m_size, std::memory_order_relaxed);
+				gpuTotalAllocatedMemory.fetch_add(m_sizeInBytes, std::memory_order_relaxed);
 			}
 			else if (m_heapType == D3D12_HEAP_TYPE_CUSTOM) {
 				throw std::runtime_error("[Heap] D3D12_HEAP_TYPE_CUSTOM not yet supported");
 				//gpuTotalAllocatedMemory.fetch_add(allocInfo.SizeInBytes, std::memory_order_relaxed);
 			}
-			ThrowIfFailed(device->CreateHeap(&heapDesc, IID_PPV_ARGS(&m_heap)));
 
-			m_freeMemory.insert({ 0, m_size - 1 });
+			m_freeMemory.insert({ 0, m_sizeInBytes - 1 });
 		}
 
 		std::pair<uint64_t, uint64_t> allocate(Resource::PackedHandle id, uint64_t alignedSize) {
@@ -265,13 +282,15 @@ namespace Engine::Render::Memory {
 		}
 
 		WPtr<ID3D12Heap> m_heap;
-		uint64_t m_size;
+		uint64_t m_sizeInBytes;
 		D3D12_HEAP_TYPE m_heapType;
 		uint64_t m_alignment;
 
 		HeapId m_heapId = 0;
 		ankerl::unordered_dense::map<Resource::PackedHandle, std::pair<uint64_t, uint64_t>> m_resourceMap; // [alloctStart, allocEnd]
 		std::map<uint64_t, uint64_t> m_freeMemory; // key = start, value = end
+
+		Manager::ResourceManager* m_resourceManager;
 
 		static inline std::atomic<uint64_t> gpuTotalAllocatedMemory{ 0 };
 		static inline std::atomic<uint64_t> cpuTotalAllocatedMemory{ 0 };
