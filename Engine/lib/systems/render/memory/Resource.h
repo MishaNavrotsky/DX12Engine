@@ -37,6 +37,16 @@ namespace Engine::Render::Memory {
 		}
 		Resource(const Resource&) = delete;
 		Resource& operator=(const Resource&) = delete;
+		Resource(Resource&& other) noexcept {
+			moveFrom(std::move(other));
+		}
+
+		Resource& operator=(Resource&& other) noexcept {
+			if (this != &other) {
+				moveFrom(std::move(other));
+			}
+			return *this;
+		}
 		static std::unique_ptr<Resource> Create(D3D12_HEAP_TYPE type, UINT size, D3D12_RESOURCE_STATES state, const D3D12_CLEAR_VALUE* clearValue = nullptr, D3D12_HEAP_FLAGS flag = D3D12_HEAP_FLAG_NONE) {
 			D3D12_HEAP_PROPERTIES props = CD3DX12_HEAP_PROPERTIES(type);
 			D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer(size);
@@ -48,6 +58,17 @@ namespace Engine::Render::Memory {
 			return std::unique_ptr<Resource>(resource);
 		}
 
+		static Resource CreateV(D3D12_HEAP_TYPE type, UINT size, D3D12_RESOURCE_STATES state, const D3D12_CLEAR_VALUE* clearValue = nullptr, D3D12_HEAP_FLAGS flag = D3D12_HEAP_FLAG_NONE) {
+			D3D12_HEAP_PROPERTIES props = CD3DX12_HEAP_PROPERTIES(type);
+			D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer(size);
+			Resource resource;
+			resource.m_heapType = type;
+			resource.setClearValue(clearValue);
+			resource.Initialize(&props, flag, &desc, state);
+			resource.saveSize(desc);
+			return resource;
+		}
+
 		static std::unique_ptr<Resource> Create(D3D12_HEAP_PROPERTIES props, D3D12_RESOURCE_DESC desc, D3D12_RESOURCE_STATES state, const D3D12_CLEAR_VALUE* clearValue = nullptr, D3D12_HEAP_FLAGS flag = D3D12_HEAP_FLAG_NONE) {
 			auto resource = new Resource();
 			resource->setClearValue(clearValue);
@@ -55,6 +76,15 @@ namespace Engine::Render::Memory {
 			resource->Initialize(&props, flag, &desc, state);
 			resource->saveSize(desc);
 			return std::unique_ptr<Resource>(resource);
+		}
+
+		static Resource CreateV(D3D12_HEAP_PROPERTIES props, D3D12_RESOURCE_DESC desc, D3D12_RESOURCE_STATES state, const D3D12_CLEAR_VALUE* clearValue = nullptr, D3D12_HEAP_FLAGS flag = D3D12_HEAP_FLAG_NONE) {
+			Resource resource;
+			resource.setClearValue(clearValue);
+			resource.m_heapType = props.Type;
+			resource.Initialize(&props, flag, &desc, state);
+			resource.saveSize(desc);
+			return resource;
 		}
 
 		ID3D12Resource* getResource() const {
@@ -164,7 +194,7 @@ namespace Engine::Render::Memory {
 		}
 
 		~Resource() {
-			if (m_resourceType == ResourceTypes::Commited) return;
+			if (m_resourceType != ResourceTypes::Commited) return;
 			if (m_heapType == D3D12_HEAP_TYPE_UPLOAD || m_heapType == D3D12_HEAP_TYPE_READBACK || m_heapType == D3D12_HEAP_TYPE_GPU_UPLOAD) {
 				cpuTotalAllocatedMemory.fetch_sub(m_allocatedSize, std::memory_order_relaxed);
 			}
@@ -183,9 +213,29 @@ namespace Engine::Render::Memory {
 			return gpuTotalAllocatedMemory.load(std::memory_order_relaxed);
 		}
 	private:
+		Resource() = default;
+		void moveFrom(Resource&& other) noexcept {
+			m_resource = std::move(other.m_resource);
+			m_allocatedSize = other.m_allocatedSize;
+			m_clearValue = std::move(other.m_clearValue);
+			m_currentOffset = other.m_currentOffset;
+			m_heapType = other.m_heapType;
+			m_resourceType = other.m_resourceType;
+			m_placedHeapId = other.m_placedHeapId;
+			m_id = other.m_id;
+
+			other.m_resource.Reset();
+			other.m_allocatedSize = 0;
+			other.m_clearValue = nullptr;
+			other.m_currentOffset = 0;
+			other.m_heapType = D3D12_HEAP_TYPE_DEFAULT;
+			other.m_resourceType = ResourceTypes::Commited;
+			other.m_placedHeapId = 0;
+			other.m_id = 0;
+		}
 		virtual void saveSize(D3D12_RESOURCE_DESC& desc) {
+			if (m_resourceType != ResourceTypes::Commited) return;
 			static auto device = Device::GetDevice();
-			if (m_resourceType == ResourceTypes::Commited) return;
 
 			D3D12_RESOURCE_ALLOCATION_INFO allocInfo = device->GetResourceAllocationInfo(
 				0,
@@ -212,7 +262,6 @@ namespace Engine::Render::Memory {
 				m_clearValue = nullptr;
 			}
 		}
-		Resource() = default;
 		void Initialize(_In_  const D3D12_HEAP_PROPERTIES* pHeapProperties,
 			D3D12_HEAP_FLAGS HeapFlags,
 			_In_  const D3D12_RESOURCE_DESC* pDesc,

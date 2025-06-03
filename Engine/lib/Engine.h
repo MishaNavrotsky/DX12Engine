@@ -16,7 +16,7 @@ namespace Engine {
 	class Engine
 	{
 	public:
-		Engine(UINT width, UINT height, std::wstring name): m_width(width), m_height(height), m_title(name) {};
+		Engine(UINT width, UINT height, std::wstring name) : m_width(width), m_height(height), m_title(name) {};
 
 
 		void initialize(HWND hwnd) {

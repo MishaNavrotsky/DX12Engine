@@ -4,22 +4,18 @@
 
 #include "../ISystem.h"
 #include "../render/Device.h"
-#include "tasks/Structures.h"
-#include "tasks/GpuUploadTask.h"
-#include "tasks/MetadataLoaderTask.h"
-#include "tasks/UploadSchedulerTask.h"
-#include "controllers/BarrierController.h"
-
+#include "StreamingStructures.h"
+#include "tasks/MetadataLoader.h"
+#include "StreamingSystemArgs.h"
 namespace Engine::System {
 	class StreamingSystem : public ISystem {
 	public:
 		StreamingSystem() = default;
 		~StreamingSystem() = default;
 		void initialize(Scene::Scene& scene) override {
-			auto device = Render::Device::GetDevice();
-			createCopyQueue(device.Get());
-			createDirectStorageQueue(device.Get());
-			m_taskScheduler.Init(ftl::TaskSchedulerInitOptions{.ThreadPoolSize = 4});
+			m_device = Render::Device::GetDevice().Get();
+			m_streamingSystemArgs.initialize(m_device, &scene);
+			m_taskScheduler.Init(ftl::TaskSchedulerInitOptions{.ThreadPoolSize = 24});
 			m_taskScheduler.SetEmptyQueueBehavior(ftl::EmptyQueueBehavior::Sleep);
 
 			m_scene = &scene;
@@ -33,92 +29,36 @@ namespace Engine::System {
 		};
 		void shutdown() override {};
 	private:
-		void createCopyQueue(ID3D12Device* device) {
-			D3D12_COMMAND_QUEUE_DESC directQueueDesc = {};
-			directQueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
-			directQueueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-			ThrowIfFailed(device->CreateCommandQueue(&directQueueDesc, IID_PPV_ARGS(&m_directCommandQueue)));
-		}
-		void createDirectStorageQueue(ID3D12Device* device) {
-			ThrowIfFailed(DStorageGetFactory(IID_PPV_ARGS(&m_dstorageFactory)));
 
-			DSTORAGE_QUEUE_DESC queueDesc = {};
-			queueDesc.Capacity = 512;
-			queueDesc.Priority = DSTORAGE_PRIORITY_NORMAL;
-			queueDesc.SourceType = DSTORAGE_REQUEST_SOURCE_FILE;
-			queueDesc.Device = device;
-
-			WPtr<IDStorageQueue> tempQeue = nullptr;
-
-			ThrowIfFailed(m_dstorageFactory->CreateQueue(&queueDesc, IID_PPV_ARGS(&tempQeue)));
-			ThrowIfFailed(tempQeue->QueryInterface(IID_PPV_ARGS(&m_dstorageQueue)));
-
-		}
 		void subscribeMesh(const Scene::Asset::MeshAssetEvent& event) {
 			if (event.type == Scene::Asset::IAssetEvent::Type::Registered) {
+				auto streamingRequestId = m_nextStreamingRequestId.fetch_add(1, std::memory_order_relaxed);
 				auto args = std::make_unique<Streaming::MeshArgs>();
 				args->event = event;
-				args->scene = m_scene;
-				args->dqueue = m_dstorageQueue.Get();
-				args->dfactory = m_dstorageFactory.Get();
+				args->streamingSystemArgs = &m_streamingSystemArgs;
+				args->streamingRequestId = streamingRequestId;
+				args->fenceValue = 0;
+				m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&args->fence));
+				args->finalize = [this, streamingRequestId](){
+					this->m_streamingRequestsMap.erase(streamingRequestId);
+					};
+
+				m_streamingRequestsMap[streamingRequestId] = std::move(args);
 
 				ftl::Task task{
-					.Function = [](ftl::TaskScheduler* s, void* p) {
-						std::unique_ptr<Streaming::MeshArgs> args(static_cast<Streaming::MeshArgs*>(p));
-						StreamingSystem::StreamMesh(s, args.get());
-					},
-					.ArgData = args.release(),
+					.Function = Streaming::MetadataLoader::LoadMesh,
+					.ArgData = m_streamingRequestsMap[streamingRequestId].get(),
 				};
 				
 				m_taskScheduler.AddTask(task, ftl::TaskPriority::Normal);
 			}
 		}
 
-
-		static bool AddTaskAndYieldWithTimeout(ftl::TaskScheduler* ts, ftl::Task& task, Streaming::MeshArgs* args, std::chrono::milliseconds ms) {
-			auto start = std::chrono::steady_clock::now();
-			ts->AddTask(task, ftl::TaskPriority::Normal);
-			while (!args->isDone.load(std::memory_order_acquire)) {
-				if (std::chrono::steady_clock::now() - start > ms) {
-					args->isDone.store(false, std::memory_order_release);
-					return false;
-				}
-				ftl::YieldThread();
-			}
-			args->isDone.store(false, std::memory_order_release);
-			return true;
-		}
-		static void StreamMesh(ftl::TaskScheduler* ts, void* arg) {
-			auto args = reinterpret_cast<Streaming::MeshArgs*>(arg);
-
-			ftl::Task task{
-				.Function = Streaming::MetadataLoaderTasks::LoadMesh,
-				.ArgData = args,
-			};
-
-			{
-				auto res = AddTaskAndYieldWithTimeout(ts, task, args, std::chrono::milliseconds(100));
-				// TODO: check res
-			}
-
-			task.Function = Streaming::UploadSchedulerTask::ScheduleMesh;
-			{
-				auto res = AddTaskAndYieldWithTimeout(ts, task, args, std::chrono::milliseconds(100));
-				// TODO: check res
-			}
-
-			task.Function = Streaming::GpuUploadTask::UploadMesh;
-			{
-				auto res = AddTaskAndYieldWithTimeout(ts, task, args, std::chrono::milliseconds(100));
-				// TODO: check res
-			}
-
-		}
-
+		std::unordered_map<Streaming::StreamingRequestId, std::unique_ptr<Streaming::Args>> m_streamingRequestsMap;
+		std::atomic<uint64_t> m_nextStreamingRequestId{ 0 };
 		Scene::Scene* m_scene;
 		ftl::TaskScheduler m_taskScheduler;
-		WPtr<ID3D12CommandQueue> m_directCommandQueue;
-		WPtr<IDStorageFactory> m_dstorageFactory;
-		WPtr<IDStorageQueue2> m_dstorageQueue;
+		ID3D12Device* m_device;
+		StreamingSystemArgs m_streamingSystemArgs;
 	};
 }

@@ -4,14 +4,17 @@
 
 #include <AssetReader.h>
 
-#include "./Structures.h"
+#include "../StreamingStructures.h"
+#include "GpuUploadPlanner.h"
 
 namespace Engine::System::Streaming {
-	struct MetadataLoaderTasks {
+	class MetadataLoader {
+	public:
 		static void LoadMesh(ftl::TaskScheduler* ts, void* arg) {
 			auto args = reinterpret_cast<MeshArgs*>(arg);
+			args->step = StreamingStep::MetadataLoader;
 			auto event = args->event;
-			auto scene = args->scene;
+			auto scene = args->streamingSystemArgs->getScene();
 
 			auto& asset = scene->assetManager.getMeshAsset(event.id);
 			if (asset.source == Scene::Asset::SourceMesh::File) {
@@ -97,7 +100,7 @@ namespace Engine::System::Streaming {
 				asset.additionalData = Scene::Asset::FileMeshAdditionalData{ .file = std::move(*header) };
 			}
 			asset.status.store(Scene::Asset::Status::MetadataLoaded, std::memory_order_release);
-			args->isDone.store(true, std::memory_order_release);
+			ts->AddTask({ GpuUploadPlanner::CreatePlanForMesh, arg }, ftl::TaskPriority::Normal);
 		}
 		static void LoadMaterial(const Scene::Asset::MaterialAssetEvent event) {
 

@@ -13,8 +13,18 @@ namespace Engine::Render::Memory {
 		using HeapId = uint64_t;
 		Heap(const Heap&) = delete;
 		Heap& operator=(const Heap&) = delete;
-		static std::unique_ptr<Heap> Create(HeapId id, D3D12_HEAP_TYPE type, uint64_t size, uint64_t alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT, D3D12_HEAP_FLAGS flag = D3D12_HEAP_FLAG_NONE) {
-			if (size == 0) {
+		Heap(Heap&& other) noexcept {
+			moveFrom(std::move(other));
+		}
+
+		Heap& operator=(Heap&& other) noexcept {
+			if (this != &other) {
+				moveFrom(std::move(other));
+			}
+			return *this;
+		}
+		static std::unique_ptr<Heap> Create(HeapId id, D3D12_HEAP_TYPE type, uint64_t sizeInBytes, uint64_t alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT, D3D12_HEAP_FLAGS flag = D3D12_HEAP_FLAG_NONE) {
+			if (sizeInBytes == 0) {
 				throw std::runtime_error("[Heap] Size cannot be zero.");
 			}
 			
@@ -26,13 +36,59 @@ namespace Engine::Render::Memory {
 				throw std::runtime_error("[Heap] Heap ID cannot be zero.");
 			}
 
+			if (sizeInBytes != Helpers::Align(sizeInBytes, alignment)) {
+				throw std::runtime_error("[Heap] Size is not aligned.");
+			}
+
 			D3D12_HEAP_PROPERTIES props = CD3DX12_HEAP_PROPERTIES(type);
 			auto heap = new Heap();
 			heap->m_heapId = id;
 			heap->m_heapType = type;
-			heap->Initialize(props, flag, size, alignment);
+			heap->Initialize(props, flag, sizeInBytes, alignment);
 			return std::unique_ptr<Heap>(heap);
 		}
+
+		static Heap CreateV(HeapId id, D3D12_HEAP_TYPE type, uint64_t sizeInBytes, uint64_t alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT, D3D12_HEAP_FLAGS flag = D3D12_HEAP_FLAG_NONE) {
+			if (sizeInBytes == 0) {
+				throw std::runtime_error("[Heap] Size cannot be zero.");
+			}
+
+			if (alignment < D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT) {
+				throw std::runtime_error("[Heap] Alignment must be at least D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT.");
+			}
+
+			if (id == 0) {
+				throw std::runtime_error("[Heap] Heap ID cannot be zero.");
+			}
+
+			if (sizeInBytes != Helpers::Align(sizeInBytes, alignment)) {
+				throw std::runtime_error("[Heap] Size is not aligned.");
+			}
+
+			D3D12_HEAP_PROPERTIES props = CD3DX12_HEAP_PROPERTIES(type);
+			Heap heap;
+			heap.m_heapId = id;
+			heap.m_heapType = type;
+			heap.Initialize(props, flag, sizeInBytes, alignment);
+			return heap;
+		}
+
+		bool hasSequentialSpace(uint64_t sizeInBytes) {
+			uint64_t alignedSizeInBytes = Helpers::Align(sizeInBytes, m_alignment);
+			if (sizeInBytes != alignedSizeInBytes) {
+				throw std::runtime_error("[Heap] Size is not aligned.");
+			}
+			for (auto it = m_freeMemory.begin(); it != m_freeMemory.end(); ++it) {
+				uint64_t freeStart = it->first;
+				uint64_t freeEnd = it->second;
+				uint64_t freeSize = freeEnd - freeStart + 1;
+
+				if (freeSize >= sizeInBytes) return true;
+			}
+
+			return false;
+		}
+
 		ID3D12Heap* getHeap() const {
 			return m_heap.Get();
 		}
@@ -45,19 +101,19 @@ namespace Engine::Render::Memory {
 		uint64_t getHeapId() const {
 			return m_heapId;
 		}
-		Resource::PackedHandle createPlacedResource(D3D12_RESOURCE_DESC desc, D3D12_RESOURCE_STATES state, const D3D12_CLEAR_VALUE* clearValue = nullptr) {
+		Resource::PackedHandle createPlacedResource(D3D12_RESOURCE_DESC desc, D3D12_RESOURCE_STATES state, const D3D12_RESOURCE_ALLOCATION_INFO* info = nullptr, const D3D12_CLEAR_VALUE* clearValue = nullptr) {
 			static auto device = Device::GetDevice();
 			static auto& resourceManager = Manager::ResourceManager::GetInstance();
-			D3D12_RESOURCE_ALLOCATION_INFO allocInfo = device->GetResourceAllocationInfo(
+			D3D12_RESOURCE_ALLOCATION_INFO allocInfo = info ? *info : device->GetResourceAllocationInfo(
 				0,
 				1,
 				&desc
-			);			
+			);
 
 			auto handle = resourceManager.reserve();
 			auto packedHandle = Resource::PackHandle(handle.index, handle.generation);
 			
-			auto resource = new Resource();
+			Resource resource;
 			auto size = Helpers::Align(allocInfo.SizeInBytes, m_alignment);
 
 			auto sizes = allocate(packedHandle, size);
@@ -73,17 +129,17 @@ namespace Engine::Render::Memory {
 				&desc,
 				state,
 				clearValue,
-				IID_PPV_ARGS(&resource->m_resource)
+				IID_PPV_ARGS(&resource.m_resource)
 			);
 
-			resource->m_heapType = m_heapType;
-			resource->m_resourceType = ResourceTypes::Placed;
-			resource->m_clearValue = clearValue == nullptr ? nullptr : std::make_unique<D3D12_CLEAR_VALUE>(*clearValue);
-			resource->m_allocatedSize = size;
-			resource->m_placedHeapId = m_heapId;
-			resource->m_id = packedHandle;
+			resource.m_heapType = m_heapType;
+			resource.m_resourceType = ResourceTypes::Placed;
+			resource.m_clearValue = clearValue == nullptr ? nullptr : std::make_unique<D3D12_CLEAR_VALUE>(*clearValue);
+			resource.m_allocatedSize = size;
+			resource.m_placedHeapId = m_heapId;
+			resource.m_id = packedHandle;
 
-			resourceManager.assign(handle, std::unique_ptr<Resource>(resource));
+			resourceManager.assign(handle, std::move(resource));
 			return packedHandle;
 		}
 
@@ -108,7 +164,25 @@ namespace Engine::Render::Memory {
 		}
 	private:
 		Heap() = default;
+		void moveFrom(Heap&& other) {
+			// Take ownership
+			m_heap = std::move(other.m_heap);
+			m_size = other.m_size;
+			m_heapType = other.m_heapType;
+			m_alignment = other.m_alignment;
+			m_heapId = other.m_heapId;
+			m_resourceMap = std::move(other.m_resourceMap);
+			m_freeMemory = std::move(other.m_freeMemory);
+
+			other.m_size = 0;
+			other.m_heapType = D3D12_HEAP_TYPE_CUSTOM;
+			other.m_heapId = 0;
+			other.m_resourceMap.clear();
+			other.m_freeMemory.clear();
+			other.m_heap.Reset();
+		}
 		void Initialize(D3D12_HEAP_PROPERTIES& props, D3D12_HEAP_FLAGS flag, uint64_t size, uint64_t alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT) {
+			m_resourceMap.reserve(256);
 			static auto device = Device::GetDevice();
 			m_size = Helpers::Align(size, alignment);
 			m_alignment = alignment;
@@ -189,14 +263,14 @@ namespace Engine::Render::Memory {
 
 			m_freeMemory[start] = end;
 		}
-	private:
+
 		WPtr<ID3D12Heap> m_heap;
 		uint64_t m_size;
 		D3D12_HEAP_TYPE m_heapType;
 		uint64_t m_alignment;
 
 		HeapId m_heapId = 0;
-		std::unordered_map<Resource::PackedHandle, std::pair<uint64_t, uint64_t>> m_resourceMap;
+		ankerl::unordered_dense::map<Resource::PackedHandle, std::pair<uint64_t, uint64_t>> m_resourceMap; // [alloctStart, allocEnd]
 		std::map<uint64_t, uint64_t> m_freeMemory; // key = start, value = end
 
 		static inline std::atomic<uint64_t> gpuTotalAllocatedMemory{ 0 };
