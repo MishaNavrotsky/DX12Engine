@@ -261,7 +261,7 @@ namespace Engine::Render::Memory {
 
 			uint64_t start = it->second.first;
 			uint64_t end = it->second.second;
-			m_resourceMap.erase(it);
+			m_resourceMap.unsafe_erase(it);
 
 			auto next = m_freeMemory.lower_bound(start);
 			if (next != m_freeMemory.begin()) {
@@ -287,7 +287,7 @@ namespace Engine::Render::Memory {
 		uint64_t m_alignment;
 
 		HeapId m_heapId = 0;
-		ankerl::unordered_dense::map<Resource::PackedHandle, std::pair<uint64_t, uint64_t>> m_resourceMap; // [alloctStart, allocEnd]
+		tbb::concurrent_unordered_map<Resource::PackedHandle, std::pair<uint64_t, uint64_t>> m_resourceMap; // [alloctStart, allocEnd]
 		std::map<uint64_t, uint64_t> m_freeMemory; // key = start, value = end
 
 		Manager::ResourceManager* m_resourceManager;

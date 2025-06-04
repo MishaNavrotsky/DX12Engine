@@ -32,7 +32,7 @@ namespace Engine::ECS {
 					group->removeEntity(entity);
 				}
 			}
-			m_entitySignatures.erase(entity);
+			m_entitySignatures.unsafe_erase(entity);
 		}
 
 		template<typename... Components>
@@ -104,7 +104,7 @@ namespace Engine::ECS {
 		}
 
 		std::atomic<Entity> m_nextEntityId;
-        ankerl::unordered_dense::map<Entity, ComponentSignature> m_entitySignatures;
+		tbb::concurrent_unordered_map<Entity, ComponentSignature> m_entitySignatures;
 		std::vector<std::unique_ptr<IComponentGroup>> m_componentGroups;
 	};
 }

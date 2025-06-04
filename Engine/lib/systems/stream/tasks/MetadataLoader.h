@@ -59,8 +59,8 @@ namespace Engine::System::Streaming {
 						cpuAttrSizeInBytes += headerAttribute.sizeInBytes;
 						gpuAttSizeInBytes += headerAttribute.sizeInBytes;
 
-						Scene::Asset::CPUAttributeData cpuAttributeData;
-						Scene::Asset::GPUAttributeData gpuAttributeData;
+						Scene::Asset::CpuAttributeData cpuAttributeData;
+						Scene::Asset::GpuAttributeData gpuAttributeData;
 						cpuAttributeData.attribute = vertexAttribute;
 						gpuAttributeData.attribute = vertexAttribute;
 						submesh.cpuData.attributes.push_back(std::move(cpuAttributeData));
@@ -80,8 +80,8 @@ namespace Engine::System::Streaming {
 						cpuSkinSizeInBytes += headerAttribute.sizeInBytes;
 						gpuSkinSizeInBytes += headerAttribute.sizeInBytes;
 
-						Scene::Asset::CPUAttributeData cpuAttributeData;
-						Scene::Asset::GPUAttributeData gpuAttributeData;
+						Scene::Asset::CpuAttributeData cpuAttributeData;
+						Scene::Asset::GpuAttributeData gpuAttributeData;
 						cpuAttributeData.attribute = vertexAttribute;
 						gpuAttributeData.attribute = vertexAttribute;
 						submesh.cpuData.attributes.push_back(std::move(cpuAttributeData));

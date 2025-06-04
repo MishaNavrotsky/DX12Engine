@@ -12,7 +12,7 @@
 namespace Engine::Render::Pipeline {
 	class UIPass {
 	public:
-		UIPass(HWND hwnd, WPtr<ID3D12Device> device, WPtr<ID3D12CommandQueue> directCommandQueue, uint32_t frameCount, uint32_t width, uint32_t height)
+		UIPass(HWND hwnd, ID3D12Device* device, ID3D12CommandQueue* directCommandQueue, uint32_t frameCount, uint32_t width, uint32_t height)
 			: m_frameCount(frameCount), m_width(width), m_height(height), m_device(device) {
 			m_frameCount = frameCount;
 			m_width = width;
@@ -37,8 +37,8 @@ namespace Engine::Render::Pipeline {
 			createRtvDescriptorHeap();
 
 			ImGui_ImplDX12_InitInfo info = {};
-			info.CommandQueue = directCommandQueue.Get();
-			info.Device = device.Get();
+			info.CommandQueue = directCommandQueue;
+			info.Device = device;
 			info.NumFramesInFlight = frameCount;
 			info.RTVFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
 			info.DSVFormat = DXGI_FORMAT_D32_FLOAT;
@@ -173,7 +173,7 @@ namespace Engine::Render::Pipeline {
 			}
 		}
 
-		WPtr<ID3D12Device> m_device;
+		ID3D12Device* m_device;
 		uint32_t m_width;
 		uint32_t m_height;
 		uint32_t m_frameCount;

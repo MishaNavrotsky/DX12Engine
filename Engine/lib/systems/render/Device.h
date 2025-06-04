@@ -8,7 +8,7 @@
 namespace Engine::Render {
 	class Device {
 	public:
-		static  WPtr<ID3D12Device> Initialize(IDXGIFactory4* factory,bool useWarpDevice) {
+		static  ID3D12Device* Initialize(IDXGIFactory4* factory,bool useWarpDevice) {
 			m_useWarpDevice = useWarpDevice;
 
 			if (useWarpDevice)
@@ -36,11 +36,11 @@ namespace Engine::Render {
 #if defined(_DEBUG)
 			m_device->SetStablePowerState(TRUE);
 #endif
-			return m_device;
+			return m_device.Get();
 		}
 
-		static WPtr<ID3D12Device> GetDevice() {
-			return m_device;
+		static ID3D12Device* GetDevice() {
+			return m_device.Get();
 		}
 
 	private:

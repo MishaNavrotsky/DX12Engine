@@ -18,7 +18,7 @@ namespace Engine::Render::Memory {
 			m_heapSize = heapSize;
 			m_heapFlags = heapFlags;
 			m_resourceManager = resourceManager;
-			m_device = Device::GetDevice().Get();
+			m_device = Device::GetDevice();
 		}
 		std::optional<AllocateResult> allocate(D3D12_RESOURCE_DESC desc, D3D12_RESOURCE_STATES state, const D3D12_CLEAR_VALUE* clearValue = nullptr) {
 			std::lock_guard lock(m_allocateMutex);
@@ -63,7 +63,7 @@ namespace Engine::Render::Memory {
 			return m_nextHeapId.fetch_add(1, std::memory_order_seq_cst);
 		}
 		inline static std::atomic<Heap::HeapId> m_nextHeapId{ 1 };
-		ankerl::unordered_dense::map<Heap::HeapId, Heap> m_heaps;
+		tbb::concurrent_unordered_map<Heap::HeapId, Heap> m_heaps;
 		std::mutex m_allocateMutex;
 
 	};

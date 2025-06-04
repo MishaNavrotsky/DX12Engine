@@ -57,13 +57,13 @@
     <OutDir>bin\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>obj\$(Platform)\$(Configuration)\</IntDir>
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
-    <LibraryPath>C:\Users\Misha\FiberTaskingLib\third_party\catch2\src\Debug;C:\Users\Misha\FiberTaskingLib\third_party\boost_context\Debug;C:\Users\Misha\FiberTaskingLib\source\Debug;C:\Users\Misha\DirectXTK12\Bin\Desktop_2022_Win10\x64\Debug;C:\Users\Misha\glTF-SDK\GLTFSDK\Debug;C:\Users\Misha\DirectXTex\build\lib\Debug;$(LibraryPath)</LibraryPath>
+    <LibraryPath>C:\Users\Misha\oneTBB\msvc_19.43_cxx_64_md_debug;C:\Users\Misha\FiberTaskingLib\third_party\catch2\src\Debug;C:\Users\Misha\FiberTaskingLib\third_party\boost_context\Debug;C:\Users\Misha\FiberTaskingLib\source\Debug;C:\Users\Misha\DirectXTK12\Bin\Desktop_2022_Win10\x64\Debug;C:\Users\Misha\glTF-SDK\GLTFSDK\Debug;C:\Users\Misha\DirectXTex\build\lib\Debug;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <OutDir>bin\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>obj\$(Platform)\$(Configuration)\</IntDir>
-    <LibraryPath>C:\Users\Misha\FiberTaskingLib\third_party\boost_context\Release;C:\Users\Misha\FiberTaskingLib\third_party\catch2\src\Release;C:\Users\Misha\FiberTaskingLib\source\Release;C:\Users\Misha\DirectXTK12\Bin\Desktop_2022_Win10\x64\Release;C:\Users\Misha\glTF-SDK\GLTFSDK\Release;C:\Users\Misha\DirectXTex\build\lib\Release;$(LibraryPath)</LibraryPath>
+    <LibraryPath>C:\Users\Misha\FiberTaskingLib\third_party\boost_context\Release;C:\Users\Misha\FiberTaskingLib\third_party\catch2\src\Release;C:\Users\Misha\FiberTaskingLib\source\Release;C:\Users\Misha\DirectXTK12\Bin\Desktop_2022_Win10\x64\Release;C:\Users\Misha\glTF-SDK\GLTFSDK\Release;C:\Users\Misha\oneTBB\msvc_19.43_cxx_64_md_release;C:\Users\Misha\DirectXTex\build\lib\Release;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -72,7 +72,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\Users\Misha\FiberTaskingLib\third_party\catch2\generated-includes;C:\Users\Misha\FiberTaskingLib\third_party\boost_context\include;C:\Users\Misha\DirectXTK12\Inc;$(ProjectDir);%(AdditionalIncludeDirectories);C:\Users\Misha\glTF-SDK\GLTFSDK\Inc;C:\Users\Misha\DirectXTex\DirectXTex;$(SolutionDir)AssetsCreator;C:\Users\Misha\FiberTaskingLib\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Misha\oneTBB\include;C:\Users\Misha\FiberTaskingLib\third_party\catch2\generated-includes;C:\Users\Misha\FiberTaskingLib\third_party\boost_context\include;C:\Users\Misha\DirectXTK12\Inc;$(ProjectDir);%(AdditionalIncludeDirectories);C:\Users\Misha\glTF-SDK\GLTFSDK\Inc;C:\Users\Misha\DirectXTex\DirectXTex;$(SolutionDir)AssetsCreator;C:\Users\Misha\FiberTaskingLib\include</AdditionalIncludeDirectories>
       <CompileAsWinRT>false</CompileAsWinRT>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp20</LanguageStandard>
@@ -80,7 +80,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;d3dcompiler.lib;GLTFSDK.lib;%(AdditionalDependencies);DirectXTex.lib;dxcompiler.lib;user32.lib;gdi32.lib;dxguid.lib;DirectXTK12.lib;dstorage.lib;ftl.lib;Catch2d.lib;Catch2Maind.lib;boost_context.lib</AdditionalDependencies>
+      <AdditionalDependencies>d3d12.lib;dxgi.lib;d3dcompiler.lib;GLTFSDK.lib;%(AdditionalDependencies);DirectXTex.lib;dxcompiler.lib;user32.lib;gdi32.lib;dxguid.lib;DirectXTK12.lib;dstorage.lib;ftl.lib;Catch2d.lib;Catch2Maind.lib;boost_context.lib;tbb12_debug.lib;tbbmalloc_debug.lib;tbbmalloc_proxy_debug.lib</AdditionalDependencies>
       <DelayLoadDLLs>d3d12.dll</DelayLoadDLLs>
     </Link>
     <CustomBuildStep>
@@ -104,7 +104,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\Users\Misha\FiberTaskingLib\third_party\catch2\generated-includes;C:\Users\Misha\FiberTaskingLib\third_party\boost_context\include;C:\Users\Misha\DirectXTK12\Inc;$(ProjectDir);%(AdditionalIncludeDirectories);C:\Users\Misha\glTF-SDK\GLTFSDK\Inc;C:\Users\Misha\DirectXTex\DirectXTex;$(SolutionDir)AssetsCreator;C:\Users\Misha\FiberTaskingLib\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Misha\oneTBB\include;C:\Users\Misha\FiberTaskingLib\third_party\catch2\generated-includes;C:\Users\Misha\FiberTaskingLib\third_party\boost_context\include;C:\Users\Misha\DirectXTK12\Inc;$(ProjectDir);%(AdditionalIncludeDirectories);C:\Users\Misha\glTF-SDK\GLTFSDK\Inc;C:\Users\Misha\DirectXTex\DirectXTex;$(SolutionDir)AssetsCreator;C:\Users\Misha\FiberTaskingLib\include</AdditionalIncludeDirectories>
       <CompileAsWinRT>false</CompileAsWinRT>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
@@ -113,7 +113,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;d3dcompiler.lib;GLTFSDK.lib;%(AdditionalDependencies);DirectXTex.lib;dxcompiler.lib;user32.lib;gdi32.lib;dxguid.lib;DirectXTK12.lib;dstorage.lib;ftl.lib;Catch2.lib;Catch2Main.lib;boost_context.lib</AdditionalDependencies>
+      <AdditionalDependencies>d3d12.lib;dxgi.lib;d3dcompiler.lib;GLTFSDK.lib;%(AdditionalDependencies);DirectXTex.lib;dxcompiler.lib;user32.lib;gdi32.lib;dxguid.lib;DirectXTK12.lib;dstorage.lib;ftl.lib;Catch2.lib;Catch2Main.lib;boost_context.lib;tbb12.lib;tbbmalloc.lib;tbbmalloc_proxy.lib</AdditionalDependencies>
       <DelayLoadDLLs>d3d12.dll</DelayLoadDLLs>
     </Link>
     <CustomBuildStep>
@@ -166,6 +166,7 @@
     <ClInclude Include="lib\geometry\PlaneGeometry.h" />
     <ClInclude Include="lib\geometry\SphereGeometry.h" />
     <ClInclude Include="lib\systems\render\managers\RenderableManager.h" />
+    <ClInclude Include="lib\systems\render\managers\RenderableManagerStructures.h" />
     <ClInclude Include="lib\systems\render\managers\ResourceManager.h" />
     <ClInclude Include="lib\systems\render\memory\Heap.h" />
     <ClInclude Include="lib\systems\render\memory\pools\HeapPool.h" />
@@ -182,6 +183,8 @@
     <ClInclude Include="lib\systems\render\pipelines\PSOShader.h" />
     <ClInclude Include="lib\systems\render\pipelines\ui\UIPass.h" />
     <ClInclude Include="lib\systems\ISystem.h" />
+    <ClInclude Include="lib\systems\render\queus\ComputeQueue.h" />
+    <ClInclude Include="lib\systems\render\queus\DirectQueue.h" />
     <ClInclude Include="lib\systems\render\RenderSystem.h" />
     <ClInclude Include="lib\systems\render\RenderStructures.h" />
     <ClInclude Include="lib\systems\stream\controllers\BarrierController.h" />
@@ -308,6 +311,30 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <CopyFileToFolders Include="third_party\tbb12.dll">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <FileType>Document</FileType>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="third_party\tbb12_debug.dll">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <FileType>Document</FileType>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="third_party\tbbmalloc.dll">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <FileType>Document</FileType>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="third_party\tbbmalloc_debug.dll">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <FileType>Document</FileType>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="third_party\tbbmalloc_proxy.dll">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <FileType>Document</FileType>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="third_party\tbbmalloc_proxy_debug.dll">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <FileType>Document</FileType>
+    </CopyFileToFolders>
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="assets\shaders\lighting.hlsl">

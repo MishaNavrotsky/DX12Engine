@@ -37,6 +37,7 @@ namespace Engine::System::Streaming {
 				while (args->fence->GetCompletedValue() < args->fenceValue) {
 					ftl::YieldThread();
 				}
+				asset->status.store(Scene::Asset::Status::Loaded, std::memory_order_release);
 				ts->AddTask({ GpuBufferFinalizer::FinalizeMesh, arg }, ftl::TaskPriority::Normal);
 			}
 		}

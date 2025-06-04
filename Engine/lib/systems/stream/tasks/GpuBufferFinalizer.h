@@ -11,7 +11,8 @@ namespace Engine::System::Streaming {
 			auto event = args->event;
 			auto scene = args->streamingSystemArgs->getScene();
 			auto* asset = event.asset;
-			std::cerr << "Finalize " << event.id << "\n";
+			scene->renderableManager.addMeshAsset(event.id, asset->asset);
+			asset->status = Scene::Asset::Status::Ready;
 			args->finalize();
 		}
 	};

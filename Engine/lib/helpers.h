@@ -262,6 +262,29 @@ namespace Engine::Helpers {
 		return textures;
 	}
 
+	inline uint32_t GetFormatStride(DXGI_FORMAT format) {
+		switch (format) {
+		case DXGI_FORMAT_R32G32B32A32_FLOAT:   return 16;
+		case DXGI_FORMAT_R32G32B32_FLOAT:      return 12;
+		case DXGI_FORMAT_R32G32_FLOAT:         return 8;
+		case DXGI_FORMAT_R16G16B16A16_UINT:	   return 8;
+		case DXGI_FORMAT_R32_FLOAT:            return 4;
+		case DXGI_FORMAT_R8G8B8A8_UNORM:       return 4;
+		case DXGI_FORMAT_R16G16_FLOAT:         return 4;
+		case DXGI_FORMAT_R8G8B8A8_UINT:		   return 4;
+		case DXGI_FORMAT_R16_FLOAT:            return 2;
+		case DXGI_FORMAT_R8_UNORM:             return 1;
+		case DXGI_FORMAT_R16G16B16A16_FLOAT:   return 8;
+		case DXGI_FORMAT_R10G10B10A2_UNORM:    return 4;
+		case DXGI_FORMAT_R11G11B10_FLOAT:      return 4;
+		case DXGI_FORMAT_R8G8_UNORM:           return 2;
+			// Add more as needed...
+
+		default:
+			throw std::runtime_error("Unsupported DXGI_FORMAT in GetFormatStride()");
+		}
+	}
+
 	inline std::vector<DX::XMVECTOR> convertToXMVectors(const std::vector<float>& vertices) {
 		size_t count = vertices.size() / 3;
 		std::vector<DX::XMVECTOR> result;

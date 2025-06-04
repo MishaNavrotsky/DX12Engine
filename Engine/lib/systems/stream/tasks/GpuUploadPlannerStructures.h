@@ -25,8 +25,7 @@ namespace Engine::System::Streaming {
 	};
 	using MeshUploadTypeData = std::variant<DSMeshUploadTypeData, CSMeshUploadTypeData, PCMeshUploadTypeData>;
 	struct MeshUploadResource {
-		bool isHeap = false;
-		Render::Memory::HeapPool::AllocateResult allocateResult{};
+		std::optional<Render::Memory::Heap::HeapId> heapId;
 		Render::Memory::Resource::PackedHandle resourceHandle = 0;
 	};
 	struct MeshGpuUploadPlan {

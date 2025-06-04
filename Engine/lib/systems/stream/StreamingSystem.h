@@ -13,7 +13,7 @@ namespace Engine::System {
 		StreamingSystem() = default;
 		~StreamingSystem() = default;
 		void initialize(Scene::Scene& scene) override {
-			m_device = Render::Device::GetDevice().Get();
+			m_device = Render::Device::GetDevice();
 			m_streamingSystemArgs.initialize(m_device, &scene);
 			m_taskScheduler.Init(ftl::TaskSchedulerInitOptions{.ThreadPoolSize = 24});
 			m_taskScheduler.SetEmptyQueueBehavior(ftl::EmptyQueueBehavior::Sleep);

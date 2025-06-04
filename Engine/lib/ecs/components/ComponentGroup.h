@@ -81,7 +81,7 @@ namespace Engine::ECS {
 			m_bitset.set(componentID);
 		}
 
-		ankerl::unordered_dense::map<Entity, uint64_t> m_entitiesPosition; //for fast access without find
+		tbb::concurrent_unordered_map<Entity, uint64_t> m_entitiesPosition; //for fast access without find
 		std::vector<Entity> m_entities;
 		std::vector<Component> m_components;
 	};

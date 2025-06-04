@@ -46,8 +46,7 @@ namespace Engine::System::Streaming {
 
 			requestSlot.emplace(CreateDStorageRequest(storageFile, offset, size, res->getResource(), 0, res->getSize()));
 			resourceSlot.resourceHandle = alloc->resourceHandle;
-			resourceSlot.allocateResult = *alloc;
-			resourceSlot.isHeap = true;
+			resourceSlot.heapId = alloc->heapId;
 		}
 		static void CreatePlanForMesh(ftl::TaskScheduler* ts, void* arg) {
 			auto args = reinterpret_cast<MeshArgs*>(arg);
@@ -65,16 +64,21 @@ namespace Engine::System::Streaming {
 				ThrowIfFailed(args->streamingSystemArgs->getDfactory()->OpenFile(sourceData.path.c_str(), IID_PPV_ARGS(&storageFile)));
 
 				std::optional<Render::Memory::HeapPool::AllocateResult> ski, att, ind;
+				D3D12_GPU_VIRTUAL_ADDRESS addSki, addAtt, addInt;
 
 				if (asset->usage == Scene::Asset::UsageMesh::Static) {
 					if (additionalData.file.header.skinnedSizeInBytes) {
 						D3D12_RESOURCE_DESC descSki = CD3DX12_RESOURCE_DESC::Buffer(additionalData.file.header.skinnedSizeInBytes);
 						ski = scene->skiDefaultHeapPool.allocate(descSki, D3D12_RESOURCE_STATE_COPY_DEST);
+						addSki = scene->resourceManager.get((*ski).resourceHandle)->getResource()->GetGPUVirtualAddress();
 					}
 					D3D12_RESOURCE_DESC descAtt = CD3DX12_RESOURCE_DESC::Buffer(additionalData.file.header.attributeSizeInBytes);
 					att = scene->attDefaultHeapPool.allocate(descAtt, D3D12_RESOURCE_STATE_COPY_DEST);
+					addAtt = scene->resourceManager.get((*att).resourceHandle)->getResource()->GetGPUVirtualAddress();;
+
 					D3D12_RESOURCE_DESC descInd = CD3DX12_RESOURCE_DESC::Buffer(additionalData.file.header.indexSizeInBytes);
 					ind = scene->indDefaultHeapPool.allocate(descInd, D3D12_RESOURCE_STATE_COPY_DEST);
+					addInt = scene->resourceManager.get((*ind).resourceHandle)->getResource()->GetGPUVirtualAddress();;
 				}
 
 				MeshGpuUploadPlan meshGpuUploadPlan{};
@@ -115,6 +119,44 @@ namespace Engine::System::Streaming {
 					);
 				meshGpuUploadPlan.uploadTypeData = std::move(dsMeshUploadTypeData);
 				args->uploadPlan = std::move(meshGpuUploadPlan);
+
+				auto& assetSubmeshes = asset->asset.subMeshes;
+				for (uint32_t i = 0; i < assetSubmeshes.size(); ++i) {
+					auto& assetSubmesh = assetSubmeshes.at(i);
+					auto& fileSubmesh = additionalData.file.submeshes.at(i);
+
+					if (ind) {
+						auto& v = *ind;
+						assetSubmesh.gpuData.indexHeapId = v.heapId;
+						assetSubmesh.gpuData.indexResourceHandle = v.resourceHandle;
+						
+						assetSubmesh.gpuData.indexGpuVirtualAddress = addInt;
+						addInt += assetSubmesh.gpuData.indicesSizeInBytes;
+					}
+					if (att) {
+						auto& v = *att;
+						for (auto& attribute : assetSubmesh.gpuData.attributes) {
+							if (attribute.attribute.type == AssetsCreator::Asset::AttributeType::JOINT || attribute.attribute.type == AssetsCreator::Asset::AttributeType::WEIGHT) continue;
+							attribute.gpuVirtualAddress = addAtt;
+							attribute.heapId = v.heapId;
+							attribute.resourceHandle = v.resourceHandle;
+
+							addAtt += attribute.attribute.sizeInBytes;
+						}
+					}
+					if (ski) {
+						auto& v = *ski;
+						for (auto& attribute : assetSubmesh.gpuData.attributes) {
+							if (attribute.attribute.type != AssetsCreator::Asset::AttributeType::JOINT && attribute.attribute.type != AssetsCreator::Asset::AttributeType::WEIGHT) continue;
+							attribute.gpuVirtualAddress = addSki;
+							attribute.heapId = v.heapId;
+							attribute.resourceHandle = v.resourceHandle;
+
+							addSki += attribute.attribute.sizeInBytes;
+						}
+					}
+				}
+
 				ts->AddTask({ UploadExecutor::ExecuteMesh, arg }, ftl::TaskPriority::Normal);
 				return;
 			}

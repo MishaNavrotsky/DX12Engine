@@ -40,6 +40,8 @@
 #include "ftl/task_scheduler.h"
 #include "ftl/wait_group.h"
 #include "external/unordered_dense.h"
+#include <tbb/concurrent_unordered_map.h>
+#include <tbb/scalable_allocator.h>
 
 
 static std::string HrToString(HRESULT hr)
