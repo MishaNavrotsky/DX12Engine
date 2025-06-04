@@ -10,7 +10,7 @@ namespace Engine::System::Streaming {
 			args->step = StreamingStep::GpuBufferFinalizer;
 			auto event = args->event;
 			auto scene = args->streamingSystemArgs->getScene();
-			auto& asset = scene->assetManager.getMeshAsset(event.id);
+			auto* asset = event.asset;
 			std::cerr << "Finalize " << event.id << "\n";
 			args->finalize();
 		}

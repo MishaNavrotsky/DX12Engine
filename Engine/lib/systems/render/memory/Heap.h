@@ -31,7 +31,7 @@ namespace Engine::Render::Memory {
 			if (sizeInBytes == 0) {
 				throw std::runtime_error("[Heap] Size cannot be zero.");
 			}
-			
+
 			if (alignment < D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT) {
 				throw std::runtime_error("[Heap] Alignment must be at least D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT.");
 			}
@@ -105,7 +105,7 @@ namespace Engine::Render::Memory {
 		uint64_t getHeapId() const {
 			return m_heapId;
 		}
-		Resource::PackedHandle createPlacedResource(D3D12_RESOURCE_DESC desc, D3D12_RESOURCE_STATES state, const D3D12_RESOURCE_ALLOCATION_INFO* info = nullptr, const D3D12_CLEAR_VALUE* clearValue = nullptr) {
+		std::optional<Resource::PackedHandle> tryCreatePlacedResource(D3D12_RESOURCE_DESC desc, D3D12_RESOURCE_STATES state, const D3D12_RESOURCE_ALLOCATION_INFO* info = nullptr, const D3D12_CLEAR_VALUE* clearValue = nullptr) {
 			static auto device = Device::GetDevice();
 			D3D12_RESOURCE_ALLOCATION_INFO allocInfo = info ? *info : device->GetResourceAllocationInfo(
 				0,
@@ -115,14 +115,14 @@ namespace Engine::Render::Memory {
 
 			auto handle = m_resourceManager->reserve();
 			auto packedHandle = Resource::PackHandle(handle.index, handle.generation);
-			
+
 			Resource resource;
 			auto size = Helpers::Align(allocInfo.SizeInBytes, m_alignment);
 
 			auto sizes = allocate(packedHandle, size);
 			if (sizes.first == 0 && sizes.second == 0) {
 				m_resourceManager->remove(handle);
-				throw std::runtime_error("[Heap] Not enough space to allocate resource.");
+				return std::nullopt;
 			}
 
 

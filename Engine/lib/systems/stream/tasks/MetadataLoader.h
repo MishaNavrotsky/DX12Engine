@@ -16,9 +16,9 @@ namespace Engine::System::Streaming {
 			auto event = args->event;
 			auto scene = args->streamingSystemArgs->getScene();
 
-			auto& asset = scene->assetManager.getMeshAsset(event.id);
-			if (asset.source == Scene::Asset::SourceMesh::File) {
-				auto& sourceData = std::get<Scene::Asset::FileSourceMesh>(asset.sourceData);
+			auto* asset = event.asset;
+			if (asset->source == Scene::Asset::SourceMesh::File) {
+				auto& sourceData = std::get<Scene::Asset::FileSourceMesh>(asset->sourceData);
 				auto header = AssetsCreator::Asset::AssetReader::ReadMeshHeaders(sourceData.path);
 				Scene::Asset::Mesh mesh{};
 				mesh.name = header->header.id;
@@ -96,10 +96,10 @@ namespace Engine::System::Streaming {
 				mesh.totalGPUAttributesSizeInBytes = header->header.attributeSizeInBytes;
 				mesh.totalGPUIndicesSizeInBytes = header->header.indexSizeInBytes;
 				mesh.totalGPUSkinnedSizeInBytes = header->header.skinnedSizeInBytes;
-				asset.asset = std::move(mesh);
-				asset.additionalData = Scene::Asset::FileMeshAdditionalData{ .file = std::move(*header) };
+				asset->asset = std::move(mesh);
+				asset->additionalData = Scene::Asset::FileMeshAdditionalData{ .file = std::move(*header) };
 			}
-			asset.status.store(Scene::Asset::Status::MetadataLoaded, std::memory_order_release);
+			asset->status.store(Scene::Asset::Status::MetadataLoaded, std::memory_order_release);
 			ts->AddTask({ GpuUploadPlanner::CreatePlanForMesh, arg }, ftl::TaskPriority::Normal);
 		}
 		static void LoadMaterial(const Scene::Asset::MaterialAssetEvent event) {

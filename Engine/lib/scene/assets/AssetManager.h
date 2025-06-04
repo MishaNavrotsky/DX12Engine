@@ -23,12 +23,13 @@ namespace Engine::Scene {
             meshMapValue.source = source;
             meshMapValue.sourceData = sourceData;
 
-            m_meshAssetMap[id] = std::move(meshMapValue);
+            auto& asset = m_meshAssetMap.emplace(id, std::move(meshMapValue)).first->second;
             Asset::MeshAssetEvent event{};
             event.id = id;
             event.oldStatus = Asset::Status::Unknown;
             event.newStatus = Asset::Status::Unknown;
             event.type = Asset::IAssetEvent::Type::Registered;
+            event.asset = &asset;
             notifyMesh(event);
 
             return id;
@@ -41,7 +42,7 @@ namespace Engine::Scene {
             meshMaterialValue.source = source;
             meshMaterialValue.sourceData = sourceData;
 
-            m_materialAssetMap[id] = std::move(meshMaterialValue);
+            m_materialAssetMap.emplace(id, std::move(meshMaterialValue));
             
             Asset::MaterialAssetEvent event{};
             event.id = id;
@@ -61,7 +62,7 @@ namespace Engine::Scene {
             Asset::MaterialInstanceMapValue materialInstanceValue;
             materialInstanceValue.sourceData = sourceData;
 
-            m_materialInstanceAssetMap[id] = std::move(materialInstanceValue);
+            m_materialInstanceAssetMap.emplace(id, std::move(materialInstanceValue));
 
             Asset::MaterialInstanceAssetEvent event{};
             event.id = id;
@@ -74,13 +75,13 @@ namespace Engine::Scene {
         }
 
         Asset::MeshMapValue& getMeshAsset(Asset::MeshId id) {
-            return m_meshAssetMap[id];
+            return m_meshAssetMap.at(id);
         }
         Asset::MaterialMapValue& getMaterialAsset(Asset::MaterialId id) {
-            return m_materialAssetMap[id];
+            return m_materialAssetMap.at(id);
         }
         Asset::MaterialInstanceMapValue& getMaterialInstanceAsset(Asset::MaterialInstanceId id) {
-            return m_materialInstanceAssetMap[id];
+            return m_materialInstanceAssetMap.at(id);
         }
 
         void subscribeMesh(Asset::MeshAssetEventCallback callback) {
@@ -94,13 +95,13 @@ namespace Engine::Scene {
         }
 
         void setMeshStatus(Asset::MeshId id, Asset::Status status) {
-            m_meshAssetMap[id].status.store(status, std::memory_order_release);
+            m_meshAssetMap.at(id).status.store(status, std::memory_order_release);
         }
         void setMaterialStatus(Asset::MaterialId id, Asset::Status status) {
-            m_materialAssetMap[id].status.store(status, std::memory_order_release);
+            m_materialAssetMap.at(id).status.store(status, std::memory_order_release);
         }
         void setMaterialInstanceStatus(Asset::MaterialInstanceId id, Asset::Status status) {
-            m_materialInstanceAssetMap[id].status.store(status, std::memory_order_release);
+            m_materialInstanceAssetMap.at(id).status.store(status, std::memory_order_release);
         }
 
         void notifyMesh(const Asset::MeshAssetEvent& event) {

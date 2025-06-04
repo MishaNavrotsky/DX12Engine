@@ -16,7 +16,8 @@ namespace Engine::System::Streaming {
 			auto event = args->event;
 			auto scene = args->streamingSystemArgs->getScene();
 
-			auto& asset = scene->assetManager.getMeshAsset(event.id);
+			auto* asset = event.asset;
+			asset->status.store(Scene::Asset::Status::Loading, std::memory_order_release);
 			if (args->uploadPlan.uploadType == GpuUploadType::DirectStorage) {
 				auto dqueue = args->streamingSystemArgs->getDqueue();
 				auto dfactory = args->streamingSystemArgs->getDfactory();

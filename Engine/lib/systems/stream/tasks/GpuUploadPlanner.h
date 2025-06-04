@@ -55,17 +55,18 @@ namespace Engine::System::Streaming {
 			auto event = args->event;
 			auto scene = args->streamingSystemArgs->getScene();
 
-			auto& asset = scene->assetManager.getMeshAsset(event.id);
-			if (asset.source == Scene::Asset::SourceMesh::File) {
-				auto& sourceData = std::get<Scene::Asset::FileSourceMesh>(asset.sourceData);
-				auto& additionalData = std::get<Scene::Asset::FileMeshAdditionalData>(asset.additionalData);
+			auto* asset = event.asset;
+			asset->status.store(Scene::Asset::Status::Initializing, std::memory_order_release);
+			if (asset->source == Scene::Asset::SourceMesh::File) {
+				auto& sourceData = std::get<Scene::Asset::FileSourceMesh>(asset->sourceData);
+				auto& additionalData = std::get<Scene::Asset::FileMeshAdditionalData>(asset->additionalData);
 
 				WPtr<IDStorageFile> storageFile;
 				ThrowIfFailed(args->streamingSystemArgs->getDfactory()->OpenFile(sourceData.path.c_str(), IID_PPV_ARGS(&storageFile)));
 
 				std::optional<Render::Memory::HeapPool::AllocateResult> ski, att, ind;
 
-				if (asset.usage == Scene::Asset::UsageMesh::Static) {
+				if (asset->usage == Scene::Asset::UsageMesh::Static) {
 					if (additionalData.file.header.skinnedSizeInBytes) {
 						D3D12_RESOURCE_DESC descSki = CD3DX12_RESOURCE_DESC::Buffer(additionalData.file.header.skinnedSizeInBytes);
 						ski = scene->skiDefaultHeapPool.allocate(descSki, D3D12_RESOURCE_STATE_COPY_DEST);

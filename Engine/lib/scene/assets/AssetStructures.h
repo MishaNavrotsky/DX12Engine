@@ -131,6 +131,7 @@ namespace Engine::Scene::Asset {
 	};
 	struct MeshAssetEvent : public IAssetEvent {
 		MeshId id;
+		MeshMapValue* asset;
 	};
 	struct MaterialAssetEvent : public IAssetEvent {
 		MaterialId id;

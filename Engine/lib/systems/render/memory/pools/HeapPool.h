@@ -34,10 +34,8 @@ namespace Engine::Render::Memory {
 
 
 			for (auto& heap : m_heaps) {
-				if (heap.second.hasSequentialSpace(allocInfo.SizeInBytes)) {
-					Resource::PackedHandle resourceHandle = heap.second.createPlacedResource(desc, state, &allocInfo, clearValue);
-					return 	AllocateResult{ .heapId = heap.first, .resourceHandle = resourceHandle };
-				}
+				auto resourceHandle = heap.second.tryCreatePlacedResource(desc, state, &allocInfo, clearValue);
+				if (resourceHandle) return 	AllocateResult{ .heapId = heap.first, .resourceHandle = *resourceHandle };
 			}
 
 			if (true) { //enough memory
@@ -45,7 +43,7 @@ namespace Engine::Render::Memory {
 				auto heap = Heap::CreateV(nextHeapId, m_heapType, m_heapSize, D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT, m_heapFlags);
 				heap.initialize(m_resourceManager);
 				auto& heapRef = m_heaps.emplace(nextHeapId, std::move(heap)).first->second;
-				Resource::PackedHandle resourceHandle = heapRef.createPlacedResource(desc, state, &allocInfo, clearValue);
+				Resource::PackedHandle resourceHandle = *heapRef.tryCreatePlacedResource(desc, state, &allocInfo, clearValue);
 				return AllocateResult{ .heapId = nextHeapId, .resourceHandle = resourceHandle };
 			}
 
