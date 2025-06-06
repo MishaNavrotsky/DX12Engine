@@ -7,8 +7,8 @@ struct PSInput
     float4 tangent : TANGENT;
     float2 texcoords : TEXCOORD3;
     
-    float3 ndcPosition : TEXCOORD4;
-    float3 ndcPrevPosition : TEXCOORD5;
+    //float3 ndcPosition : TEXCOORD4;
+    //float3 ndcPrevPosition : TEXCOORD5;
 };
 
 struct CPUMaterialCBVData
@@ -36,17 +36,11 @@ struct VertexShaderInput
 
 cbuffer cb0 : register(b0)
 {
-    float4x4 projectionMatrix;
-    float4x4 projectionReverseDepthMatrix;
     float4x4 viewMatrix;
-    float4x4 viewProjectionReverseDepthMatrix;
-    
-    float4x4 prevProjectionMatrix;
-    float4x4 prevProjectionReverseDepthMatrix;
-    float4x4 prevViewMatrix;
-    float4x4 prevViewProjectionReverseDepthMatrix;
+    float4x4 viewReverseProjMatrix;
+
     float4 position;
-    uint4 screenDimensions;
+    //uint4 screenDimensions;
 };
 
 cbuffer cb1 : register(b1)
@@ -62,20 +56,20 @@ cbuffer cb1 : register(b1)
 PSInput VSMain(VertexShaderInput input)
 {
     PSInput result;
-    result.position = mul(float4(input.position, 1.0), MVrP);
+    result.position = mul(float4(input.position, 1.0), modelMatrix * viewReverseProjMatrix);
     result.texcoords = input.texcoords;
     result.worldPosition = mul(float4(input.position, 1.0), modelMatrix);
     result.worldTangent = mul(input.tangent.xyz, (float3x3) modelMatrix);
     result.worldNormal = mul(input.normal, (float3x3) modelMatrix);
     result.tangent = input.tangent;
     // Convert to NDC
-    float4 ndcPosition = result.position / result.position.w;
-    float4 ndcPrevPosition = mul(float4(input.position, 1.0), prevModelMatrix);
-    ndcPrevPosition = mul(ndcPrevPosition, prevViewProjectionReverseDepthMatrix);
-    ndcPrevPosition = ndcPrevPosition / ndcPrevPosition.w;
+    //float4 ndcPosition = result.position / result.position.w;
+    //float4 ndcPrevPosition = mul(float4(input.position, 1.0), prevModelMatrix);
+    //ndcPrevPosition = mul(ndcPrevPosition, prevViewProjectionReverseDepthMatrix);
+    //ndcPrevPosition = ndcPrevPosition / ndcPrevPosition.w;
 
-    result.ndcPosition = ndcPosition.xyz;
-    result.ndcPrevPosition = ndcPrevPosition.xyz;
+    //result.ndcPosition = ndcPosition.xyz;
+    //result.ndcPrevPosition = ndcPrevPosition.xyz;
     
     return result;
 }
@@ -140,12 +134,12 @@ PSOutput PSMain(PSInput input)
     output.emissive = float4(emissive.x, emissive.y, emissive.z, 0.0);
     output.materialID = cbvDataBindlessHeapSlot.x;
     
-    float2 motionNDC = input.ndcPosition.xy - input.ndcPrevPosition.xy;
-    float motionZ = input.ndcPosition.z - input.ndcPrevPosition.z;
+    //float2 motionNDC = input.ndcPosition.xy - input.ndcPrevPosition.xy;
+    //float motionZ = input.ndcPosition.z - input.ndcPrevPosition.z;
 
-    float2 motionXY = 0.5 * motionNDC * screenDimensions.xy;
+    //float2 motionXY = 0.5 * motionNDC * screenDimensions.xy;
 
-    output.screenSpaceMotion = float4(motionXY, motionZ, 0.0);
+    output.screenSpaceMotion = float4(0, 0, 0, 0.0);
         
     return output;
 }

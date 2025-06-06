@@ -12,13 +12,14 @@ namespace Engine::System {
 	public:
 		StreamingSystem() = default;
 		~StreamingSystem() = default;
-		void initialize(Scene::Scene& scene) override {
+		void initialize(Scene::Scene& scene, Render::Queue::DirectQueue& commandQueue) {
 			m_device = Render::Device::GetDevice();
 			m_streamingSystemArgs.initialize(m_device, &scene);
 			m_taskScheduler.Init(ftl::TaskSchedulerInitOptions{.ThreadPoolSize = 24});
 			m_taskScheduler.SetEmptyQueueBehavior(ftl::EmptyQueueBehavior::Sleep);
 
 			m_scene = &scene;
+			m_commandQueue = commandQueue.getQueue();
 
 			m_scene->assetManager.subscribeMesh([this](const Scene::Asset::MeshAssetEvent& event) {
 				subscribeMesh(event);
@@ -38,12 +39,14 @@ namespace Engine::System {
 				args->streamingSystemArgs = &m_streamingSystemArgs;
 				args->streamingRequestId = streamingRequestId;
 				args->fenceValue = 0;
+				args->device = m_device;
+				args->commandQueue = m_commandQueue;
 				m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&args->fence));
 				args->finalize = [this, streamingRequestId](){
 					this->m_streamingRequestsMap.erase(streamingRequestId);
 					};
 
-				m_streamingRequestsMap[streamingRequestId] = std::move(args);
+				m_streamingRequestsMap.emplace(streamingRequestId, std::move(args));
 
 				ftl::Task task{
 					.Function = Streaming::MetadataLoader::LoadMesh,
@@ -59,6 +62,7 @@ namespace Engine::System {
 		Scene::Scene* m_scene;
 		ftl::TaskScheduler m_taskScheduler;
 		ID3D12Device* m_device;
+		ID3D12CommandQueue* m_commandQueue;
 		StreamingSystemArgs m_streamingSystemArgs;
 	};
 }

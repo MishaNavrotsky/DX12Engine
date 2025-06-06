@@ -37,12 +37,12 @@ namespace Engine::ECS {
 
 		template<typename... Components>
 		void addComponent(Entity entity, Components&&... components) {
-			((addSingleComponent<Components>(entity, std::forward<Components>(components))), ...);
+			(addSingleComponent(entity, std::forward<Components>(components)), ...);
 		}
 
 		template<typename... Components>
 		void removeComponent(Entity entity) {
-			((removeSingleComponent<Components>(entity)), ...);
+			(removeSingleComponent<Components>(entity), ...);
 		}
 
 		template<typename... Components>
@@ -59,7 +59,7 @@ namespace Engine::ECS {
 		}
 
 		template<typename Component>
-		Component& getComponent(Entity entity) {
+		Component getComponent(Entity entity) {
 			auto componentId = ComponentRegistry::GetComponentID<Component>();
 			if (!m_entitySignatures[entity].test(componentId)) {
 				throw std::runtime_error("Entity does not have the requested component.");
@@ -82,15 +82,20 @@ namespace Engine::ECS {
 			));
 		}
     private:
-		template<typename Component>
-		void addSingleComponent(Entity entity, Component&& component) {
-			auto componentId = ComponentRegistry::GetComponentID<Component>();
+		template<typename T>
+		void addSingleComponent(Entity entity, T&& component) {
+			using Component = std::remove_cvref_t<T>;
+
+			const auto componentId = ComponentRegistry::GetComponentID<Component>();
+
 			if (!m_componentGroups[componentId]) {
 				m_componentGroups[componentId] = std::make_unique<ComponentGroup<Component>>();
 			}
+
 			m_entitySignatures[entity].set(componentId, true);
+
 			auto& group = static_cast<ComponentGroup<Component>&>(*m_componentGroups[componentId]);
-			group.addEntity(entity, std::forward<Component>(component));
+			group.addEntity(entity, std::forward<T>(component));
 		}
 
 		template<typename Component>

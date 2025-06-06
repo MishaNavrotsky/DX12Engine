@@ -272,6 +272,7 @@ namespace Engine::Helpers {
 		case DXGI_FORMAT_R8G8B8A8_UNORM:       return 4;
 		case DXGI_FORMAT_R16G16_FLOAT:         return 4;
 		case DXGI_FORMAT_R8G8B8A8_UINT:		   return 4;
+		case DXGI_FORMAT_R32_UINT:			   return 4;
 		case DXGI_FORMAT_R16_FLOAT:            return 2;
 		case DXGI_FORMAT_R8_UNORM:             return 1;
 		case DXGI_FORMAT_R16G16B16A16_FLOAT:   return 8;

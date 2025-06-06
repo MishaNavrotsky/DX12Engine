@@ -10,9 +10,9 @@
 
 namespace Engine::ECS::Component {
 	inline static void Initialize() {
-		ComponentRegistry::RegisterComponent<WComponentCamera>();
-		ComponentRegistry::RegisterComponent<WComponentTransform>();
-		ComponentRegistry::RegisterComponent<WComponentMesh>();
-		ComponentRegistry::RegisterComponent<WComponentMaterialInstance>();
+		ComponentRegistry::RegisterComponent<ComponentCamera>();
+		ComponentRegistry::RegisterComponent<ComponentTransform>();
+		ComponentRegistry::RegisterComponent<ComponentMesh>();
+		ComponentRegistry::RegisterComponent<ComponentMaterialInstance>();
 	}
 }

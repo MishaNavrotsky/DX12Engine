@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "../../../scene/assets/AssetStructures.h"
+#include "../../../structures.h"
+
 namespace Engine::Render::Manager {
 	//D3D12_INPUT_ELEMENT_DESC m_inputElementDescs[4] =
 	//{
@@ -15,8 +18,12 @@ namespace Engine::Render::Manager {
 		D3D12_VERTEX_BUFFER_VIEW normal;
 		D3D12_VERTEX_BUFFER_VIEW texcoord;
 		D3D12_VERTEX_BUFFER_VIEW tangent;
+		D3D12_INDEX_BUFFER_VIEW index;
+		uint64_t indexCount;
+		Structures::AABB aabb;
 	};
 	struct RenderableMesh {
+		Scene::Asset::MeshId meshId;
 		std::vector<RenderableSubMesh> subMeshes;
 	};
 }

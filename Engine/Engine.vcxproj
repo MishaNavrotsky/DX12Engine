@@ -145,13 +145,13 @@
     <ClInclude Include="lib\ecs\components\ComponentCamera.h" />
     <ClInclude Include="lib\ecs\components\ComponentMaterialInstance.h" />
     <ClInclude Include="lib\ecs\components\ComponentMesh.h" />
-    <ClInclude Include="lib\ecs\components\ComponentWrapper.h" />
     <ClInclude Include="lib\ecs\components\ComponentTransform.h" />
     <ClInclude Include="lib\scene\assets\AssetManager.h" />
     <ClInclude Include="lib\scene\assets\AssetStructures.h" />
     <ClInclude Include="lib\scene\assets\material\AssetMaterial.h" />
     <ClInclude Include="lib\scene\assets\mesh\AssetMesh.h" />
     <ClInclude Include="lib\scene\graph\SceneGraph.h" />
+    <ClInclude Include="lib\systems\render\managers\CameraManager.h" />
     <ClInclude Include="lib\systems\render\descriptors\BindlessHeapDescriptor.h" />
     <ClInclude Include="lib\ecs\components\ComponentGroup.h" />
     <ClInclude Include="lib\ecs\components\ComponentRegistry.h" />
@@ -168,6 +168,7 @@
     <ClInclude Include="lib\systems\render\managers\RenderableManager.h" />
     <ClInclude Include="lib\systems\render\managers\RenderableManagerStructures.h" />
     <ClInclude Include="lib\systems\render\managers\ResourceManager.h" />
+    <ClInclude Include="lib\systems\render\managers\TransformMatrixManager.h" />
     <ClInclude Include="lib\systems\render\memory\Heap.h" />
     <ClInclude Include="lib\systems\render\memory\pools\HeapPool.h" />
     <ClInclude Include="lib\systems\render\memory\Resource.h" />
@@ -196,7 +197,6 @@
     <ClInclude Include="lib\systems\stream\tasks\MetadataLoader.h" />
     <ClInclude Include="lib\systems\stream\StreamingSystem.h" />
     <ClInclude Include="lib\systems\stream\tasks\UploadExecutor.h" />
-    <ClInclude Include="lib\ThreadSafeQueue.h" />
     <ClInclude Include="lib\Win32Application.h" />
     <ClInclude Include="lib\Engine.h" />
     <ClInclude Include="stdafx.h" />

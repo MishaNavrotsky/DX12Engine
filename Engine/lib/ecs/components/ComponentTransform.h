@@ -2,7 +2,6 @@
 
 #pragma once
 
-#include "ComponentWrapper.h"
 
 namespace Engine::ECS::Component {
 	struct ComponentTransform {
@@ -10,6 +9,4 @@ namespace Engine::ECS::Component {
 		DX::XMFLOAT4 rotation;
 		DX::XMFLOAT4 scale;
 	};
-
-	using WComponentTransform = ComponentWrapper<ComponentTransform>;
 }

@@ -41,6 +41,8 @@
 #include "ftl/wait_group.h"
 #include "external/unordered_dense.h"
 #include <tbb/concurrent_unordered_map.h>
+#include <tbb/concurrent_vector.h>
+#include <tbb/concurrent_queue.h>
 #include <tbb/scalable_allocator.h>
 
 

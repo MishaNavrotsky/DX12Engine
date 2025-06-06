@@ -20,6 +20,8 @@ namespace Engine::System::Streaming {
 		StreamingSystemArgs* streamingSystemArgs;
 		StreamingRequestId streamingRequestId;
 		WPtr<ID3D12Fence> fence;
+		ID3D12Device* device;
+		ID3D12CommandQueue* commandQueue;
 		uint64_t fenceValue;
 		std::function<void()> finalize;
 		virtual ~Args() = default;

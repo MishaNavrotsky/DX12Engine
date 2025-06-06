@@ -13,6 +13,9 @@
 namespace Engine::Render::Manager {
 	class RenderableManager {
 	public:
+		RenderableManager() {
+			m_meshRenderables.reserve(2ULL << 10);
+		}
 		void initialize(Queue::DirectQueue& directQueue) {
 			auto* device = Device::GetDevice();
 			WPtr<ID3D12GraphicsCommandList> commandList;
@@ -67,13 +70,22 @@ namespace Engine::Render::Manager {
 			CloseHandle(fenceEvent);
 		}
 		void addMeshAsset(Scene::Asset::MeshId meshId, Scene::Asset::Mesh& mesh) {
-			RenderableMesh renderableMesh{};
+			RenderableMesh renderableMesh{.meshId = meshId};
 
 			for (auto& submesh : mesh.subMeshes) {
 				RenderableSubMesh renderableSubMesh{};
 				renderableSubMesh.normal = m_defaultAttributes[static_cast<uint64_t>(AssetsCreator::Asset::AttributeType::NORMAL)].second;
 				renderableSubMesh.tangent = m_defaultAttributes[static_cast<uint64_t>(AssetsCreator::Asset::AttributeType::TANGENT)].second;
 				renderableSubMesh.texcoord = m_defaultAttributes[static_cast<uint64_t>(AssetsCreator::Asset::AttributeType::TEXCOORD)].second;
+				D3D12_INDEX_BUFFER_VIEW indexView{};
+				indexView.BufferLocation = *submesh.gpuData.indexGpuVirtualAddress;
+				indexView.Format = submesh.gpuData.indicesFormat;
+				indexView.SizeInBytes = static_cast<uint32_t>(submesh.gpuData.indicesSizeInBytes);
+
+
+				renderableSubMesh.index = std::move(indexView);
+				renderableSubMesh.indexCount = submesh.gpuData.indicesSizeInBytes / Helpers::GetFormatStride(submesh.gpuData.indicesFormat);
+				renderableSubMesh.aabb = submesh.aabb;
 
 				for (auto& att : submesh.gpuData.attributes) {
 					D3D12_VERTEX_BUFFER_VIEW view{};
@@ -101,10 +113,13 @@ namespace Engine::Render::Manager {
 				renderableMesh.subMeshes.push_back(renderableSubMesh);
 			}
 
-			m_meshRenderables.emplace(meshId, std::move(renderableMesh));
+			m_meshRenderables.push_back(std::move(renderableMesh));
+		}
+		tbb::concurrent_vector<RenderableMesh>& getMeshRenderables() {
+			return m_meshRenderables;
 		}
 	private:
-		tbb::concurrent_unordered_map<Scene::Asset::MeshId, RenderableMesh> m_meshRenderables;
+		tbb::concurrent_vector<RenderableMesh> m_meshRenderables;
 
 		std::vector<std::pair<Scene::Asset::CpuAttributeData, D3D12_VERTEX_BUFFER_VIEW>> m_defaultAttributes = GenerateGLTFDefaultCPUAttributes();
 		std::unique_ptr<Memory::Resource> m_resource;

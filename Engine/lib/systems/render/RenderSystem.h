@@ -7,6 +7,7 @@
 
 #include "Device.h"
 #include "descriptors/BindlessHeapDescriptor.h"
+#include "memory/Resource.h"
 #include "../../scene/Scene.h"
 #include "../ISystem.h"
 #include "pipelines/CompositionPass.h"
@@ -16,6 +17,10 @@
 #include "pipelines/ui/UIPass.h"
 #include "queus/ComputeQueue.h"
 #include "queus/DirectQueue.h"
+#include "../../ecs/classes/ClassCamera.h"
+#include "managers/CameraManager.h"
+#include "managers/TransformMatrixManager.h"
+
 
 namespace Engine::System {
 	class RenderSystem : public ISystem {
@@ -30,8 +35,10 @@ namespace Engine::System {
 		void initialize(Scene::Scene& scene, bool useWarpDevice, HWND hwnd, uint32_t width, uint32_t height) {
 			m_width = width;
 			m_height = height;
+			m_scene = &scene;
 			auto factory = createFactory();
 			m_device = Render::Device::Initialize(factory.Get(), useWarpDevice);
+			m_cameraManager.initialize(m_scene);
 			m_directCommandQueue.initialize(m_device);
 			m_computeCommandQueue.initialize(m_device);
 
@@ -42,10 +49,16 @@ namespace Engine::System {
 			createPasses(hwnd);
 			createSwapChain(factory.Get(), hwnd);
 		}
-		void update(float dt) override {
-			//auto commandList = populateCommandLists();
+		void update(float dt) {
+			auto commandList = populateCommandLists(m_cameraManager.update());
+
+			m_directCommandQueue.getQueue()->ExecuteCommandLists(2, commandList.d_gbuffer.data());
+			waitForCommandQueueExecute();
+			ThrowIfFailed(m_swapChain->Present(0, 0));
 		}
-		void shutdown() override {}
+		void shutdown() override {
+			waitForCommandQueueExecute();
+		}
 
 		Render::Queue::ComputeQueue& getComputeQueue() {
 			return m_computeCommandQueue;
@@ -55,6 +68,8 @@ namespace Engine::System {
 		}
 	private:
 		inline static const UINT FrameCount = 2;
+		Scene::Scene* m_scene;
+		Render::Manager::CameraManager m_cameraManager;
 
 		// Pipeline objects.
 		WPtr<IDXGISwapChain3> m_swapChain;
@@ -80,8 +95,11 @@ namespace Engine::System {
 		Render::Queue::DirectQueue m_directCommandQueue;
 
 
-		CommandLists populateCommandLists() {
+		CommandLists populateCommandLists(Render::Memory::Resource* cameraResource) {
+			CommandLists cmd{};
+			cmd.d_gbuffer = m_gbufferPass->renderGBuffers(m_scene, cameraResource);
 
+			return cmd;
 		}
 		void waitForCommandQueueExecute() {
 			ThrowIfFailed(m_directCommandQueue.getQueue()->Signal(m_fence.Get(), ++m_fenceValue));

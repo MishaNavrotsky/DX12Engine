@@ -2,12 +2,9 @@
 
 #pragma once
 
-#include "ComponentWrapper.h"
-
 namespace Engine::ECS::Component {
 	struct ComponentCamera {
 		float fov, nearPlane, farPlane, aspectRatio;
+		bool isMain;
 	};
-
-	using WComponentCamera = ComponentWrapper<ComponentCamera>;
 }

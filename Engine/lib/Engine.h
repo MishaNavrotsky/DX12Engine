@@ -7,6 +7,7 @@
 #include "systems/render/RenderSystem.h"
 #include "systems/input/InputSystem.h"
 #include "systems/stream/StreamingSystem.h"
+
 #include "scene/Scene.h"
 
 #include "Keyboard.h"
@@ -24,18 +25,43 @@ namespace Engine {
 
 			m_inputSystem.initialize(m_scene);
 			m_renderSystem.initialize(m_scene, m_useWarpDevice, hwnd, m_width, m_height);
-			m_streamSystem.initialize(m_scene);
+			m_streamSystem.initialize(m_scene, m_renderSystem.getDirectQueue());
 			m_scene.initialize(m_renderSystem.getDirectQueue(), m_renderSystem.getComputeQueue());
 			//debug
-			for (uint64_t i = 0; i < 300; i++)
-			m_scene.assetManager.registerMesh(Scene::Asset::UsageMesh::Static, Scene::Asset::SourceMesh::File, Scene::Asset::FileSourceMesh{ std::filesystem::path("D:\\DX12En\\AssetsCreator\\assets\\alicev2rigged_0.mesh.asset") });
+			auto meshId = m_scene.assetManager.registerMesh(Scene::Asset::UsageMesh::Static, Scene::Asset::SourceMesh::File, Scene::Asset::FileSourceMesh{ std::filesystem::path("D:\\DX12En\\AssetsCreator\\assets\\alicev2rigged_0.mesh.asset") });
+
+			auto camera = m_scene.entityManager.createEntity();
+			auto componentCamera = ECS::Component::ComponentCamera{};
+			componentCamera.aspectRatio = static_cast<float>(m_width) / m_height;
+			componentCamera.farPlane = 1000000.f;
+			componentCamera.nearPlane = 0.1f;
+			componentCamera.fov = 90.f;
+
+			componentCamera.isMain = true;
+
+			auto componentTransform = ECS::Component::ComponentTransform{};
+			componentTransform.position = { 10, 0, 0, 1 };
+			componentTransform.scale = { 1, 1, 1, 1 };
+			componentTransform.rotation = { 1, 0, 0, 0 };
+
+			m_scene.entityManager.addComponent(camera, componentCamera, componentTransform);
+
+			auto mesh = m_scene.entityManager.createEntity();
+			auto meshTransform = ECS::Component::ComponentTransform{};
+			meshTransform.position = { 1, 0, 0, 0 };
+			meshTransform.scale = { 1, 1, 1, 1 };
+			meshTransform.rotation = { 1, 0, 0, 0 };
+			auto meshMesh = ECS::Component::ComponentMesh{};
+			meshMesh.assetId = meshId;
+
+			m_scene.entityManager.addComponent(mesh, meshTransform, meshMesh);
 		}
 		void update(float dt) {
 			m_inputSystem.update(dt);
 			m_renderSystem.update(dt);
 			m_streamSystem.update(dt);
-
 		}
+
 		void destroy() {
 			m_streamSystem.shutdown();
 			m_inputSystem.shutdown();
@@ -74,5 +100,6 @@ namespace Engine {
 		System::InputSystem m_inputSystem;
 		System::RenderSystem m_renderSystem;
 		System::StreamingSystem m_streamSystem;
+
 	};
 }

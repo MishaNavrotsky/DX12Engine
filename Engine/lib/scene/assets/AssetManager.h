@@ -18,7 +18,7 @@ namespace Engine::Scene {
 
         Asset::MeshId registerMesh(Asset::UsageMesh usage, Asset::SourceMesh source, Asset::MeshSourceData sourceData) {
             auto id = generateMeshAssetId();
-            auto meshMapValue = std::make_unique<Asset::MeshMapValue>();
+            auto meshMapValue = std::make_shared<Asset::MeshMapValue>();
             meshMapValue->usage = usage;
             meshMapValue->source = source;
             meshMapValue->sourceData = sourceData;
@@ -37,7 +37,7 @@ namespace Engine::Scene {
 
         Asset::MaterialId registerMaterial(Asset::UsageMaterial usage, Asset::SourceMaterial source, Asset::MaterialSourceData sourceData) {
             auto id = generateMaterialAssetId();
-            auto meshMaterialValue = std::make_unique<Asset::MaterialMapValue>();
+            auto meshMaterialValue = std::make_shared<Asset::MaterialMapValue>();
             meshMaterialValue->usage = usage;
             meshMaterialValue->source = source;
             meshMaterialValue->sourceData = sourceData;
@@ -59,7 +59,7 @@ namespace Engine::Scene {
                 throw std::runtime_error("[AssetManager] No materialId");
             }
             auto id = generateMaterialInstanceAssetId();
-            auto materialInstanceValue = std::make_unique<Asset::MaterialInstanceMapValue>();
+            auto materialInstanceValue = std::make_shared<Asset::MaterialInstanceMapValue>();
             materialInstanceValue->sourceData = sourceData;
 
             m_materialInstanceAssetMap.emplace(id, std::move(materialInstanceValue));
@@ -131,10 +131,9 @@ namespace Engine::Scene {
         Asset::MaterialInstanceId generateMaterialInstanceAssetId() {
             return m_nextMaterialInstanceAssetId.fetch_add(1, std::memory_order_relaxed);
         }
-
-        tbb::concurrent_unordered_map<Asset::MeshId, std::unique_ptr<Asset::MeshMapValue>> m_meshAssetMap;
-        tbb::concurrent_unordered_map<Asset::MaterialId, std::unique_ptr<Asset::MaterialMapValue>> m_materialAssetMap;
-        tbb::concurrent_unordered_map<Asset::MaterialInstanceId, std::unique_ptr<Asset::MaterialInstanceMapValue>> m_materialInstanceAssetMap;
+        tbb::concurrent_unordered_map<Asset::MeshId, std::shared_ptr<Asset::MeshMapValue>> m_meshAssetMap;
+        tbb::concurrent_unordered_map<Asset::MaterialId, std::shared_ptr<Asset::MaterialMapValue>> m_materialAssetMap;
+        tbb::concurrent_unordered_map<Asset::MaterialInstanceId, std::shared_ptr<Asset::MaterialInstanceMapValue>> m_materialInstanceAssetMap;
 
         std::vector<Asset::MeshAssetEventCallback> m_meshSubscribers;
         std::vector<Asset::MaterialAssetEventCallback> m_materialSubscribers;

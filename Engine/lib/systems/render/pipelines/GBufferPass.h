@@ -55,7 +55,7 @@ namespace Engine::Render::Pipeline {
 			m_scissorRect = CD3DX12_RECT(0, 0, static_cast<LONG>(width), static_cast<LONG>(height));
 		}
 
-		std::array<ID3D12CommandList*, 2> renderGBuffers() {
+		std::array<ID3D12CommandList*, 2> renderGBuffers(Scene::Scene* scene, Memory::Resource* cameraBuffer) {
 			ThrowIfFailed(m_commandAllocator->Reset());
 			ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), nullptr));
 			{
@@ -69,7 +69,7 @@ namespace Engine::Render::Pipeline {
 			}
 
 			m_commandList->SetGraphicsRootSignature(getRootSignature());
-			//m_commandList->SetGraphicsRootConstantBufferView(0, camera->getResource()->GetGPUVirtualAddress());
+			m_commandList->SetGraphicsRootConstantBufferView(0, cameraBuffer->getGpuVirtualAddress());
 
 			ID3D12DescriptorHeap* heaps[] = { m_bindlessHeapDescriptor.getSrvDescriptorHeap(), m_bindlessHeapDescriptor.getSamplerDescriptorHeap() };
 			m_commandList->SetDescriptorHeaps(_countof(heaps), heaps);
@@ -90,6 +90,18 @@ namespace Engine::Render::Pipeline {
 				rtvHandle.Offset(1, rtvDescriptorSize);
 			}
 			m_commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 0.0f, 0, 0, nullptr);
+			m_commandList->SetPipelineState(getPso({ D3D12_CULL_MODE::D3D12_CULL_MODE_NONE, D3D12_PRIMITIVE_TOPOLOGY_TYPE::D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE }));
+			m_commandList->IASetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY::D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+			auto& renderables = scene->renderableManager.getMeshRenderables();
+			for (auto& renderable : renderables) {
+				for (auto& sub : renderable.subMeshes) {
+					D3D12_VERTEX_BUFFER_VIEW vbv[] = { sub.position, sub.normal, sub.texcoord, sub.tangent };
+					m_commandList->IASetVertexBuffers(0, 4, vbv);
+					m_commandList->IASetIndexBuffer(&sub.index);
+					m_commandList->DrawIndexedInstanced(static_cast<uint32_t>(sub.indexCount), 1, 0, 0, 0);
+				}
+			}
 
 			//m_commandList->SetGraphicsRootConstantBufferView(0, camera->getResource()->GetGPUVirtualAddress());
 			//auto lambda = std::function([&](CPUMesh& mesh, CPUMaterial& material, SceneNode* node) {

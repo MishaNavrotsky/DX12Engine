@@ -7,8 +7,10 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg
 HWND Win32Application::m_hwnd = nullptr;
 std::unique_ptr<DX::Keyboard> Win32Application::m_keyboard = std::make_unique<DX::Keyboard>();
 std::unique_ptr<DX::Mouse> Win32Application::m_mouse = std::make_unique<DX::Mouse>();
-ThreadSafeQueue<DX::Keyboard::State> Win32Application::m_keyboardStateQueue;
-ThreadSafeQueue<DX::Mouse::State> Win32Application::m_mouseStateQueue;
+tbb::concurrent_queue<DX::Keyboard::State> Win32Application::m_keyboardStateQueue[2];
+tbb::concurrent_queue<DX::Mouse::State> Win32Application::m_mouseStateQueue[2];
+std::atomic<uint32_t> Win32Application::m_frontBufferIndex{0};
+
 
 std::atomic<bool> Win32Application::m_windowClosed = false;
 
@@ -20,26 +22,28 @@ void Win32Application::RunMainEngineLoop(Engine::Engine* engine)
 
 	while (!m_windowClosed.load(std::memory_order_relaxed))
 	{
+		uint32_t currentFront = m_frontBufferIndex.exchange(1 - m_frontBufferIndex.load(std::memory_order_acquire), std::memory_order_acq_rel);
 		auto currentTime = high_resolution_clock::now();
 		auto deltaTime = duration<float, std::milli>(currentTime - previousTime).count();
 		previousTime = currentTime;
 
-		auto keyboardStates = m_keyboardStateQueue.popAll();
-		auto mouseStates = m_mouseStateQueue.popAll();
-		if (keyboardStates.size() > 0)
+		DX::Keyboard::State keyboardState;
+		while(m_keyboardStateQueue[currentFront].try_pop(keyboardState))
 		{
-			engine->onKeyboardUpdate(keyboardStates.back());
+			engine->onKeyboardUpdate(keyboardState);
 
 		}
-		if (mouseStates.size() > 0)
+
+		DX::Mouse::State mouseState;
+		while(m_mouseStateQueue[currentFront].try_pop(mouseState))
 		{
-			engine->onMouseUpdate(mouseStates.back());
+			engine->onMouseUpdate(mouseState);
 		}
 
 		engine->update(deltaTime);
 
 		//sleap
-		std::this_thread::sleep_for(std::chrono::milliseconds(30)); // Roughly 60 FPS
+		//std::this_thread::sleep_for(std::chrono::milliseconds(30)); // Roughly 60 FPS
 	}
 }
 
@@ -122,6 +126,8 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
 		}
 	}
 
+
+
 	switch (message)
 	{
 	case WM_CREATE:
@@ -131,8 +137,8 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
 	case WM_ACTIVATEAPP:
 		m_keyboard->ProcessMessage(message, wParam, lParam);
 		m_mouse->ProcessMessage(message, wParam, lParam);
-		m_keyboardStateQueue.push(m_keyboard->GetState());
-		m_mouseStateQueue.push(m_mouse->GetState());
+		m_keyboardStateQueue[1 - Win32Application::m_frontBufferIndex.load(std::memory_order_acquire)].push(m_keyboard->GetState());
+		m_mouseStateQueue[1 - Win32Application::m_frontBufferIndex.load(std::memory_order_acquire)].push(m_mouse->GetState());
 		break;
 	case WM_ACTIVATE:
 	case WM_INPUT:
@@ -148,19 +154,19 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
 	case WM_XBUTTONUP:
 	case WM_MOUSEHOVER:
 		m_mouse->ProcessMessage(message, wParam, lParam);
-		m_mouseStateQueue.push(m_mouse->GetState());
+		m_mouseStateQueue[1 - Win32Application::m_frontBufferIndex.load(std::memory_order_acquire)].push(m_mouse->GetState());
 		break;
 
 	case WM_KEYDOWN:
 	case WM_KEYUP:
 	case WM_SYSKEYUP:
 		m_keyboard->ProcessMessage(message, wParam, lParam);
-		m_keyboardStateQueue.push(m_keyboard->GetState());
+		m_keyboardStateQueue[1 - Win32Application::m_frontBufferIndex.load(std::memory_order_acquire)].push(m_keyboard->GetState());
 		break;
 
 	case WM_SYSKEYDOWN:
 		m_keyboard->ProcessMessage(message, wParam, lParam);
-		m_keyboardStateQueue.push(m_keyboard->GetState());
+		m_keyboardStateQueue[1 - Win32Application::m_frontBufferIndex.load(std::memory_order_acquire)].push(m_keyboard->GetState());
 		if (wParam == VK_RETURN && (lParam & 0x60000000) == 0x20000000)
 		{
 

@@ -30,15 +30,21 @@ namespace Engine::ECS {
 			m_components.reserve(2ULL << 10);
 		}
 
-		void addEntity(Entity entity, Component&& component) {
-			if (!m_entitiesPosition.contains(entity)) {
-				auto pos = m_entitiesPosition[entity];
-				m_components[pos] = std::forward<Component>(component);
+		template <typename T>
+		void addEntity(Entity entity, T&& component) {
+			using U = std::remove_cvref_t<T>;
+			static_assert(std::is_same_v<U, Component>, "Type mismatch in addEntity");
+
+			auto it = m_entitiesPosition.find(entity);
+			if (it != m_entitiesPosition.end()) {
+				m_components[it->second] = std::forward<T>(component);
 				return;
 			}
-			m_entitiesPosition[entity] = m_entities.size();
+
+			size_t pos = m_entities.size();
+			m_entitiesPosition[entity] = pos;
 			m_entities.push_back(entity);
-			m_components.push_back(std::forward<Component>(component));
+			m_components.push_back(std::forward<T>(component));
 		}
 
 		void removeEntity(Entity entity) override {
@@ -50,7 +56,7 @@ namespace Engine::ECS {
 			}
 			m_entities.pop_back();
 			m_components.pop_back();
-			m_entitiesPosition.erase(entity);
+			m_entitiesPosition.unsafe_erase(entity);
 		}
 
 		std::vector<Entity>& getEntities() override {

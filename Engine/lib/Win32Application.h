@@ -5,7 +5,6 @@
 #include "external/imgui_impl_win32.h"
 #include "Keyboard.h"
 #include "Mouse.h"
-#include "ThreadSafeQueue.h"
 #include "./lib/Engine.h"
 
 
@@ -28,7 +27,8 @@ private:
     static std::unique_ptr<DX::Keyboard> m_keyboard;
     static std::unique_ptr<DX::Mouse> m_mouse;
 	static std::atomic<bool> m_windowClosed;
-	static ThreadSafeQueue<DX::Keyboard::State> m_keyboardStateQueue;
-	static ThreadSafeQueue<DX::Mouse::State> m_mouseStateQueue;
+	static tbb::concurrent_queue<DX::Keyboard::State> m_keyboardStateQueue[2];
+	static tbb::concurrent_queue<DX::Mouse::State> m_mouseStateQueue[2];
+    static std::atomic<uint32_t> m_frontBufferIndex;
 
 };
