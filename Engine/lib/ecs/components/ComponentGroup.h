@@ -83,7 +83,7 @@ namespace Engine::ECS {
 		ComponentSignature m_bitset;
 
 		void setBitForComponent() {
-			size_t componentID = ComponentRegistry::GetComponentID<Component>();
+			size_t componentID = ComponentRegistry::GetComponentId<Component>();
 			m_bitset.set(componentID);
 		}
 

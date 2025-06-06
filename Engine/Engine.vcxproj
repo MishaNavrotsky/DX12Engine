@@ -142,10 +142,12 @@
     <ClInclude Include="lib\ecs\classes\ClassCamera.h" />
     <ClInclude Include="lib\ecs\classes\ClassTransform.h" />
     <ClInclude Include="lib\ecs\classes\ModelMatrix.h" />
+    <ClInclude Include="lib\ecs\components\ComponentArchetype.h" />
     <ClInclude Include="lib\ecs\components\ComponentCamera.h" />
     <ClInclude Include="lib\ecs\components\ComponentMaterialInstance.h" />
     <ClInclude Include="lib\ecs\components\ComponentMesh.h" />
     <ClInclude Include="lib\ecs\components\ComponentTransform.h" />
+    <ClInclude Include="lib\global.h" />
     <ClInclude Include="lib\scene\assets\AssetManager.h" />
     <ClInclude Include="lib\scene\assets\AssetStructures.h" />
     <ClInclude Include="lib\scene\assets\material\AssetMaterial.h" />

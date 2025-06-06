@@ -8,6 +8,7 @@
 #include "entity/Entity.h"
 #include "components/ComponentRegistry.h"
 #include "components/ComponentGroup.h"
+#include "components/ComponentArchetype.h"
 
 namespace Engine::ECS {
 	class EntityManager {
@@ -49,7 +50,7 @@ namespace Engine::ECS {
 		std::vector<Entity> view() {
 			std::vector<Entity> entities;
 			ComponentSignature requiredSignature;
-			((requiredSignature.set(ComponentRegistry::GetComponentID<Components>(), true)), ...);
+			((requiredSignature.set(ComponentRegistry::GetComponentId<Components>(), true)), ...);
 			for (const auto& [entity, signature] : m_entitySignatures) {
 				if ((signature & requiredSignature) == requiredSignature) {
 					entities.push_back(entity);
@@ -60,7 +61,7 @@ namespace Engine::ECS {
 
 		template<typename Component>
 		Component getComponent(Entity entity) {
-			auto componentId = ComponentRegistry::GetComponentID<Component>();
+			auto componentId = ComponentRegistry::GetComponentId<Component>();
 			if (!m_entitySignatures[entity].test(componentId)) {
 				throw std::runtime_error("Entity does not have the requested component.");
 			}
@@ -70,7 +71,7 @@ namespace Engine::ECS {
 
 		template <typename Component>
 		std::optional<std::pair<std::vector<Entity>&, std::vector<Component>&>> fastView() {
-			auto componentId = ComponentRegistry::GetComponentID<Component>();
+			auto componentId = ComponentRegistry::GetComponentId<Component>();
 			if (!m_componentGroups[componentId] || m_componentGroups[componentId]->isEmpty()) {
 				return std::nullopt;
 			}
@@ -86,7 +87,7 @@ namespace Engine::ECS {
 		void addSingleComponent(Entity entity, T&& component) {
 			using Component = std::remove_cvref_t<T>;
 
-			const auto componentId = ComponentRegistry::GetComponentID<Component>();
+			const auto componentId = ComponentRegistry::GetComponentId<Component>();
 
 			if (!m_componentGroups[componentId]) {
 				m_componentGroups[componentId] = std::make_unique<ComponentGroup<Component>>();
@@ -100,7 +101,7 @@ namespace Engine::ECS {
 
 		template<typename Component>
 		void removeSingleComponent(Entity entity) {
-			auto componentId = ComponentRegistry::GetComponentID<Component>();
+			auto componentId = ComponentRegistry::GetComponentId<Component>();
 			if (m_componentGroups[componentId]) {				
 				m_entitySignatures[entity].set(componentId, false);
 				auto& group = static_cast<ComponentGroup<Component>&>(*m_componentGroups[componentId]);

@@ -15,61 +15,65 @@ namespace Engine::ECS {
         std::function<void(void*, const void*)> copy;
         std::function<void(void*, void*)> move;
         std::function<void(void*)> destroy;
+        bool isTriviallyDestructible = false;
     };
 
-    using ComponentId = size_t;
-    using ComponentRegitsryData = std::tuple<ComponentId, size_t, ComponentOps>; // id, size
+    using ComponentId = uint64_t;
+    using ComponentRegitsryData = std::tuple<ComponentId, uint64_t, ComponentOps>; // id, size
 
     class ComponentRegistry {
     public:
         template <typename T>
-        static size_t RegisterComponent() {
-            static_assert(std::is_standard_layout<T>::value, "Component must have a standard layout.");
-            static_assert(std::is_trivial<T>::value, "Component must be trivial.");
+        static uint64_t RegisterComponent() {
+            if constexpr (!std::is_standard_layout_v<T>) {
+                std::cerr << "Warning: Component " << typeid(T).name() << " is not standard layout.\n";
+            }
+            if constexpr (!std::is_trivial_v<T>) {
+                std::cerr << "Warning: Component " << typeid(T).name() << " is not trivial.\n";
+            }
+            if constexpr (!std::is_trivially_destructible_v<T>) {
+                std::cerr << "Warning: Component " << typeid(T).name() << " is not trivially destructible.\n";
+            }
 
             auto it = componentIDs.find(typeid(T));
             if (it != componentIDs.end()) {
                 return std::get<0>(it->second);  
             }
 
-            size_t newID = nextID++;
+            uint64_t newID = nextID++;
             componentIDs[typeid(T)] = ComponentRegitsryData(newID, sizeof(T), makeComponentOps<T>());
 
 			// Store the component data in a list for easier access
-			componentDataList.push_back(componentIDs[typeid(T)]);
+			componentDataList.push_back(componentIDs.at(typeid(T)));
             return newID;
         }
 
         template <typename T>
-        static ComponentId GetComponentID() {
+        static ComponentId GetComponentId() {
             return std::get<0>(componentIDs[typeid(T)]);
         }
 
         template <typename T>
-        static size_t GetComponentSize() {
+        static uint64_t GetComponentSize() {
             return std::get<1>(componentIDs[typeid(T)]);
         }
 
         template <typename T>
-        static std::tuple<size_t, size_t, ComponentOps> GetComponent() {
-			return componentIDs[typeid(T)];
+        static std::tuple<uint64_t, uint64_t, ComponentOps> GetComponent() {
+			return componentIDs.at(typeid(T));
         }
 
-		static const ComponentRegitsryData& GetComponentById(size_t id) {
-			for (const auto& [type, data] : componentIDs) {
-				if (std::get<0>(data) == id) {
-                    return data;
-				}
-			}
-			throw std::runtime_error("Component ID not found");
-		}
 		static const std::vector<ComponentRegitsryData>& GetComponentDataList() {
 			return componentDataList;
 		}
 
+        static ComponentRegitsryData& GetComponentDataById(ComponentId id) {
+            return componentDataList.at(id);
+        }
+
     private:
         static inline ComponentId nextID = 0;
-        static inline std::unordered_map<std::type_index, ComponentRegitsryData> componentIDs;
+        static inline ankerl::unordered_dense::map<std::type_index, ComponentRegitsryData> componentIDs;
 		static inline std::vector<ComponentRegitsryData> componentDataList;
         
         template<typename T>
@@ -90,7 +94,9 @@ namespace Engine::ECS {
                 // Destruct
                 [](void* dest) {
                     reinterpret_cast<T*>(dest)->~T();
-                }
+                },
+                std::is_trivially_destructible_v<T>
+
             };
         }
     };
