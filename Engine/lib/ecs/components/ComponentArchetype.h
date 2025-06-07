@@ -37,6 +37,10 @@ namespace Engine::ECS {
 			return it->second[entityIndex] >= sinceFrame;
 		}
 
+		bool isComponentDirtyFast(ComponentId cid, size_t entityIndex, uint64_t sinceFrame) const {
+			return componentVersions.at(cid).at(entityIndex) >= sinceFrame;
+		}
+
 		bool isChunkDirty(uint64_t sinceFrame) const {
 			return chunkVersion >= sinceFrame;
 		}
@@ -50,7 +54,7 @@ namespace Engine::ECS {
 						ops.destroy(obj);
 					}
 
-				operator delete(ptr);
+				operator delete(ptr, size);
 			}
 		}
 	};
@@ -62,7 +66,7 @@ namespace Engine::ECS {
 			return m_bitset;
 		}
 
-		void addEntity(Entity entity, const std::vector<std::pair<ComponentId, void*>>& componentData) {
+		void addEntity(Entity entity, const std::vector<std::pair<ComponentId, std::unique_ptr<void, ComponentDeleter>>>& componentData) {
 			ComponentArchetypeChunk* chunk = nullptr;
 			if (m_chunks.empty() || m_chunks.back()->entityCount == ComponentArchetypeChunk::ChunkSize) {
 				chunk = createChunk();
@@ -83,7 +87,7 @@ namespace Engine::ECS {
 					auto it = std::find_if(componentData.begin(), componentData.end(),
 						[i](const auto& p) { return p.first == i; });
 					if (it != componentData.end()) {
-						ops.copy(dest, it->second);
+						ops.copy(dest, it->second.get());
 						chunk->markComponentUpdated(id, idx);
 					}
 				}
@@ -93,7 +97,7 @@ namespace Engine::ECS {
 			m_entityLocations[entity] = { chunk, idx };
 		}
 
-		void updateEntityComponents(Entity entity, const std::vector<std::pair<ComponentId, void*>>& updatedComponents) {
+		void updateEntityComponents(Entity entity, const std::vector<std::pair<ComponentId, std::unique_ptr<void, ComponentDeleter>>>& updatedComponents) {
 			auto it = m_entityLocations.find(entity);
 			if (it == m_entityLocations.end()) return;
 
@@ -110,7 +114,7 @@ namespace Engine::ECS {
 					ops.destroy(dest);
 				}
 
-				ops.copy(dest, dataPtr);
+				ops.copy(dest, dataPtr.get());
 
 				chunk->markComponentUpdated(cid, idx);
 			}
@@ -191,6 +195,38 @@ namespace Engine::ECS {
 			return copy;
 		}
 
+		std::vector<std::pair<ComponentId, std::unique_ptr<void, ComponentDeleter>>> getAllComponents(Entity entity) {
+			std::vector<std::pair<ComponentId, std::unique_ptr<void, ComponentDeleter>>> componentsData;
+
+			auto it = m_entityLocations.find(entity);
+			if (it == m_entityLocations.end()) {
+				return componentsData;
+			}
+
+			ComponentArchetypeChunk* chunk = it->second.first;
+			size_t idx = it->second.second;
+
+			for (size_t cid = 0; cid < MAX_COMPONENTS; ++cid) {
+				if (m_bitset.test(cid)) {
+					const auto& [id, size, ops] = ComponentRegistry::GetComponentDataById(cid);
+
+					void* src = static_cast<char*>(chunk->componentArrays[cid]) + idx * size;
+
+					std::unique_ptr<void, ComponentDeleter> componentCopy(nullptr, ComponentDeleter{ cid });
+
+					componentCopy.reset(operator new(size));
+
+					// Use the component's ops to copy the data from the chunk to the new memory.
+					ops.copy(componentCopy.get(), src);
+
+					// Store the ComponentId and the copied component in the result vector.
+					componentsData.push_back({ id, std::move(componentCopy) });
+				}
+			}
+
+			return componentsData;
+		}
+
 		bool isComponentDirty(Entity entity, ComponentId cid, uint64_t sinceFrame) const {
 			auto it = m_entityLocations.find(entity);
 			if (it == m_entityLocations.end()) return false;
@@ -200,8 +236,21 @@ namespace Engine::ECS {
 			return it->second.first->isComponentDirty(cid, it->second.second, sinceFrame);
 		}
 
+		template<typename T>
+		bool isComponentDirty(Entity entity, uint64_t sinceFrame) const {
+			ComponentId cid = ComponentRegistry::GetComponentId<T>();
 
-		std::vector<Entity> getEntities(const ComponentSignature& signature) const {
+			auto it = m_entityLocations.find(entity);
+			if (it == m_entityLocations.end()) return false;
+
+			if (!it->second.first->isChunkDirty(sinceFrame)) return false;
+
+			return it->second.first->isComponentDirty(cid, it->second.second, sinceFrame);
+		}
+
+
+
+		std::vector<Entity> getAllEntities() const {
 			std::vector<Entity> result;
 
 			for (auto& [entity, _] : m_entityLocations) {
@@ -209,6 +258,44 @@ namespace Engine::ECS {
 			}
 
 			return result;
+		}
+
+		std::vector<Entity> getEntitiesBySignature(const ComponentSignature& signature) const {
+			std::vector<Entity> result;
+
+			for (const auto& [entity, _] : m_entityLocations) {
+				if ((m_bitset & signature) == signature) {
+					result.push_back(entity);
+				}
+			}
+
+			return result;
+		}
+
+
+		std::vector<Entity> getDirtyEntitiesBySignature(const ComponentSignature& signature, uint64_t sinceFrame) const {
+			std::unordered_set<Entity> dirtyEntities;
+
+			for (const auto& c : m_chunks) {
+				auto* chunk = c.get();
+				if (!chunk->isChunkDirty(sinceFrame)) continue;
+
+				for (uint32_t cid = 0; cid < MAX_COMPONENTS; ++cid) {
+					if (!signature.test(cid)) continue;
+					auto it = chunk->componentVersions.find(cid);
+					if (it == chunk->componentVersions.end()) continue;
+
+					for (const auto& [entity, version] : chunk->entityVersion) {
+						if (version < sinceFrame) continue;
+						const auto& [_, idx] = m_entityLocations.at(entity);
+						if (chunk->isComponentDirtyFast(cid, idx, sinceFrame)) {
+							dirtyEntities.insert(entity);
+						}
+					}
+				}
+			}
+
+			return std::vector<Entity>(dirtyEntities.begin(), dirtyEntities.end());
 		}
 
 		std::vector<Entity> getDirtyEntities(uint64_t sinceFrame) const {
@@ -227,6 +314,42 @@ namespace Engine::ECS {
 					}
 				}
 			}
+
+			return dirtyEntities;
+		}
+
+		template<typename T>
+		std::vector<Entity> getDirtyEntities(uint64_t sinceFrame) const {
+			ComponentId cid = ComponentRegistry::GetComponentId<T>();
+			std::vector<Entity> dirtyEntities;
+
+			for (const auto& c : m_chunks) {
+				auto* chunk = c.get();
+				if (!chunk->isChunkDirty(sinceFrame)) continue;
+				auto it = chunk->componentVersions.find(cid);
+				if (it == chunk->componentVersions.end()) continue;
+
+				for (const auto& [entity, version] : chunk->entityVersion) {
+					if (version < sinceFrame) continue;
+					const auto& [_, idx] = m_entityLocations.at(entity);
+					if (chunk->isComponentDirtyFast(cid, idx, sinceFrame)) {
+						dirtyEntities.push_back(entity);
+					}
+				}
+			}
+
+			//for (const auto& [entity, location] : m_entityLocations) {
+			//	ComponentArchetypeChunk* chunk = location.first;
+			//	size_t idx = location.second;
+
+			//	if (!chunk->isChunkDirty(sinceFrame)) continue;
+			//	auto it = chunk->componentVersions.find(cid);
+			//	if (it == chunk->componentVersions.end()) continue;
+
+			//	if (it->second[idx] >= sinceFrame) {
+			//		dirtyEntities.push_back(entity);
+			//	}
+			//}
 
 			return dirtyEntities;
 		}

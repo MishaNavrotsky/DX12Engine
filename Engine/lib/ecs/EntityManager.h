@@ -15,102 +15,160 @@ namespace Engine::ECS {
 	public:
 		EntityManager() {
 			m_nextEntityId.store(1); // Start from 1 to avoid zero entity ID
-			m_componentGroups.resize(MAX_COMPONENTS);
-			m_entitySignatures.reserve((2ULL << 10) * MAX_COMPONENTS);
+			m_componentArchetypes.reserve(MAX_COMPONENTS);
+			m_entityArchetypes.reserve((2ULL << 10) * MAX_COMPONENTS);
 		}
 
 		Entity createEntity() {
 			Entity entity = m_nextEntityId.fetch_add(1);
-			m_entitySignatures[entity] = ComponentSignature(); // Initialize with empty signature
+			m_entityArchetypes.emplace(entity, nullptr); // Initialize with empty signature
 			return entity;
 		}
 
 		void destroyEntity(Entity entity) {
-			auto& signature = m_entitySignatures[entity];
-			for (uint64_t i = 0; i < signature.size(); i++) {
-				if (signature.test(i)) {
-					auto& group = m_componentGroups[i];
-					group->removeEntity(entity);
-				}
-			}
-			m_entitySignatures.unsafe_erase(entity);
+			auto it = m_entityArchetypes.find(entity);
+			if (it == m_entityArchetypes.end()) return;
+			auto* archetype = it->second;
+
+			archetype->removeEntity(entity);
+			m_entityArchetypes.unsafe_erase(entity);
 		}
 
 		template<typename... Components>
 		void addComponent(Entity entity, Components&&... components) {
-			(addSingleComponent(entity, std::forward<Components>(components)), ...);
+			auto entityArchetypeItt = m_entityArchetypes.find(entity);
+			if (entityArchetypeItt == m_entityArchetypes.end()) return;
+
+			std::vector<std::pair<ComponentId, std::unique_ptr<void, ComponentDeleter>>> componentsData;
+			(setComponentPair<Components>(std::forward<Components>(components), componentsData), ...);
+
+
+			std::bitset<MAX_COMPONENTS> archetypeBitset;
+			(setBit<Components>(archetypeBitset), ...);
+			if (entityArchetypeItt->second == nullptr) {
+				auto* archetype = createOrGetArchetype(archetypeBitset);
+
+				archetype->addEntity(entity, componentsData);
+				entityArchetypeItt->second = archetype;
+				return;
+			}
+
+			auto& entitiesArchetypeBitset = entityArchetypeItt->second->getSignature();
+			if ((archetypeBitset | entitiesArchetypeBitset) == entitiesArchetypeBitset) {
+				entityArchetypeItt->second->updateEntityComponents(entity, componentsData);
+				return;
+			}
+
+
+			auto oldArchetypeEntityComponents = entityArchetypeItt->second->getAllComponents(entity);
+			for (auto& component : componentsData) {
+				oldArchetypeEntityComponents.push_back(std::move(component));
+			}
+			entityArchetypeItt->second->removeEntity(entity);
+
+			archetypeBitset |= entityArchetypeItt->second->getSignature();
+			auto* archetype = createOrGetArchetype(archetypeBitset);
+
+			archetype->addEntity(entity, oldArchetypeEntityComponents);
+			entityArchetypeItt->second = archetype;
 		}
 
 		template<typename... Components>
 		void removeComponent(Entity entity) {
-			(removeSingleComponent<Components>(entity), ...);
+			auto entityArchetypeItt = m_entityArchetypes.find(entity);
+			if (entityArchetypeItt == m_entityArchetypes.end()) return;
+
+			std::bitset<MAX_COMPONENTS> archetypeBitset = entityArchetypeItt->second->getSignature();
+			(archetypeBitset.reset(ComponentRegistry::GetComponentId<Components>()), ...);  // Remove the components from the bitset
+			auto* archetype = createOrGetArchetype(archetypeBitset);
+
+			auto oldComponents = entityArchetypeItt->second->getAllComponents(entity);
+			entityArchetypeItt->second->removeEntity(entity);
+			archetype->addEntity(entity, oldComponents);
+			entityArchetypeItt->second = archetype;
 		}
 
 		template<typename... Components>
-		std::vector<Entity> view() {
-			std::vector<Entity> entities;
-			ComponentSignature requiredSignature;
-			((requiredSignature.set(ComponentRegistry::GetComponentId<Components>(), true)), ...);
-			for (const auto& [entity, signature] : m_entitySignatures) {
-				if ((signature & requiredSignature) == requiredSignature) {
-					entities.push_back(entity);
-				}
+		std::vector<Entity> viewDirty(uint64_t sinceFrame) const {
+			ComponentSignature signature;
+			(setBit<Components>(signature), ...);
+
+			std::vector<Entity> dirtyEntities;
+
+			for (auto& [bitset, archetype] : m_componentArchetypes) {
+				if ((signature & bitset) != signature) continue;
+				auto dirtyEntitiesForArchetype = archetype->getDirtyEntitiesBySignature(signature, sinceFrame);
+				dirtyEntities.insert(dirtyEntities.end(), dirtyEntitiesForArchetype.begin(), dirtyEntitiesForArchetype.end());
+
 			}
+
+			return dirtyEntities;
+		}
+
+		template<typename... Components>
+		std::vector<Entity> view() const {
+			ComponentSignature signature;
+			(setBit<Components>(signature), ...);
+
+			std::vector<Entity> entities;
+
+			for (auto& [bitset, archetype] : m_componentArchetypes) {
+				if ((signature & bitset) != signature) continue;
+				auto entitiesArchetype = archetype->getAllEntities();
+				entities.insert(entities.end(), entitiesArchetype.begin(), entitiesArchetype.end());
+
+			}
+
 			return entities;
 		}
 
 		template<typename Component>
-		Component getComponent(Entity entity) {
-			auto componentId = ComponentRegistry::GetComponentId<Component>();
-			if (!m_entitySignatures[entity].test(componentId)) {
-				throw std::runtime_error("Entity does not have the requested component.");
-			}
-			auto& group = static_cast<ComponentGroup<Component>&>(*m_componentGroups[componentId]);
-			return group.getComponent(entity);
-		}
+		std::optional<Component> getComponent(Entity entity) {
+			auto itt = m_entityArchetypes.find(entity);
+			if (itt == m_entityArchetypes.end()) return std::nullopt;
 
-		template <typename Component>
-		std::optional<std::pair<std::vector<Entity>&, std::vector<Component>&>> fastView() {
-			auto componentId = ComponentRegistry::GetComponentId<Component>();
-			if (!m_componentGroups[componentId] || m_componentGroups[componentId]->isEmpty()) {
-				return std::nullopt;
-			}
-
-			auto& group = static_cast<ComponentGroup<Component>&>(*m_componentGroups[componentId]);
-			return std::make_optional(std::pair<std::vector<Entity>&, std::vector<Component>&>(
-				group.getEntities(),
-				group.getComponents()
-			));
-		}
-    private:
-		template<typename T>
-		void addSingleComponent(Entity entity, T&& component) {
-			using Component = std::remove_cvref_t<T>;
-
-			const auto componentId = ComponentRegistry::GetComponentId<Component>();
-
-			if (!m_componentGroups[componentId]) {
-				m_componentGroups[componentId] = std::make_unique<ComponentGroup<Component>>();
-			}
-
-			m_entitySignatures[entity].set(componentId, true);
-
-			auto& group = static_cast<ComponentGroup<Component>&>(*m_componentGroups[componentId]);
-			group.addEntity(entity, std::forward<T>(component));
+			return itt->second->getComponent<Component>(entity);
 		}
 
 		template<typename Component>
-		void removeSingleComponent(Entity entity) {
-			auto componentId = ComponentRegistry::GetComponentId<Component>();
-			if (m_componentGroups[componentId]) {				
-				m_entitySignatures[entity].set(componentId, false);
-				auto& group = static_cast<ComponentGroup<Component>&>(*m_componentGroups[componentId]);
-				group.removeEntity(entity);
+		bool isComponentDirty(Entity entity) {
+			auto itt = m_entityArchetypes.find(entity);
+			if (itt == m_entityArchetypes.end()) return false;
+
+			return itt->second->isComponentDirty<Component>(entity);
+		}
+	private:
+		template<typename T>
+		void setBit(std::bitset<MAX_COMPONENTS>& bitset) const {
+			using Component = std::remove_cvref_t<T>;
+			const auto componentId = ComponentRegistry::GetComponentId<Component>();
+			bitset.set(componentId, true);
+
+		}
+		template<typename T>
+		void setComponentPair(T&& component, std::vector<std::pair<ComponentId, std::unique_ptr<void, ComponentDeleter>>>& componentsData) {
+			using Component = std::remove_cvref_t<T>;
+
+			const auto [cid, size, ops] = ComponentRegistry::GetComponentData<Component>();
+
+
+			void* componentPtr = operator new(size);
+			new (componentPtr) Component(std::forward<T>(component));
+			std::unique_ptr<void, ComponentDeleter> componentUniquePtr(componentPtr, ComponentDeleter{ cid });
+
+			componentsData.push_back({ cid, std::move(componentUniquePtr) });
+		}
+
+		ComponentArchetype* createOrGetArchetype(std::bitset<MAX_COMPONENTS>& bitset) {
+			auto it = m_componentArchetypes.find(bitset);
+			if (it == m_componentArchetypes.end()) {
+				return m_componentArchetypes.emplace(bitset, std::make_unique<ComponentArchetype>(bitset)).first->second.get();
 			}
+			return it->second.get();
 		}
 
 		std::atomic<Entity> m_nextEntityId;
-		tbb::concurrent_unordered_map<Entity, ComponentSignature> m_entitySignatures;
-		std::vector<std::unique_ptr<IComponentGroup>> m_componentGroups;
+		tbb::concurrent_unordered_map<Entity, ComponentArchetype*> m_entityArchetypes;
+		ankerl::unordered_dense::map<std::bitset<MAX_COMPONENTS>, std::unique_ptr<ComponentArchetype>> m_componentArchetypes;
 	};
 }

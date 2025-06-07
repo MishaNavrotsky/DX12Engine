@@ -22,15 +22,15 @@ namespace Engine::Render::Manager {
 			auto mainCameraEntity = 0;
 			for (auto& camera : cameras) {
 				auto com = m_scene->entityManager.getComponent<ECS::Component::ComponentCamera>(camera);
-				if (com.isMain) {
+				if (com && (*com).isMain) {
 					mainCameraEntity = camera;
 				}
 			}
 
 			if (!mainCameraEntity) return nullptr;
 
-			ECS::Component::ComponentTransform componentTransform = m_scene->entityManager.getComponent<ECS::Component::ComponentTransform>(mainCameraEntity);
-			ECS::Component::ComponentCamera componentCamera = m_scene->entityManager.getComponent<ECS::Component::ComponentCamera>(mainCameraEntity);
+			ECS::Component::ComponentTransform componentTransform = *m_scene->entityManager.getComponent<ECS::Component::ComponentTransform>(mainCameraEntity);
+			ECS::Component::ComponentCamera componentCamera = *m_scene->entityManager.getComponent<ECS::Component::ComponentCamera>(mainCameraEntity);
 
 			ECS::Class::ClassCamera camera(componentCamera, componentTransform);
 
