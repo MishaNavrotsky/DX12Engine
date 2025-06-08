@@ -40,7 +40,7 @@ namespace Engine {
 			componentCamera.isMain = true;
 
 			auto componentTransform = ECS::Component::ComponentTransform{};
-			componentTransform.position = { 10, 0, 0, 1 };
+			componentTransform.position = { 95, -10, 0, 1 };
 			componentTransform.scale = { 1, 1, 1, 1 };
 			componentTransform.rotation = { 1, 0, 0, 0 };
 
@@ -48,9 +48,9 @@ namespace Engine {
 
 			auto mesh = m_scene.entityManager.createEntity();
 			auto meshTransform = ECS::Component::ComponentTransform{};
-			meshTransform.position = { 1, 0, 0, 0 };
-			meshTransform.scale = { 1, 1, 1, 1 };
-			meshTransform.rotation = { 1, 0, 0, 0 };
+			meshTransform.position = { 98, -10, 0, 1 };
+			meshTransform.scale = { 1, 5, 1, 1 };
+			meshTransform.rotation = { 1, 23, 0, 0 };
 			auto meshMesh = ECS::Component::ComponentMesh{};
 			meshMesh.assetId = meshId;
 

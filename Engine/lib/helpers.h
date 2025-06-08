@@ -8,6 +8,10 @@
 
 
 namespace Engine::Helpers {
+	constexpr size_t KB = 1024;
+	constexpr size_t MB = 1024 * KB;
+	constexpr size_t GB = 1024 * MB;
+
 	template<size_t N>
 	inline std::vector<float> FlattenXMFLOAT3Array(const std::array<DX::XMFLOAT3, N>& arr) {
 		std::vector<float> flat;

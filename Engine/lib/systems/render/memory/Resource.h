@@ -121,7 +121,7 @@ namespace Engine::Render::Memory {
 			m_currentOffset = src->m_currentOffset;
 		}
 
-		uint64_t writeData(const void* data, uint64_t size, uint64_t alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT) {
+		uint64_t writeData(const void* data, size_t size, uint64_t alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT) {
 			if (m_heapType != D3D12_HEAP_TYPE_UPLOAD && m_heapType != D3D12_HEAP_TYPE_GPU_UPLOAD) {
 				throw std::runtime_error("WriteData is only valid on UPLOAD or READBACK heap types");
 			}
@@ -143,6 +143,25 @@ namespace Engine::Render::Memory {
 			m_currentOffset = alignedOffset + size;
 
 			return alignedOffset;
+		}
+
+		uint64_t writeDataD(const void* data, size_t offset, size_t size) {
+			if (m_heapType != D3D12_HEAP_TYPE_UPLOAD && m_heapType != D3D12_HEAP_TYPE_GPU_UPLOAD) {
+				throw std::runtime_error("WriteData is only valid on UPLOAD or READBACK heap types");
+			}
+			if (size > m_allocatedSize) {
+				throw std::runtime_error("Resource: Not enough space for WriteData.");
+			}
+
+			D3D12_RANGE readRange = { 0, 0 };
+			void* mappedData = nullptr;
+			ThrowIfFailed(m_resource->Map(0, &readRange, &mappedData));
+
+			std::memcpy(static_cast<uint8_t*>(mappedData) + offset, data, size);
+
+			m_resource->Unmap(0, nullptr);
+
+			return offset;
 		}
 
 		void readData(void* destination, uint64_t size, uint64_t offset = 0) {
@@ -279,10 +298,10 @@ namespace Engine::Render::Memory {
 
 		WPtr<ID3D12Resource> m_resource;
 
-		uint64_t m_allocatedSize = 0;
+		size_t m_allocatedSize = 0;
 		std::unique_ptr<D3D12_CLEAR_VALUE> m_clearValue;
 
-		uint64_t m_currentOffset = 0;
+		size_t m_currentOffset = 0;
 		D3D12_HEAP_TYPE m_heapType = D3D12_HEAP_TYPE_DEFAULT;
 		ResourceTypes m_resourceType = ResourceTypes::Commited;
 

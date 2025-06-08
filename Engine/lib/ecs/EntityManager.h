@@ -89,7 +89,7 @@ namespace Engine::ECS {
 		}
 
 		template<typename... Components>
-		std::vector<Entity> viewDirty(uint64_t sinceFrame) const {
+		std::vector<Entity> viewDirty(uint64_t sinceFrame = Global::CurrentFrame) const {
 			ComponentSignature signature;
 			(setBit<Components>(signature), ...);
 
@@ -99,7 +99,6 @@ namespace Engine::ECS {
 				if ((signature & bitset) != signature) continue;
 				auto dirtyEntitiesForArchetype = archetype->getDirtyEntitiesBySignature(signature, sinceFrame);
 				dirtyEntities.insert(dirtyEntities.end(), dirtyEntitiesForArchetype.begin(), dirtyEntitiesForArchetype.end());
-
 			}
 
 			return dirtyEntities;

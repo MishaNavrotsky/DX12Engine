@@ -25,7 +25,7 @@ namespace Engine::Render::Pipeline {
 	};
 	class GizmosPass {
 	public:
-		GizmosPass(WPtr<ID3D12Device> device, UINT width, UINT height) : m_device(device), m_width(width), m_height(height) {
+		GizmosPass(WPtr<ID3D12Device> device, UINT width, UINT height, Descriptor::BindlessHeapDescriptor* bindlessHeap) : m_device(device), m_width(width), m_height(height), m_bindlessHeap(bindlessHeap) {
 			PSOShaderCreate psoSC;
 			psoSC.PS = L"assets\\shaders\\gizmos.hlsl";
 			psoSC.VS = L"assets\\shaders\\gizmos.hlsl";
@@ -392,7 +392,7 @@ namespace Engine::Render::Pipeline {
 
 		WPtr<ID3D12GraphicsCommandList> m_commandList;
 		WPtr<ID3D12GraphicsCommandList> m_commandListBarrier;
-		Descriptor::BindlessHeapDescriptor& m_bindlessHeapDescriptor = Descriptor::BindlessHeapDescriptor::GetInstance();
+		Descriptor::BindlessHeapDescriptor* m_bindlessHeap;
 
 		CD3DX12_VIEWPORT m_viewport;
 		CD3DX12_RECT m_scissorRect;

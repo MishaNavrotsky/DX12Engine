@@ -16,34 +16,34 @@ namespace Engine::ECS::Class {
 			DX::XMFLOAT4 position;
 		};
 
-		ClassCamera(Component::ComponentCamera componentCamera, Component::ComponentTransform componentTransform) {
+		ClassCamera(Component::ComponentCamera& componentCamera, Component::ComponentTransform& componentTransform) {
 			update(componentCamera, componentTransform);
 		}
 
-		inline void update(Component::ComponentCamera componentCamera, Component::ComponentTransform componentTransform) {
+		inline void update(Component::ComponentCamera& componentCamera, Component::ComponentTransform& componentTransform) {
 			setComponentCamera(componentCamera);
 			setComponentTransform(componentTransform);
 			updateProjectionMatrix();
 			updateViewMatrix();
 		}
 
-		inline void setComponentCamera(Component::ComponentCamera componentCamera) {
+		inline void setComponentCamera(Component::ComponentCamera& componentCamera) {
 			m_fov = componentCamera.fov;
 			m_nearPlane = componentCamera.nearPlane;
 			m_farPlane = componentCamera.farPlane;
 			m_aspectRatio = componentCamera.aspectRatio;
 		}
 
-		inline void setComponentTransform(Component::ComponentTransform componentTransform) {
+		inline void setComponentTransform(Component::ComponentTransform& componentTransform) {
 			m_position = DX::XMLoadFloat4(&componentTransform.position);
 			m_rotationQat = DX::XMLoadFloat4(&componentTransform.rotation);
 		}
 
-		CameraData getCameraData() {
-			CameraData cameraData;
-			DX::XMStoreFloat4(&cameraData.position, m_position);
-			DX::XMStoreFloat4x4(&cameraData.viewMatrix, DX::XMMatrixTranspose(m_viewMatrix));
-			DX::XMStoreFloat4x4(&cameraData.viewReverseProjMatrix, DX::XMMatrixTranspose(m_viewMatrix * m_reverseProjectionMatrix));
+		std::unique_ptr<CameraData> getCameraData() {
+			std::unique_ptr<CameraData> cameraData = std::make_unique<CameraData>();
+			DX::XMStoreFloat4(&cameraData->position, m_position);
+			DX::XMStoreFloat4x4(&cameraData->viewMatrix, DX::XMMatrixTranspose(m_viewMatrix));
+			DX::XMStoreFloat4x4(&cameraData->viewReverseProjMatrix, DX::XMMatrixTranspose(m_viewMatrix * m_reverseProjectionMatrix));
 
 
 			return cameraData;

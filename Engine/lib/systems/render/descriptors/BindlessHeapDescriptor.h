@@ -6,6 +6,7 @@
 
 #include "../../../helpers.h"
 #include "../../../structures.h"
+#include "../memory/Resource.h"
 #include <numeric>
 
 
@@ -89,14 +90,9 @@ namespace Engine::Render::Descriptor {
 	public:
 		BindlessHeapDescriptor() {
 			std::iota(m_freeSrvSlots.rbegin(), m_freeSrvSlots.rend(), 0);
-			std::iota(m_freeCbvSlots.rbegin(), m_freeCbvSlots.rend(), N_SRV_DESCRIPTORS);
+			std::iota(m_freeCbvSlots.rbegin(), m_freeCbvSlots.rend(), N_CBV_DESCRIPTORS);
 
 			std::iota(m_freeSamplerSlots.rbegin(), m_freeSamplerSlots.rend(), 0);
-		}
-
-		static BindlessHeapDescriptor& GetInstance() {
-			static BindlessHeapDescriptor instance;
-			return instance;
 		}
 
 		uint32_t getCBVsOffset() {
@@ -104,8 +100,8 @@ namespace Engine::Render::Descriptor {
 			return N_SRV_DESCRIPTORS * srvDescriptorSize;
 		}
 
-		void initialize() {
-			m_device = Device::GetDevice();
+		void initialize(ID3D12Device* device) {
+			m_device = device;
 
 			D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
 			srvHeapDesc.NumDescriptors = N_SRV_DESCRIPTORS + N_CBV_DESCRIPTORS;
@@ -139,7 +135,7 @@ namespace Engine::Render::Descriptor {
 		}
 
 		uint32_t addTexture(WPtr<ID3D12Resource> texture) {
-			std::lock_guard lock(m_texture);
+			std::lock_guard lock(m_srv);
 
 			if (m_freeSrvSlots.empty()) {
 				throw std::runtime_error("No available SRV slots in descriptor heap.");
@@ -159,6 +155,23 @@ namespace Engine::Render::Descriptor {
 			srvHandle.ptr += static_cast<uint64_t>(slot) * m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 			m_device->CreateShaderResourceView(texture.Get(), &srvDesc, srvHandle);
+			return slot;
+		}
+
+		uint32_t addSrv(const Memory::Resource* resource, const D3D12_SHADER_RESOURCE_VIEW_DESC& desc) {
+			std::lock_guard lock(m_srv);
+
+			if (m_freeSrvSlots.empty()) {
+				throw std::runtime_error("No available SRV slots in descriptor heap.");
+			}
+
+			uint32_t slot = m_freeSrvSlots.back();
+			m_freeSrvSlots.pop_back();
+
+			D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = m_srvDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+			srvHandle.ptr += static_cast<uint64_t>(slot) * m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+			m_device->CreateShaderResourceView(resource->getResource(), &desc, srvHandle);
 			return slot;
 		}
 
@@ -187,7 +200,7 @@ namespace Engine::Render::Descriptor {
 			return slot;
 		}
 
-		uint32_t addCBV(WPtr<ID3D12Resource> constantBuffer, uint64_t size) {
+		uint32_t addCbv(WPtr<ID3D12Resource> constantBuffer, uint64_t size) {
 			std::lock_guard lock(m_cbv);
 
 			if (m_freeCbvSlots.empty()) {
@@ -206,11 +219,11 @@ namespace Engine::Render::Descriptor {
 
 			m_device->CreateConstantBufferView(&cbvDesc, cbvHandle);
 
-			return slot - N_SRV_DESCRIPTORS;
+			return slot - N_CBV_DESCRIPTORS;
 		}
 
-		void removeTexture(uint32_t slot) {
-			std::lock_guard lock(m_texture);
+		void removeSrv(uint32_t slot) {
+			std::lock_guard lock(m_srv);
 
 			if (slot < N_SRV_DESCRIPTORS) {
 				D3D12_SHADER_RESOURCE_VIEW_DESC nullDesc = {};
@@ -226,7 +239,7 @@ namespace Engine::Render::Descriptor {
 			}
 		}
 
-		void removeCBV(uint32_t slot) {
+		void removeCbv(uint32_t slot) {
 			std::lock_guard lock(m_cbv);
 
 			if (slot >= N_SRV_DESCRIPTORS && slot < (N_SRV_DESCRIPTORS + N_CBV_DESCRIPTORS)) {
@@ -320,11 +333,11 @@ namespace Engine::Render::Descriptor {
 		std::vector<uint32_t> m_freeSrvSlots = std::vector<uint32_t>(N_SRV_DESCRIPTORS);
 		std::vector<uint32_t> m_freeSamplerSlots = std::vector<uint32_t>(N_SAMPLERS);
 
-		std::unordered_map<D3D12_SAMPLER_DESC, uint32_t, SamplerHash, SamplerEqual> m_samplerMap;
+		ankerl::unordered_dense::map<D3D12_SAMPLER_DESC, uint32_t, SamplerHash, SamplerEqual> m_samplerMap;
 
 		std::mutex m_cbv;
 		std::mutex m_sampler;
-		std::mutex m_texture;
+		std::mutex m_srv;
 
 		Helpers::DefaultPBRTextures m_defaultPBRTextures;
 

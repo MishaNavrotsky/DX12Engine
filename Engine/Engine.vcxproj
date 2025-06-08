@@ -167,6 +167,7 @@
     <ClInclude Include="lib\geometry\CylinderGeometry.h" />
     <ClInclude Include="lib\geometry\PlaneGeometry.h" />
     <ClInclude Include="lib\geometry\SphereGeometry.h" />
+    <ClInclude Include="lib\systems\render\managers\GlobalsManager.h" />
     <ClInclude Include="lib\systems\render\managers\RenderableManager.h" />
     <ClInclude Include="lib\systems\render\managers\RenderableManagerStructures.h" />
     <ClInclude Include="lib\systems\render\managers\ResourceManager.h" />

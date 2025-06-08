@@ -28,7 +28,7 @@ namespace Engine::Render::Pipeline {
 			}
 		};
 	public:
-		GBufferPass(WPtr<ID3D12Device> device, UINT width, UINT height) : m_device(device), m_width(width), m_height(height) {
+		GBufferPass(WPtr<ID3D12Device> device, UINT width, UINT height, Descriptor::BindlessHeapDescriptor* bindlessHeap) : m_device(device), m_width(width), m_height(height), m_bindlessHeap(bindlessHeap) {
 			PSOShaderCreate psoSC;
 			psoSC.PS = L"assets\\shaders\\gbuffers.hlsl";
 			psoSC.VS = L"assets\\shaders\\gbuffers.hlsl";
@@ -55,7 +55,7 @@ namespace Engine::Render::Pipeline {
 			m_scissorRect = CD3DX12_RECT(0, 0, static_cast<LONG>(width), static_cast<LONG>(height));
 		}
 
-		std::array<ID3D12CommandList*, 2> renderGBuffers(Scene::Scene* scene, Memory::Resource* cameraBuffer) {
+		std::array<ID3D12CommandList*, 2> renderGBuffers(Scene::Scene* scene, Memory::Resource* cameraBuffer, Memory::Resource* transformationMatricesBuffer) {
 			ThrowIfFailed(m_commandAllocator->Reset());
 			ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), nullptr));
 			{
@@ -71,10 +71,10 @@ namespace Engine::Render::Pipeline {
 			m_commandList->SetGraphicsRootSignature(getRootSignature());
 			m_commandList->SetGraphicsRootConstantBufferView(0, cameraBuffer->getGpuVirtualAddress());
 
-			ID3D12DescriptorHeap* heaps[] = { m_bindlessHeapDescriptor.getSrvDescriptorHeap(), m_bindlessHeapDescriptor.getSamplerDescriptorHeap() };
+			ID3D12DescriptorHeap* heaps[] = { m_bindlessHeap->getSrvDescriptorHeap(), m_bindlessHeap->getSamplerDescriptorHeap() };
 			m_commandList->SetDescriptorHeaps(_countof(heaps), heaps);
-			m_commandList->SetGraphicsRootDescriptorTable(2, m_bindlessHeapDescriptor.getSrvDescriptorHeap()->GetGPUDescriptorHandleForHeapStart());
-			m_commandList->SetGraphicsRootDescriptorTable(3, m_bindlessHeapDescriptor.getSamplerDescriptorHeap()->GetGPUDescriptorHandleForHeapStart());
+			m_commandList->SetGraphicsRootDescriptorTable(2, m_bindlessHeap->getSrvDescriptorHeap()->GetGPUDescriptorHandleForHeapStart());
+			m_commandList->SetGraphicsRootDescriptorTable(3, m_bindlessHeap->getSamplerDescriptorHeap()->GetGPUDescriptorHandleForHeapStart());
 
 			m_commandList->RSSetViewports(1, &m_viewport);
 			m_commandList->RSSetScissorRects(1, &m_scissorRect);
@@ -332,7 +332,7 @@ namespace Engine::Render::Pipeline {
 			return pso;
 		}
 		void createRootSignature() {
-			D3D12_DESCRIPTOR_RANGE descriptorRanges[3] = {};
+			D3D12_DESCRIPTOR_RANGE descriptorRanges[4] = {};
 
 			descriptorRanges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 			descriptorRanges[0].NumDescriptors = Descriptor::N_SRV_DESCRIPTORS;
@@ -340,19 +340,24 @@ namespace Engine::Render::Pipeline {
 			descriptorRanges[0].RegisterSpace = 0;
 			descriptorRanges[0].OffsetInDescriptorsFromTableStart = 0;
 
-			descriptorRanges[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-			descriptorRanges[1].NumDescriptors = Descriptor::N_CBV_DESCRIPTORS;
-			descriptorRanges[1].BaseShaderRegister = 2; // b2 (b0 and b1 are non-bindless)
-			descriptorRanges[1].RegisterSpace = 0;
-			descriptorRanges[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+			// SRV range for bindless StructuredBuffer[] (space1)
+			descriptorRanges[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+			descriptorRanges[1].NumDescriptors = Descriptor::N_SRV_DESCRIPTORS;
+			descriptorRanges[1].BaseShaderRegister = 0; // t0
+			descriptorRanges[1].RegisterSpace = 1;
+			descriptorRanges[1].OffsetInDescriptorsFromTableStart = 0;
 
-			descriptorRanges[2].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
-			descriptorRanges[2].NumDescriptors = Descriptor::N_SAMPLERS;
-			descriptorRanges[2].BaseShaderRegister = 0; // s0
+			descriptorRanges[2].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+			descriptorRanges[2].NumDescriptors = Descriptor::N_CBV_DESCRIPTORS;
+			descriptorRanges[2].BaseShaderRegister = 2; // b2 (b0 and b1 are non-bindless)
 			descriptorRanges[2].RegisterSpace = 0;
-			descriptorRanges[2].OffsetInDescriptorsFromTableStart = 0;
+			descriptorRanges[2].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-
+			descriptorRanges[3].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
+			descriptorRanges[3].NumDescriptors = Descriptor::N_SAMPLERS;
+			descriptorRanges[3].BaseShaderRegister = 0; // s0
+			descriptorRanges[3].RegisterSpace = 0;
+			descriptorRanges[3].OffsetInDescriptorsFromTableStart = 0;
 
 
 			D3D12_ROOT_PARAMETER rootParameters[4] = {};
@@ -378,7 +383,7 @@ namespace Engine::Render::Pipeline {
 			// Separate Descriptor Table for Dynamic Samplers
 			rootParameters[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 			rootParameters[3].DescriptorTable.NumDescriptorRanges = 1;
-			rootParameters[3].DescriptorTable.pDescriptorRanges = &descriptorRanges[2]; // Sampler range
+			rootParameters[3].DescriptorTable.pDescriptorRanges = &descriptorRanges[3]; // Sampler range
 			rootParameters[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
 
@@ -435,7 +440,7 @@ namespace Engine::Render::Pipeline {
 
 		WPtr<ID3D12GraphicsCommandList> m_commandList;
 		WPtr<ID3D12GraphicsCommandList> m_commandListBarrier;
-		Descriptor::BindlessHeapDescriptor& m_bindlessHeapDescriptor = Descriptor::BindlessHeapDescriptor::GetInstance();
+		Descriptor::BindlessHeapDescriptor* m_bindlessHeap;
 
 		CD3DX12_VIEWPORT m_viewport;
 		CD3DX12_RECT m_scissorRect;

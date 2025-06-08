@@ -5,6 +5,7 @@
 #include "Keyboard.h"
 #include "Mouse.h"
 
+#include "../../global.h"
 #include "Device.h"
 #include "descriptors/BindlessHeapDescriptor.h"
 #include "memory/Resource.h"
@@ -20,6 +21,8 @@
 #include "../../ecs/classes/ClassCamera.h"
 #include "managers/CameraManager.h"
 #include "managers/TransformMatrixManager.h"
+#include "managers/GlobalsManager.h"
+
 
 
 namespace Engine::System {
@@ -41,8 +44,9 @@ namespace Engine::System {
 			m_cameraManager.initialize(m_scene);
 			m_directCommandQueue.initialize(m_device);
 			m_computeCommandQueue.initialize(m_device);
-
-			Render::Descriptor::BindlessHeapDescriptor::GetInstance().initialize();
+			m_bindlessHeap.initialize(m_device);
+			m_transfromMatrixManager.initialize(m_scene, &m_bindlessHeap);
+			m_globalsManager.initialize(m_scene);
 
 			createCommandLists();
 			createFence();
@@ -50,11 +54,23 @@ namespace Engine::System {
 			createSwapChain(factory.Get(), hwnd);
 		}
 		void update(float dt) {
-			auto commandList = populateCommandLists(m_cameraManager.update());
+			auto transform = m_transfromMatrixManager.update();
+			Render::Manager::GlobalsManager::Globals globals{};
+			globals.screenX = m_width;
+			globals.screenY = m_height;
+			globals.transformsIndex = transform.second;
+
+			auto* cameraResource = m_cameraManager.update();
+			auto* transformResource = transform.first;
+			auto* globalsResource = m_globalsManager.update(globals);
+
+			auto commandList = populateCommandLists(cameraResource, transformResource, globalsResource);
 
 			m_directCommandQueue.getQueue()->ExecuteCommandLists(2, commandList.d_gbuffer.data());
 			waitForCommandQueueExecute();
 			ThrowIfFailed(m_swapChain->Present(0, 0));
+
+			Global::CurrentFrame += 1;
 		}
 		void shutdown() override {
 			waitForCommandQueueExecute();
@@ -70,7 +86,8 @@ namespace Engine::System {
 		inline static const UINT FrameCount = 2;
 		Scene::Scene* m_scene;
 		Render::Manager::CameraManager m_cameraManager;
-
+		Render::Manager::TransformMatrixManager m_transfromMatrixManager;
+		Render::Manager::GlobalsManager m_globalsManager;
 		// Pipeline objects.
 		WPtr<IDXGISwapChain3> m_swapChain;
 		ID3D12Device* m_device;
@@ -84,6 +101,7 @@ namespace Engine::System {
 		WPtr<ID3D12Fence> m_fence;
 		uint64_t m_fenceValue = 0;
 
+		Render::Descriptor::BindlessHeapDescriptor m_bindlessHeap;
 
 		std::unique_ptr<Render::Pipeline::GBufferPass> m_gbufferPass;
 		std::unique_ptr<Render::Pipeline::LightingPass> m_lightingPass;
@@ -95,9 +113,9 @@ namespace Engine::System {
 		Render::Queue::DirectQueue m_directCommandQueue;
 
 
-		CommandLists populateCommandLists(Render::Memory::Resource* cameraResource) {
+		CommandLists populateCommandLists(Render::Memory::Resource* cameraResource, Render::Memory::Resource* transformResource, Render::Memory::Resource* globalsResource) {
 			CommandLists cmd{};
-			cmd.d_gbuffer = m_gbufferPass->renderGBuffers(m_scene, cameraResource);
+			cmd.d_gbuffer = m_gbufferPass->renderGBuffers(m_scene, cameraResource, transformResource);
 
 			return cmd;
 		}
@@ -135,9 +153,9 @@ namespace Engine::System {
 		void createPasses(HWND hwnd) {
 			using namespace Render::Pipeline;
 
-			m_gbufferPass = std::unique_ptr<GBufferPass>(new GBufferPass(m_device, m_width, m_height));
+			m_gbufferPass = std::unique_ptr<GBufferPass>(new GBufferPass(m_device, m_width, m_height, &m_bindlessHeap));
 			m_lightingPass = std::unique_ptr<LightingPass>(new LightingPass(m_device, m_width, m_height));
-			m_gizmosPass = std::unique_ptr<GizmosPass>(new GizmosPass(m_device, m_width, m_height));
+			m_gizmosPass = std::unique_ptr<GizmosPass>(new GizmosPass(m_device, m_width, m_height, &m_bindlessHeap));
 			m_compositionPass = std::unique_ptr<CompositionPass>(new CompositionPass(m_device, m_width, m_height));
 			m_uiPass = std::unique_ptr<UIPass>(new UIPass(hwnd, m_device, m_directCommandQueue.getQueue(), FrameCount, m_width, m_height));
 		}

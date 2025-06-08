@@ -11,6 +11,12 @@ struct PSInput
     //float3 ndcPrevPosition : TEXCOORD5;
 };
 
+struct TransformBuffer
+{
+    float4x4 modelMatrix;
+    float4 position;
+};
+
 struct CPUMaterialCBVData
 {
     float4 emissiveFactor; // RGBA emissive intensity
@@ -34,29 +40,37 @@ struct VertexShaderInput
     float4 tangent : TANGENT;
 };
 
-cbuffer cb0 : register(b0)
+cbuffer camera : register(b0)
 {
     float4x4 viewMatrix;
     float4x4 viewReverseProjMatrix;
 
     float4 position;
-    //uint4 screenDimensions;
 };
-
-cbuffer cb1 : register(b1)
+cbuffer globals : register(b1)
+{    
+    uint transformsIndex;
+};
+cbuffer mesh : register(b2)
 {
-    float4x4 modelMatrix;
-    float4x4 prevModelMatrix;
-    float4x4 MVrP;
+    uint transformIndex;
+    uint materialIndex;
+}
+ConstantBuffer<CPUMaterialCBVData> g_cbvs[] : register(b3, space0);
 
-    
-    uint4 cbvDataBindlessHeapSlot;
-};
+Texture2D<float4> g_textures[] : register(t0, space0);
+StructuredBuffer<TransformBuffer> g_buffers[] : register(t0, space1);
+
+SamplerState g_samplers[] : register(s0, space0);
 
 PSInput VSMain(VertexShaderInput input)
 {
     PSInput result;
-    result.position = mul(float4(input.position, 1.0), modelMatrix * viewReverseProjMatrix);
+    TransformBuffer t = g_buffers[transformsIndex][transformIndex];
+
+    float4 position = t.position;
+    float4x4 modelMatrix = t.modelMatrix;
+    result.position = mul(float4(input.position, 1.0), modelMatrix * viewReverseProjMatrix) + position;
     result.texcoords = input.texcoords;
     result.worldPosition = mul(float4(input.position, 1.0), modelMatrix);
     result.worldTangent = mul(input.tangent.xyz, (float3x3) modelMatrix);
@@ -85,16 +99,10 @@ struct PSOutput
     uint materialID : SV_Target6;
 };
 
-ConstantBuffer<CPUMaterialCBVData> g_cbvs[] : register(b2, space0);
-Texture2D<float4> g_textures[] : register(t0, space0);
-SamplerState g_samplers[] : register(s0, space0);
-
-
 PSOutput PSMain(PSInput input)
 {
     PSOutput output;
-
-    ConstantBuffer<CPUMaterialCBVData> cbvMat = g_cbvs[cbvDataBindlessHeapSlot.x];
+    CPUMaterialCBVData cbvMat = g_cbvs[materialIndex];
     Texture2D<float4> diffuseTex = g_textures[cbvMat.diffuseEmissiveNormalOcclusionTexSlots.x];
     Texture2D<float4> emissiveTex = g_textures[cbvMat.diffuseEmissiveNormalOcclusionTexSlots.y];
     Texture2D<float4> normalTex = g_textures[cbvMat.diffuseEmissiveNormalOcclusionTexSlots.z];
@@ -132,7 +140,7 @@ PSOutput PSMain(PSInput input)
     output.worldPosition = float4(input.worldPosition.xyz, 0.0);
     output.roughnessMetalAo = float4(rm, occlusion, 0.0);
     output.emissive = float4(emissive.x, emissive.y, emissive.z, 0.0);
-    output.materialID = cbvDataBindlessHeapSlot.x;
+    output.materialID = materialIndex;
     
     //float2 motionNDC = input.ndcPosition.xy - input.ndcPrevPosition.xy;
     //float motionZ = input.ndcPosition.z - input.ndcPrevPosition.z;
