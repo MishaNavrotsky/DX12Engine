@@ -9,7 +9,7 @@
 namespace Engine::Render::Pipeline {
 	class LightingPass {
 	public:
-		LightingPass(WPtr<ID3D12Device> device, UINT width, UINT height) : m_device(device), m_width(width), m_height(height) {
+		LightingPass(ID3D12Device* device, UINT width, UINT height) : m_device(device), m_width(width), m_height(height) {
 			PSOShaderCreate psoSC;
 			psoSC.CS = L"assets\\shaders\\lighting.hlsl";;
 			psoSC.CSEntry = L"main";
@@ -24,18 +24,19 @@ namespace Engine::Render::Pipeline {
 			createRWTex();
 		}
 
-		std::array<ID3D12CommandList*, 1> computeLighting(GBufferPass* gbufferPass) {
+		std::array<ID3D12CommandList*, 1> computeLighting(GBufferPass* gbufferPass, Memory::Resource* cameraBuffer, Memory::Resource* globalsBuffer) {
 			createDescriptorHeap(gbufferPass->getRtvResources());
 
 			ThrowIfFailed(m_commandAllocator->Reset());
 			ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), m_pso.Get()));
 			m_commandList->SetPipelineState(m_pso.Get());
 			m_commandList->SetComputeRootSignature(m_rootSignature.Get());
-			//m_commandList->SetComputeRootConstantBufferView(0, camera->getResource()->GetGPUVirtualAddress());
+			m_commandList->SetComputeRootConstantBufferView(0, cameraBuffer->getGpuVirtualAddress());
+			m_commandList->SetComputeRootConstantBufferView(1, globalsBuffer->getGpuVirtualAddress());
 
 			ID3D12DescriptorHeap* descriptorHeaps[] = { m_descriptorHeap.Get()};
 			m_commandList->SetDescriptorHeaps(1, descriptorHeaps);
-			m_commandList->SetComputeRootDescriptorTable(1, m_descriptorHeap.Get()->GetGPUDescriptorHandleForHeapStart());
+			m_commandList->SetComputeRootDescriptorTable(2, m_descriptorHeap.Get()->GetGPUDescriptorHandleForHeapStart());
 
 			UINT dispatchX = (m_width + 15) / 16;
 			UINT dispatchY = (m_height + 15) / 16;
@@ -108,7 +109,7 @@ namespace Engine::Render::Pipeline {
 			CD3DX12_CPU_DESCRIPTOR_HANDLE uavHandle(m_descriptorHeap->GetCPUDescriptorHandleForHeapStart(), 7, descriptorSize);
 			m_device->CreateUnorderedAccessView(m_rwTexture->getResource(), nullptr, &uavDesc, uavHandle);
 		}
-		WPtr<ID3D12Device> m_device;
+		ID3D12Device* m_device;
 		WPtr<ID3D12PipelineState> m_pso;
 		WPtr<ID3D12RootSignature> m_rootSignature;
 		WPtr<ID3D12GraphicsCommandList> m_commandList;

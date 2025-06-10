@@ -32,7 +32,7 @@ namespace Engine::Render::Pipeline {
 			}
 		};
 	public:
-		GBufferPass(WPtr<ID3D12Device> device, UINT width, UINT height,
+		GBufferPass(ID3D12Device* device, UINT width, UINT height,
 			Descriptor::BindlessHeapDescriptor* bindlessHeap, Scene::Scene* scene, Manager::CameraManager* cameraManager, Manager::TransformMatrixManager* transfromMatrixManager
 		) : m_device(device), m_width(width), m_height(height), m_bindlessHeap(bindlessHeap), m_scene(scene), m_cameraManager(cameraManager), m_transfromMatrixManager(transfromMatrixManager) {
 			PSOShaderCreate psoSC;
@@ -472,7 +472,7 @@ namespace Engine::Render::Pipeline {
 
 		std::unordered_map<EnumKey, WPtr<ID3D12PipelineState>, EnumKeyHash> m_psos;
 		WPtr<ID3D12DescriptorHeap> m_rtvHeap;
-		WPtr<ID3D12Device> m_device;
+		ID3D12Device* m_device;
 		WPtr<ID3D12RootSignature> m_rootSignature;
 		D3D12_INPUT_ELEMENT_DESC m_inputElementDescs[4] =
 		{

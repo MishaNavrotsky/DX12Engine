@@ -58,7 +58,7 @@ namespace Engine::Render::Memory {
 			return std::unique_ptr<Resource>(resource);
 		}
 
-		static Resource CreateV(D3D12_HEAP_TYPE type, UINT size, D3D12_RESOURCE_STATES state, const D3D12_CLEAR_VALUE* clearValue = nullptr, D3D12_HEAP_FLAGS flag = D3D12_HEAP_FLAG_NONE) {
+		static Resource CreateV(D3D12_HEAP_TYPE type, UINT size, D3D12_RESOURCE_STATES state = D3D12_RESOURCE_STATE_COMMON, const D3D12_CLEAR_VALUE* clearValue = nullptr, D3D12_HEAP_FLAGS flag = D3D12_HEAP_FLAG_NONE) {
 			D3D12_HEAP_PROPERTIES props = CD3DX12_HEAP_PROPERTIES(type);
 			D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer(size);
 			Resource resource;

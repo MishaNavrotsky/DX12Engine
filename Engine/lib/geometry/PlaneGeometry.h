@@ -65,28 +65,28 @@ namespace Engine::Geometry {
 		DX::XMFLOAT4 planeData;
 		XMStoreFloat4(&planeData, plane);
 
-		DX::XMVECTOR normal = XMVectorSet(planeData.x, planeData.y, planeData.z, 0.0f);
+		DX::XMVECTOR normal = DX::XMVectorSet(planeData.x, planeData.y, planeData.z, 0.0f);
 		float d = planeData.w;
 
 		// Find a reference point on the plane
-		DX::XMVECTOR center = XMVectorScale(normal, -d);
+		DX::XMVECTOR center = DX::XMVectorScale(normal, -d);
 
 		// Generate two perpendicular vectors to form the quad basis
-		DX::XMVECTOR right = XMVector3Normalize(XMVectorSet(planeData.y, -planeData.x, 0.0f, 0.0f));
-		DX::XMVECTOR up = XMVector3Normalize(XMVector3Cross(normal, right));
+		DX::XMVECTOR right = DX::XMVector3Normalize(DX::XMVectorSet(planeData.y, -planeData.x, 0.0f, 0.0f));
+		DX::XMVECTOR up = DX::XMVector3Normalize(DX::XMVector3Cross(normal, right));
 
 		// Define quad corners
-		DX::XMVECTOR p1 = XMVectorAdd(center, XMVectorScale(right, 5.0f));
-		DX::XMVECTOR p2 = XMVectorAdd(center, XMVectorScale(up, 5.0f));
-		DX::XMVECTOR p3 = XMVectorSubtract(center, XMVectorScale(right, 5.0f));
-		DX::XMVECTOR p4 = XMVectorSubtract(center, XMVectorScale(up, 5.0f));
+		DX::XMVECTOR p1 = DX::XMVectorAdd(center, DX::XMVectorScale(right, 5.0f));
+		DX::XMVECTOR p2 = DX::XMVectorAdd(center, DX::XMVectorScale(up, 5.0f));
+		DX::XMVECTOR p3 = DX::XMVectorSubtract(center, DX::XMVectorScale(right, 5.0f));
+		DX::XMVECTOR p4 = DX::XMVectorSubtract(center, DX::XMVectorScale(up, 5.0f));
 
 		// Store result
 		std::array<DX::XMFLOAT3, 4> quad;
-		XMStoreFloat3(&quad[0], p1);
-		XMStoreFloat3(&quad[1], p2);
-		XMStoreFloat3(&quad[2], p3);
-		XMStoreFloat3(&quad[3], p4);
+		DX::XMStoreFloat3(&quad[0], p1);
+		DX::XMStoreFloat3(&quad[1], p2);
+		DX::XMStoreFloat3(&quad[2], p3);
+		DX::XMStoreFloat3(&quad[3], p4);
 
 		return quad;
 	}

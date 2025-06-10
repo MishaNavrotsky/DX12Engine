@@ -4,13 +4,15 @@
 
 #include "PSOShader.h"
 #include "GBufferPass.h"
+#include "../../../helpers.h"
+#include "../../../geometry/PlaneGeometry.h"
 #include "../memory/Resource.h"
 
 namespace Engine::Render::Pipeline {
 
 	class CompositionPass {
 	public:
-		CompositionPass(WPtr<ID3D12Device> device, UINT width, UINT height) : m_device(device), m_width(width), m_height(height) {
+		CompositionPass(ID3D12Device* device, ID3D12CommandQueue* directCommandQueue, UINT width, UINT height) : m_device(device), m_width(width), m_height(height) {
 			PSOShaderCreate psoSC;
 			psoSC.PS = L"assets\\shaders\\composition.hlsl";
 			psoSC.VS = L"assets\\shaders\\composition.hlsl";
@@ -20,7 +22,6 @@ namespace Engine::Render::Pipeline {
 
 			createRtvResource();
 			createRtvsDescriptorHeap();
-			createFullScreenQuad();
 			createRootSignature();
 			createPso();
 			createSrvDescriptorHeap();
@@ -34,10 +35,11 @@ namespace Engine::Render::Pipeline {
 			ThrowIfFailed(m_commandList->Close());
 			ThrowIfFailed(m_commandListBarrier->Close());
 
+			createFullScreenQuad(directCommandQueue);
 			m_viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, static_cast<float>(m_width), static_cast<float>(height));
 			m_scissorRect = CD3DX12_RECT(0, 0, static_cast<LONG>(m_width), static_cast<LONG>(height));
 		}
-		std::array<ID3D12CommandList*, 2> renderComposition(Memory::Resource* lightningPassTexture, Memory::Resource* gizmosPassTexture, Memory::Resource* uiPassTexture) {
+		std::array<ID3D12CommandList*, 2> renderComposition(Memory::Resource* lightningPassTexture, Memory::Resource* gizmosPassTexture, Memory::Resource* uiPassTexture, Memory::Resource* globalsBuffer) {
 			ThrowIfFailed(m_commandAllocator->Reset());
 			ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), nullptr));
 			{
@@ -48,12 +50,12 @@ namespace Engine::Render::Pipeline {
 				m_commandList->ResourceBarrier(1, &barrierBack);
 			}
 			m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
-			//m_commandList->SetGraphicsRootConstantBufferView(1, camera->getResource()->GetGPUVirtualAddress());
+			m_commandList->SetGraphicsRootConstantBufferView(0, globalsBuffer->getGpuVirtualAddress());
 
 			populateSrvDescriptorHeap(lightningPassTexture->getResource(), gizmosPassTexture->getResource(), uiPassTexture->getResource());
 			ID3D12DescriptorHeap* heaps[] = { m_srvDescriptorHeap.Get()};
 			m_commandList->SetDescriptorHeaps(_countof(heaps), heaps);
-			m_commandList->SetGraphicsRootDescriptorTable(0, m_srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+			m_commandList->SetGraphicsRootDescriptorTable(1, m_srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 
 			m_commandList->RSSetViewports(1, &m_viewport);
 			m_commandList->RSSetScissorRects(1, &m_scissorRect);
@@ -63,11 +65,9 @@ namespace Engine::Render::Pipeline {
 			m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 			m_commandList->SetPipelineState(m_pso.Get());
 
-
-			//m_scene->draw(m_commandList.Get(), camera, false, [&](CPUMesh& mesh, CPUMaterial& material, SceneNode* node) {
-			//	return false;
-			//	});
-
+			m_commandList->IASetVertexBuffers(0, 1, &m_vert);
+			m_commandList->IASetIndexBuffer(&m_ind);
+			m_commandList->DrawIndexedInstanced(m_indCount, 1, 0, 0, 0);
 
 			ThrowIfFailed(m_commandList->Close());
 
@@ -133,28 +133,69 @@ namespace Engine::Render::Pipeline {
 
 			m_rtvResource->getResource()->SetName(L"Overlay Texture");
 		}
-		void createFullScreenQuad() {
-			//static auto& cpuMaterialManager = CPUMaterialManager::GetInstance();
-			//static auto& cpuMeshManager = CPUMeshManager::GetInstance();
-			//static auto& modelLoader = Engine::ModelLoader::GetInstance();
-			//static auto& uploadQueue = Engine::GPUUploadQueue::GetInstance();
+		void createFullScreenQuad(ID3D12CommandQueue* directCommandQueue) {
+			auto fullscreenQuad = Geometry::GeneratePlane(2.0f, 2.0f, 1, 1);
+			auto vertecies = Helpers::FlattenXMFLOAT3Vector(fullscreenQuad.vertices);
+			auto& indices = fullscreenQuad.indices;
+
+			size_t verticesSize = vertecies.size() * sizeof(vertecies.front());
+			size_t indicesSize = indices.size() * sizeof(indices.front());
+			size_t geometrySize = verticesSize + indicesSize;
+			auto bufferUpload = Render::Memory::Resource::CreateV(D3D12_HEAP_TYPE_UPLOAD, static_cast<uint32_t>(geometrySize), D3D12_RESOURCE_STATE_COPY_SOURCE);
+			m_bufferVertDefault = Render::Memory::Resource::Create(D3D12_HEAP_TYPE_DEFAULT, static_cast<uint32_t>(verticesSize));
+			m_bufferIndDefault = Render::Memory::Resource::Create(D3D12_HEAP_TYPE_DEFAULT, static_cast<uint32_t>(indicesSize));
+
+			bufferUpload.writeDataD(vertecies.data(), 0, verticesSize);
+			bufferUpload.writeDataD(indices.data(), verticesSize, indicesSize);
+
+			WPtr<ID3D12Fence> fence;
+			UINT64 fenceValue = 1;
+
+			ThrowIfFailed(m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence)));
+			HANDLE fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+			if (!fenceEvent) {
+				ThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
+			}
+
+			ThrowIfFailed(m_commandAllocator->Reset());
+			ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), nullptr));
+
+			m_bufferVertDefault->copyData(m_commandList.Get(), &bufferUpload, 0, verticesSize);
+			m_bufferIndDefault->copyData(m_commandList.Get(), &bufferUpload, verticesSize, indicesSize);
 
 
-			//std::vector<GUID> meshGUIDs;
+			{
+				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+					m_bufferVertDefault->getResource(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+				m_commandList->ResourceBarrier(1, &barrier);
+			}
+			{
 
-			//auto fullscreenQuad = Engine::Geometry::GeneratePlane(2.0f, 2.0f, 1, 1);
-			//auto cpuMesh = std::make_unique<CPUMesh>();
-			//cpuMesh->setVertices(Helpers::FlattenXMFLOAT3Vector(fullscreenQuad.vertices));
-			//cpuMesh->setIndices(std::move(fullscreenQuad.indices));
-			//cpuMesh->topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-			//cpuMesh->topologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-			//cpuMesh->setCPUMaterialId(GUID_NULL);
-			//meshGUIDs.push_back(cpuMeshManager.add(std::move(cpuMesh)));
-			//auto modelSceneNode = ModelSceneNode::CreateFromGeometry(meshGUIDs);
-			//modelLoader.waitForQueueEmpty();
-			//uploadQueue.execute();
-			//modelSceneNode->waitUntilLoadComplete();
-			//m_scene->addNode(std::move(modelSceneNode));
+				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+					m_bufferIndDefault->getResource(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_INDEX_BUFFER);
+				m_commandList->ResourceBarrier(1, &barrier);
+			}
+			m_commandList->Close();
+
+			ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
+			directCommandQueue->ExecuteCommandLists(1, ppCommandLists);
+			ThrowIfFailed(directCommandQueue->Signal(fence.Get(), fenceValue));
+
+			if (fence->GetCompletedValue() < fenceValue) {
+				ThrowIfFailed(fence->SetEventOnCompletion(fenceValue, fenceEvent));
+				WaitForSingleObject(fenceEvent, INFINITE);
+			}
+			CloseHandle(fenceEvent);
+
+			m_vert.BufferLocation = m_bufferVertDefault->getGpuVirtualAddress();
+			m_vert.SizeInBytes = static_cast<uint32_t>(verticesSize);
+			m_vert.StrideInBytes = sizeof(vertecies.front()) * 3;
+
+			m_ind.BufferLocation = m_bufferIndDefault->getGpuVirtualAddress();
+			m_ind.SizeInBytes = static_cast<uint32_t>(indicesSize);
+			m_ind.Format = DXGI_FORMAT_R32_UINT;
+
+			m_indCount = static_cast<uint32_t>(indices.size());
 		}
 		void createPso() {
 			CD3DX12_DEPTH_STENCIL_DESC depthStencilDesc = {};
@@ -190,8 +231,8 @@ namespace Engine::Render::Pipeline {
 			CD3DX12_DESCRIPTOR_RANGE range;
 			range.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 0); // 3 SRVs starting at t0
 
-			rootParameters[0].InitAsDescriptorTable(1, &range, D3D12_SHADER_VISIBILITY_PIXEL);
-			rootParameters[1].InitAsConstantBufferView(0, 0);  // Camera buffer (CBV at slot 0)
+			rootParameters[0].InitAsConstantBufferView(0, 0);  // Globals buffer (CBV at slot 0)
+			rootParameters[1].InitAsDescriptorTable(1, &range, D3D12_SHADER_VISIBILITY_PIXEL);
 
 
 			CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc;
@@ -228,8 +269,12 @@ namespace Engine::Render::Pipeline {
 		}
 		WPtr<ID3D12RootSignature> m_rootSignature;
 		WPtr<ID3D12PipelineState> m_pso;
+		std::unique_ptr<Memory::Resource> m_bufferVertDefault, m_bufferIndDefault;
+		D3D12_VERTEX_BUFFER_VIEW m_vert;
+		D3D12_INDEX_BUFFER_VIEW m_ind;
+		uint32_t m_indCount;
 
-		WPtr<ID3D12Device> m_device;
+		ID3D12Device* m_device;
 		UINT m_width;
 		UINT m_height;
 
@@ -237,12 +282,9 @@ namespace Engine::Render::Pipeline {
 
 		WPtr<ID3D12CommandAllocator> m_commandAllocator, m_commandAllocatorBarrier;
 		WPtr<ID3D12GraphicsCommandList> m_commandList, m_commandListBarrier;
-		D3D12_INPUT_ELEMENT_DESC m_inputElementDescs[4] =
+		D3D12_INPUT_ELEMENT_DESC m_inputElementDescs[1] =
 		{
 			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-			{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 1, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 2, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-			{ "TANGENT", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 3, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		};
 
 		CD3DX12_VIEWPORT m_viewport;

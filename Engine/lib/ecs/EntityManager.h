@@ -20,12 +20,15 @@ namespace Engine::ECS {
 		}
 
 		Entity createEntity() {
+			std::lock_guard lock(m_mutex);
 			Entity entity = m_nextEntityId.fetch_add(1);
 			m_entityArchetypes.emplace(entity, nullptr); // Initialize with empty signature
 			return entity;
 		}
 
 		void destroyEntity(Entity entity) {
+			std::lock_guard lock(m_mutex);
+
 			auto it = m_entityArchetypes.find(entity);
 			if (it == m_entityArchetypes.end()) return;
 			auto* archetype = it->second;
@@ -36,6 +39,8 @@ namespace Engine::ECS {
 
 		template<typename... Components>
 		void addComponent(Entity entity, Components&&... components) {
+			std::lock_guard lock(m_mutex);
+
 			auto entityArchetypeItt = m_entityArchetypes.find(entity);
 			if (entityArchetypeItt == m_entityArchetypes.end()) return;
 
@@ -75,6 +80,8 @@ namespace Engine::ECS {
 
 		template<typename... Components>
 		void removeComponent(Entity entity) {
+			std::lock_guard lock(m_mutex);
+
 			auto entityArchetypeItt = m_entityArchetypes.find(entity);
 			if (entityArchetypeItt == m_entityArchetypes.end()) return;
 
@@ -90,6 +97,8 @@ namespace Engine::ECS {
 
 		template<typename... Components>
 		std::vector<Entity> viewDirty(uint64_t sinceFrame = Global::CurrentFrame) const {
+			std::lock_guard lock(m_mutex);
+
 			ComponentSignature signature;
 			(setBit<Components>(signature), ...);
 
@@ -106,6 +115,8 @@ namespace Engine::ECS {
 
 		template<typename... Components>
 		std::vector<Entity> view() const {
+			std::lock_guard lock(m_mutex);
+
 			ComponentSignature signature;
 			(setBit<Components>(signature), ...);
 
@@ -123,6 +134,8 @@ namespace Engine::ECS {
 
 		template<typename Component>
 		std::optional<Component> getComponent(Entity entity) {
+			std::lock_guard lock(m_mutex);
+
 			auto itt = m_entityArchetypes.find(entity);
 			if (itt == m_entityArchetypes.end()) return std::nullopt;
 
@@ -131,6 +144,8 @@ namespace Engine::ECS {
 
 		template<typename Component>
 		bool isComponentDirty(Entity entity) {
+			std::lock_guard lock(m_mutex);
+
 			auto itt = m_entityArchetypes.find(entity);
 			if (itt == m_entityArchetypes.end()) return false;
 
@@ -169,5 +184,6 @@ namespace Engine::ECS {
 		std::atomic<Entity> m_nextEntityId;
 		tbb::concurrent_unordered_map<Entity, ComponentArchetype*> m_entityArchetypes;
 		ankerl::unordered_dense::map<std::bitset<MAX_COMPONENTS>, std::unique_ptr<ComponentArchetype>> m_componentArchetypes;
+		mutable std::mutex m_mutex;
 	};
 }

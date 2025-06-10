@@ -12,11 +12,10 @@ namespace Engine::System {
 	public:
 		StreamingSystem() = default;
 		~StreamingSystem() = default;
-		void initialize(Scene::Scene& scene, Render::Queue::DirectQueue& commandQueue) {
+		void initialize(Scene::Scene& scene, Render::Queue::DirectQueue& commandQueue, ftl::TaskScheduler* taskScheduler) {
+			m_taskScheduler = taskScheduler;
 			m_device = Render::Device::GetDevice();
 			m_streamingSystemArgs.initialize(m_device, &scene);
-			m_taskScheduler.Init(ftl::TaskSchedulerInitOptions{.ThreadPoolSize = 24});
-			m_taskScheduler.SetEmptyQueueBehavior(ftl::EmptyQueueBehavior::Sleep);
 
 			m_scene = &scene;
 			m_commandQueue = commandQueue.getQueue();
@@ -53,14 +52,14 @@ namespace Engine::System {
 					.ArgData = m_streamingRequestsMap[streamingRequestId].get(),
 				};
 				
-				m_taskScheduler.AddTask(task, ftl::TaskPriority::Normal);
+				m_taskScheduler->AddTask(task, ftl::TaskPriority::Normal);
 			}
 		}
 
 		std::unordered_map<Streaming::StreamingRequestId, std::unique_ptr<Streaming::Args>> m_streamingRequestsMap;
 		std::atomic<uint64_t> m_nextStreamingRequestId{ 0 };
 		Scene::Scene* m_scene;
-		ftl::TaskScheduler m_taskScheduler;
+		ftl::TaskScheduler* m_taskScheduler;
 		ID3D12Device* m_device;
 		ID3D12CommandQueue* m_commandQueue;
 		StreamingSystemArgs m_streamingSystemArgs;

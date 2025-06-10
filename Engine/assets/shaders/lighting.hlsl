@@ -1,5 +1,6 @@
 #define RS \
     "CBV(b0, flags=DATA_STATIC), " \
+    "CBV(b1, flags=DATA_STATIC), " \
     "DescriptorTable(" \
     "SRV(t0)," \
     "SRV(t1)," \
@@ -14,17 +15,14 @@
 
 cbuffer camera : register(b0)
 {
-    float4x4 projectionMatrix;
-    float4x4 projectionReverseDepthMatrix;
     float4x4 viewMatrix;
-    float4x4 viewProjectionReverseDepthMatrix;
-    
-    float4x4 prevProjectionMatrix;
-    float4x4 prevProjectionReverseDepthMatrix;
-    float4x4 prevViewMatrix;
-    float4x4 prevViewProjectionReverseDepthMatrix;
+    float4x4 viewReverseProjMatrix;
+
     float4 position;
-    uint4 screenDimensions;
+};
+cbuffer globals : register(b1)
+{
+    uint transformsIndex, screenX, screenY, unsued;
 };
 
 Texture2D<float4> albedoBuffer : register(t0); // Albedo G-buffer
@@ -41,7 +39,7 @@ RWTexture2D<float4> outputLighting : register(u0); // Output lighting texture
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     uint2 screenPos = dispatchThreadID.xy;
-    uint2 screenSize = screenDimensions.xy;
+    uint2 screenSize = float2(screenX, screenY);
     
     float3 rmao = roughnessMetalAoBuffer.Load(int3(screenPos, 0)).xyz;
 
@@ -54,5 +52,5 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     float3 emissive = emissiveBuffer.Load(int3(screenPos, 0)).rgb;
  
     
-    outputLighting[dispatchThreadID.xy] = albedoBuffer.Load(int3(screenPos, 0));
+    outputLighting[dispatchThreadID.xy] = float4(normal, 1.);
 }

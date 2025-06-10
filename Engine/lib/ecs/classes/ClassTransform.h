@@ -50,6 +50,7 @@ namespace Engine::ECS::Class {
 			DX::XMMATRIX rotationMatrix = DX::XMMatrixRotationQuaternion(m_rotationQat);
 			DX::XMMATRIX scalingMatrix = DX::XMMatrixScalingFromVector(m_scale);
 			m_model = DX::XMMatrixMultiply(scalingMatrix, XMMatrixMultiply(rotationMatrix, translationMatrix));
+			//m_model = DX::XMMatrixMultiply(translationMatrix, XMMatrixMultiply(rotationMatrix, scalingMatrix));
 		}
 		DX::XMMATRIX m_model;
 		DX::XMVECTOR m_position;

@@ -49,7 +49,7 @@ cbuffer camera : register(b0)
 };
 cbuffer globals : register(b1)
 {    
-    uint transformsIndex;
+    uint transformsIndex, screenX, screenY, unsued;
 };
 cbuffer mesh : register(b2)
 {

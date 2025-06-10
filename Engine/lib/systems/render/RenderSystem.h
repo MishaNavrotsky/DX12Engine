@@ -54,6 +54,8 @@ namespace Engine::System {
 			createSwapChain(factory.Get(), hwnd);
 		}
 		void update(float dt) {
+ 			auto* dCommandQueue = m_directCommandQueue.getQueue();
+			auto* cCommandQueue = m_computeCommandQueue.getQueue();
 			auto transform = m_transfromMatrixManager.update();
 			Render::Manager::GlobalsManager::Globals globals{};
 			globals.screenX = m_width;
@@ -66,11 +68,49 @@ namespace Engine::System {
 
 			auto commandList = populateCommandLists(cameraResource, transformResource, globalsResource);
 
-			m_directCommandQueue.getQueue()->ExecuteCommandLists(2, commandList.d_gbuffer.data());
+			dCommandQueue->ExecuteCommandLists(std::size(commandList.d_gbuffer), commandList.d_gbuffer.data());
+			ThrowIfFailed(dCommandQueue->Signal(m_fence.Get(), ++m_fenceValue));
+
+			ThrowIfFailed(cCommandQueue->Wait(m_fence.Get(), m_fenceValue));
+			cCommandQueue->ExecuteCommandLists(std::size(commandList.c_lighting), commandList.c_lighting.data());
+			ThrowIfFailed(cCommandQueue->Signal(m_fence.Get(), ++m_fenceValue));
+
+			ThrowIfFailed(dCommandQueue->Wait(m_fence.Get(), m_fenceValue));
+			dCommandQueue->ExecuteCommandLists(std::size(commandList.d_composition), commandList.d_composition.data());
+
+
+			ThrowIfFailed(m_commandAllocator->Reset());
+			ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), nullptr));
+
+			auto compositionRtv = m_compositionPass->getRtvResource();
+			auto swapChainBuffer = m_renderTargets[m_swapChain->GetCurrentBackBufferIndex()].Get();
+
+			{
+				CD3DX12_RESOURCE_BARRIER uavBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
+					compositionRtv->getResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE);
+				CD3DX12_RESOURCE_BARRIER swapChainBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
+					swapChainBuffer, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_COPY_DEST);
+				D3D12_RESOURCE_BARRIER barriers[] = { uavBarrier,  swapChainBarrier };
+				m_commandList->ResourceBarrier(2, barriers);
+			}
+			m_commandList->CopyResource(swapChainBuffer, compositionRtv->getResource());
+			{
+				CD3DX12_RESOURCE_BARRIER uavBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
+					compositionRtv->getResource(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET);
+				CD3DX12_RESOURCE_BARRIER swapChainBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
+					swapChainBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PRESENT);
+				D3D12_RESOURCE_BARRIER barriers[] = { uavBarrier,  swapChainBarrier };
+				m_commandList->ResourceBarrier(2, barriers);
+			}
+
+			ThrowIfFailed(m_commandList->Close());
+			ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
+			dCommandQueue->ExecuteCommandLists(1, ppCommandLists);
+
 			waitForCommandQueueExecute();
 			ThrowIfFailed(m_swapChain->Present(0, 0));
 
-			Global::CurrentFrame += 1;
+			//Global::CurrentFrame += 1;
 		}
 		void shutdown() override {
 			waitForCommandQueueExecute();
@@ -114,8 +154,14 @@ namespace Engine::System {
 
 
 		CommandLists populateCommandLists(Render::Memory::Resource* cameraResource, Render::Memory::Resource* transformResource, Render::Memory::Resource* globalsResource) {
+			auto frame = m_swapChain->GetCurrentBackBufferIndex();
+
 			CommandLists cmd{};
+			cmd.d_ui = m_uiPass->renderUI(frame);
 			cmd.d_gbuffer = m_gbufferPass->renderGBuffers(cameraResource, globalsResource);
+			cmd.c_lighting = m_lightingPass->computeLighting(m_gbufferPass.get(), cameraResource, globalsResource);
+			cmd.d_gizmos = m_gizmosPass->renderGizmos(m_gbufferPass->getDepthStencilResource(), cameraResource);
+			cmd.d_composition = m_compositionPass->renderComposition(m_lightingPass->getOutputTexture(), m_gizmosPass->getRtvResource(), m_uiPass->getRtvResource(frame), globalsResource);
 
 			return cmd;
 		}
@@ -156,7 +202,7 @@ namespace Engine::System {
 			m_gbufferPass = std::unique_ptr<GBufferPass>(new GBufferPass(m_device, m_width, m_height, &m_bindlessHeap, m_scene, &m_cameraManager, &m_transfromMatrixManager));
 			m_lightingPass = std::unique_ptr<LightingPass>(new LightingPass(m_device, m_width, m_height));
 			m_gizmosPass = std::unique_ptr<GizmosPass>(new GizmosPass(m_device, m_width, m_height, &m_bindlessHeap));
-			m_compositionPass = std::unique_ptr<CompositionPass>(new CompositionPass(m_device, m_width, m_height));
+			m_compositionPass = std::unique_ptr<CompositionPass>(new CompositionPass(m_device, m_directCommandQueue.getQueue(), m_width, m_height));
 			m_uiPass = std::unique_ptr<UIPass>(new UIPass(hwnd, m_device, m_directCommandQueue.getQueue(), FrameCount, m_width, m_height));
 		}
 		void createSwapChain(IDXGIFactory4* factory, HWND hwnd) {

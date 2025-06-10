@@ -25,7 +25,7 @@ namespace Engine::Render::Pipeline {
 	};
 	class GizmosPass {
 	public:
-		GizmosPass(WPtr<ID3D12Device> device, UINT width, UINT height, Descriptor::BindlessHeapDescriptor* bindlessHeap) : m_device(device), m_width(width), m_height(height), m_bindlessHeap(bindlessHeap) {
+		GizmosPass(ID3D12Device* device, UINT width, UINT height, Descriptor::BindlessHeapDescriptor* bindlessHeap) : m_device(device), m_width(width), m_height(height), m_bindlessHeap(bindlessHeap) {
 			PSOShaderCreate psoSC;
 			psoSC.PS = L"assets\\shaders\\gizmos.hlsl";
 			psoSC.VS = L"assets\\shaders\\gizmos.hlsl";
@@ -51,7 +51,7 @@ namespace Engine::Render::Pipeline {
 			m_viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height));
 			m_scissorRect = CD3DX12_RECT(0, 0, static_cast<LONG>(width), static_cast<LONG>(height));
 		}
-		std::array<ID3D12CommandList*, 2> renderGizmos(Memory::Resource* srcDepthBuffer) {
+		std::array<ID3D12CommandList*, 2> renderGizmos(Memory::Resource* srcDepthBuffer, Memory::Resource* cameraBuffer) {
 			ThrowIfFailed(m_commandAllocator->Reset());
 			ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), nullptr));
 			{
@@ -63,7 +63,7 @@ namespace Engine::Render::Pipeline {
 			}
 			cloneDepthBuffer(srcDepthBuffer);
 			m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
-			//m_commandList->SetGraphicsRootConstantBufferView(0, camera->getResource()->GetGPUVirtualAddress());
+			m_commandList->SetGraphicsRootConstantBufferView(0, cameraBuffer->getGpuVirtualAddress());
 
 			//ID3D12DescriptorHeap* heaps[] = { m_bindlessHeapDescriptor.getSrvDescriptorHeap(), m_bindlessHeapDescriptor.getSamplerDescriptorHeap() };
 			//m_commandList->SetDescriptorHeaps(_countof(heaps), heaps);
@@ -366,7 +366,7 @@ namespace Engine::Render::Pipeline {
 			ThrowIfFailed(m_device->CreateRootSignature(0, signatureBlob->GetBufferPointer(), signatureBlob->GetBufferSize(), IID_PPV_ARGS(&m_rootSignature)));
 		}
 
-		WPtr<ID3D12Device> m_device;
+		ID3D12Device* m_device;
 		UINT m_width;
 		UINT m_height;
 
