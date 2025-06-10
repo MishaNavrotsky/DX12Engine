@@ -39,13 +39,11 @@ namespace Engine::ECS::Class {
 			m_rotationQat = DX::XMLoadFloat4(&componentTransform.rotation);
 		}
 
-		std::unique_ptr<CameraData> getCameraData() {
+		std::unique_ptr<CameraData> getCameraData() const {
 			std::unique_ptr<CameraData> cameraData = std::make_unique<CameraData>();
 			DX::XMStoreFloat4(&cameraData->position, m_position);
 			DX::XMStoreFloat4x4(&cameraData->viewMatrix, DX::XMMatrixTranspose(m_viewMatrix));
-			DX::XMStoreFloat4x4(&cameraData->viewReverseProjMatrix, DX::XMMatrixTranspose(m_viewMatrix * m_reverseProjectionMatrix));
-
-
+			DX::XMStoreFloat4x4(&cameraData->viewReverseProjMatrix, DX::XMMatrixTranspose(DX::XMMatrixMultiply(m_viewMatrix, m_reverseProjectionMatrix)));
 			return cameraData;
 		}
 

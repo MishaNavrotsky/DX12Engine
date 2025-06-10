@@ -67,14 +67,13 @@ PSInput VSMain(VertexShaderInput input)
 {
     PSInput result;
     TransformBuffer t = g_buffers[transformsIndex][transformIndex];
-
-    float4 position = t.position;
-    float4x4 modelMatrix = t.modelMatrix;
-    result.position = mul(float4(input.position, 1.0), modelMatrix * viewReverseProjMatrix) + position;
+    
+    float4x4 MVrP = mul(t.modelMatrix, viewReverseProjMatrix);
+    result.position = mul(float4(input.position, 1.0), MVrP);
     result.texcoords = input.texcoords;
-    result.worldPosition = mul(float4(input.position, 1.0), modelMatrix);
-    result.worldTangent = mul(input.tangent.xyz, (float3x3) modelMatrix);
-    result.worldNormal = mul(input.normal, (float3x3) modelMatrix);
+    result.worldPosition = mul(float4(input.position, 1.0), t.modelMatrix);
+    result.worldTangent = mul(input.tangent.xyz, (float3x3) t.modelMatrix);
+    result.worldNormal = mul(input.normal, (float3x3) t.modelMatrix);
     result.tangent = input.tangent;
     // Convert to NDC
     //float4 ndcPosition = result.position / result.position.w;

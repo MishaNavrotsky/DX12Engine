@@ -92,8 +92,8 @@ namespace Engine::Render::Memory {
 		}
 
 		D3D12_GPU_VIRTUAL_ADDRESS getGpuVirtualAddress() {
-			static auto address = m_resource->GetGPUVirtualAddress();
-			return address;
+			if (!gpuVirtualAddress) gpuVirtualAddress = m_resource->GetGPUVirtualAddress();
+			return gpuVirtualAddress;
 		}
 
 		uint64_t copyData(ID3D12GraphicsCommandList* cmdList, Resource* src, uint64_t sourceOffset, uint64_t size, uint64_t alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT) {
@@ -298,6 +298,7 @@ namespace Engine::Render::Memory {
 
 		WPtr<ID3D12Resource> m_resource;
 
+		D3D12_GPU_VIRTUAL_ADDRESS gpuVirtualAddress = 0;
 		size_t m_allocatedSize = 0;
 		std::unique_ptr<D3D12_CLEAR_VALUE> m_clearValue;
 

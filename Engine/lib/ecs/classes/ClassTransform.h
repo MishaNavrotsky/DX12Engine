@@ -32,7 +32,7 @@ namespace Engine::ECS::Class {
 
 		std::unique_ptr<TransformData> getTransformData() const {
 			std::unique_ptr<TransformData> td = std::make_unique<TransformData>();
-			DX::XMStoreFloat4x4(&td->modelMatrix, m_model);
+			DX::XMStoreFloat4x4(&td->modelMatrix, DX::XMMatrixTranspose(m_model));
 			DX::XMStoreFloat4(&td->position, m_position);
 			return td;
 		}

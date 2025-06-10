@@ -47,6 +47,13 @@ namespace Engine::Render::Manager {
 			}
 			return { m_resource.get(), m_bindlessSlot };
 		}
+
+		std::optional<size_t> getEntityTransformPosition(ECS::Entity entity) {
+			auto itt = m_entityTransformPosition.find(entity);
+			if (itt == m_entityTransformPosition.end()) return std::nullopt;
+
+			return itt->second;
+		}
 	private:
 		Scene::Scene* m_scene;
 		std::unique_ptr<Memory::Resource> m_resource;

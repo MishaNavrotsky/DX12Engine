@@ -15,6 +15,7 @@ namespace Engine::Render::Manager {
 	public:
 		RenderableManager() {
 			m_meshRenderables.reserve(2ULL << 10);
+			m_meshIdRenderablePosition.reserve(2ULL << 10);
 		}
 		void initialize(Queue::DirectQueue& directQueue) {
 			auto* device = Device::GetDevice();
@@ -112,14 +113,25 @@ namespace Engine::Render::Manager {
 				}
 				renderableMesh.subMeshes.push_back(renderableSubMesh);
 			}
-
-			m_meshRenderables.push_back(std::move(renderableMesh));
+			auto index = meshCount.fetch_add(1, std::memory_order_relaxed);
+			if (index >= m_meshRenderables.size())
+				m_meshRenderables.grow_to_at_least(index + 1);
+			m_meshRenderables[index] = std::move(renderableMesh);
+			m_meshIdRenderablePosition[meshId] = index;
 		}
 		tbb::concurrent_vector<RenderableMesh>& getMeshRenderables() {
 			return m_meshRenderables;
 		}
+
+		std::optional<size_t> getMeshRenderableId(Scene::Asset::MeshId meshId) {
+			auto itt = m_meshIdRenderablePosition.find(meshId);
+			if (itt == m_meshIdRenderablePosition.end()) return std::nullopt;
+			return itt->second;
+		}
 	private:
 		tbb::concurrent_vector<RenderableMesh> m_meshRenderables;
+		tbb::concurrent_unordered_map<Scene::Asset::MeshId, size_t> m_meshIdRenderablePosition;
+		std::atomic<size_t> meshCount = 0;
 
 		std::vector<std::pair<Scene::Asset::CpuAttributeData, D3D12_VERTEX_BUFFER_VIEW>> m_defaultAttributes = GenerateGLTFDefaultCPUAttributes();
 		std::unique_ptr<Memory::Resource> m_resource;

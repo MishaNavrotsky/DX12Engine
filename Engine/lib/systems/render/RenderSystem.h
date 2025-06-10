@@ -115,7 +115,7 @@ namespace Engine::System {
 
 		CommandLists populateCommandLists(Render::Memory::Resource* cameraResource, Render::Memory::Resource* transformResource, Render::Memory::Resource* globalsResource) {
 			CommandLists cmd{};
-			cmd.d_gbuffer = m_gbufferPass->renderGBuffers(m_scene, cameraResource, transformResource);
+			cmd.d_gbuffer = m_gbufferPass->renderGBuffers(cameraResource, globalsResource);
 
 			return cmd;
 		}
@@ -153,7 +153,7 @@ namespace Engine::System {
 		void createPasses(HWND hwnd) {
 			using namespace Render::Pipeline;
 
-			m_gbufferPass = std::unique_ptr<GBufferPass>(new GBufferPass(m_device, m_width, m_height, &m_bindlessHeap));
+			m_gbufferPass = std::unique_ptr<GBufferPass>(new GBufferPass(m_device, m_width, m_height, &m_bindlessHeap, m_scene, &m_cameraManager, &m_transfromMatrixManager));
 			m_lightingPass = std::unique_ptr<LightingPass>(new LightingPass(m_device, m_width, m_height));
 			m_gizmosPass = std::unique_ptr<GizmosPass>(new GizmosPass(m_device, m_width, m_height, &m_bindlessHeap));
 			m_compositionPass = std::unique_ptr<CompositionPass>(new CompositionPass(m_device, m_width, m_height));
