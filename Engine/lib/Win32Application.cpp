@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "Win32Application.h"
+#include "./MainThreadQueue.h"
 
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -31,7 +32,6 @@ void Win32Application::RunMainEngineLoop(Engine::Engine* engine)
 		while(m_keyboardStateQueue[currentFront].try_pop(keyboardState))
 		{
 			engine->onKeyboardUpdate(keyboardState);
-
 		}
 
 		DX::Mouse::State mouseState;
@@ -76,9 +76,13 @@ void Win32Application::CreateMainWindow(RECT windowRect, const WCHAR* title, HIN
 
 char Win32Application::RunMainEventLoop()
 {
+	std::function<void(void)> f;
 	MSG msg = { 0 };
 	while (GetMessage(&msg, nullptr, 0, 0))
 	{
+		while (MainThreadQueue.try_pop(f)) {
+			f();
+		}
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
 	}
@@ -116,15 +120,15 @@ int Win32Application::Run(Engine::Engine* engine, HINSTANCE hInstance, int nCmdS
 // Main message handler for the sample.
 LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-	if (ImGui::GetCurrentContext()) {
-		auto& io = ImGui::GetIO();
-		if (ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam)) {
-			if (io.WantCaptureMouse)
-			{
-				return 0;
-			}
-		}
-	}
+	//if (ImGui::GetCurrentContext()) {
+	//	auto& io = ImGui::GetIO();
+	//	if (ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam)) {
+	//		if (io.WantCaptureMouse)
+	//		{
+	//			return 0;
+	//		}
+	//	}
+	//}
 
 
 

@@ -8,7 +8,7 @@
 #include "../../../ecs/entity/Entity.h"
 #include "../memory/Resource.h"
 #include "../../../helpers.h"
-#include "../../../ecs/components/ComponentTransform.h"
+#include "../../../ecs/components/Components.h"
 
 
 namespace Engine::Render::Manager {
@@ -24,11 +24,10 @@ namespace Engine::Render::Manager {
 			createSrv(bindlessHeap);
 		}
 
-		std::pair<Memory::Resource*, uint32_t> update() {
-			auto dirtyTransforms = m_scene->entityManager.viewDirty<ECS::Component::ComponentTransform>();
-			for (auto entity : dirtyTransforms) {
-				const auto optTransform = m_scene->entityManager.getComponent<ECS::Component::ComponentTransform>(entity);
-				const ECS::Component::ComponentTransform& transform = *optTransform;
+		Memory::Resource* update() {
+			auto& registry = m_scene->entityManager.getRegistry();
+			const auto& group = registry.group_if_exists<ECS::Component::ComponentTransform, ECS::Component::ComponentTransformDirty>();
+			for (const auto& [entity, transform] : group.each()) {
 				const ECS::Class::ClassTransform classTransform(transform);
 				auto const tranformData = classTransform.getTransformData();
 
@@ -39,13 +38,21 @@ namespace Engine::Render::Manager {
 					auto offset = position * ELEMENT_SIZE;
 					m_resource->writeDataD(tranformData.get(), offset, ELEMENT_SIZE);
 					m_entityTransformPosition.emplace(entity, position);
+
+					m_scene->entityManager.removeComponent<ECS::Component::ComponentTransformDirty>(entity);
 					continue;
 				}
 
-				auto offset = m_entityTransformPosition.at(entity) * ELEMENT_SIZE;
+				auto offset = itt->second * ELEMENT_SIZE;
 				m_resource->writeDataD(tranformData.get(), offset, ELEMENT_SIZE);
+				m_scene->entityManager.removeComponent<ECS::Component::ComponentTransformDirty>(entity);
 			}
-			return { m_resource.get(), m_bindlessSlot };
+
+			return m_resource.get();
+		}
+
+		uint32_t getBindlessSlot() {
+			return m_bindlessSlot;
 		}
 
 		std::optional<size_t> getEntityTransformPosition(ECS::Entity entity) {
@@ -58,7 +65,7 @@ namespace Engine::Render::Manager {
 		Scene::Scene* m_scene;
 		std::unique_ptr<Memory::Resource> m_resource;
 		ankerl::unordered_dense::map<ECS::Entity, size_t> m_entityTransformPosition;
-		std::atomic<size_t> m_lastOffset{0};
+		std::atomic<size_t> m_lastOffset{ 0 };
 		uint32_t m_bindlessSlot = 0;
 
 		void createTrasfromMatricesResource() {

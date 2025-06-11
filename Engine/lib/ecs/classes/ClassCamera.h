@@ -16,25 +16,25 @@ namespace Engine::ECS::Class {
 			DX::XMFLOAT4 position;
 		};
 
-		ClassCamera(Component::ComponentCamera& componentCamera, Component::ComponentTransform& componentTransform) {
+		ClassCamera(const Component::ComponentCamera& componentCamera, const Component::ComponentTransform& componentTransform) {
 			update(componentCamera, componentTransform);
 		}
 
-		inline void update(Component::ComponentCamera& componentCamera, Component::ComponentTransform& componentTransform) {
+		inline void update(const Component::ComponentCamera& componentCamera, const Component::ComponentTransform& componentTransform) {
 			setComponentCamera(componentCamera);
 			setComponentTransform(componentTransform);
 			updateProjectionMatrix();
 			updateViewMatrix();
 		}
 
-		inline void setComponentCamera(Component::ComponentCamera& componentCamera) {
+		inline void setComponentCamera(const Component::ComponentCamera& componentCamera) {
 			m_fov = componentCamera.fov;
 			m_nearPlane = componentCamera.nearPlane;
 			m_farPlane = componentCamera.farPlane;
 			m_aspectRatio = componentCamera.aspectRatio;
 		}
 
-		inline void setComponentTransform(Component::ComponentTransform& componentTransform) {
+		inline void setComponentTransform(const Component::ComponentTransform& componentTransform) {
 			m_position = DX::XMLoadFloat4(&componentTransform.position);
 			m_rotationQat = DX::XMLoadFloat4(&componentTransform.rotation);
 		}

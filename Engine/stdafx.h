@@ -45,6 +45,7 @@
 #include <tbb/concurrent_queue.h>
 #include <tbb/scalable_allocator.h>
 #include <external/entt/entt.hpp>
+#include <typeindex>
 
 
 static std::string HrToString(HRESULT hr)

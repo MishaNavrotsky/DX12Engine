@@ -56,14 +56,13 @@ namespace Engine::System {
 		void update(float dt) {
  			auto* dCommandQueue = m_directCommandQueue.getQueue();
 			auto* cCommandQueue = m_computeCommandQueue.getQueue();
-			auto transform = m_transfromMatrixManager.update();
 			Render::Manager::GlobalsManager::Globals globals{};
 			globals.screenX = m_width;
 			globals.screenY = m_height;
-			globals.transformsIndex = transform.second;
+			globals.transformsIndex = m_transfromMatrixManager.getBindlessSlot();
 
 			auto* cameraResource = m_cameraManager.update();
-			auto* transformResource = transform.first;
+			auto* transformResource = m_transfromMatrixManager.update();
 			auto* globalsResource = m_globalsManager.update(globals);
 
 			auto commandList = populateCommandLists(cameraResource, transformResource, globalsResource);

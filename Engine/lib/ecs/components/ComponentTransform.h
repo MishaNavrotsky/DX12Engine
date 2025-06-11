@@ -9,4 +9,6 @@ namespace Engine::ECS::Component {
 		DX::XMFLOAT4 rotation;
 		DX::XMFLOAT4 scale;
 	};
+
+	struct ComponentTransformDirty {};
 }

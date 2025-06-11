@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include "ecs/components/Initialize.h"
-
 #include "systems/render/RenderSystem.h"
 #include "systems/input/InputSystem.h"
 #include "systems/stream/StreamingSystem.h"
@@ -24,13 +22,27 @@ namespace Engine {
 		};
 
 		void initialize(HWND hwnd) {
-			ECS::Component::Initialize();
-
 			m_inputSystem.initialize(m_scene);
 			m_renderSystem.initialize(m_scene, m_useWarpDevice, hwnd, m_width, m_height);
 			m_streamSystem.initialize(m_scene, m_renderSystem.getDirectQueue(), &m_taskScheduler);
 			m_scene.initialize(m_renderSystem.getDirectQueue(), m_renderSystem.getComputeQueue());
 			//test
+			auto camera = m_scene.entityManager.createEntity();
+			auto componentCamera = ECS::Component::ComponentCamera{};
+			componentCamera.aspectRatio = static_cast<float>(m_width) / m_height;
+			componentCamera.farPlane = 1000000.f;
+			componentCamera.nearPlane = 0.1f;
+			componentCamera.fov = 90.f;
+
+			componentCamera.isMain = true;
+
+			auto componentTransform = ECS::Component::ComponentTransform{};
+			componentTransform.position = { 0, 2000, 0, 1 };
+			componentTransform.scale = { 1, 1, 1, 1 };
+			DX::XMStoreFloat4(&componentTransform.rotation, DX::XMQuaternionRotationRollPitchYaw(0, 0, 0));
+
+			m_scene.entityManager.addComponent(camera, componentCamera, componentTransform, ECS::Component::ComponentTransformDirty{});
+
 			m_taskScheduler.AddTask({ .Function = Engine::Test, .ArgData = this, }, ftl::TaskPriority::Normal);
 		}
 		static void Test(ftl::TaskScheduler* ts, void* args) {
@@ -41,38 +53,24 @@ namespace Engine {
 
 				i += 1000;
 				auto meshId = self->m_scene.assetManager.registerMesh(Scene::Asset::UsageMesh::Static, Scene::Asset::SourceMesh::File, Scene::Asset::FileSourceMesh{ std::filesystem::path("D:\\DX12En\\AssetsCreator\\assets\\alicev2rigged_0.mesh.asset") });
-				auto camera = self->m_scene.entityManager.createEntity();
-				auto componentCamera = ECS::Component::ComponentCamera{};
-				componentCamera.aspectRatio = static_cast<float>(self->m_width) / self->m_height;
-				componentCamera.farPlane = 1000000.f;
-				componentCamera.nearPlane = 0.1f;
-				componentCamera.fov = 90.f;
-
-				componentCamera.isMain = true;
-
-				auto componentTransform = ECS::Component::ComponentTransform{};
-				componentTransform.position = { 0, 2000, 0, 1 };
-				componentTransform.scale = { 1, 1, 1, 1 };
-				DX::XMStoreFloat4(&componentTransform.rotation, DX::XMQuaternionRotationRollPitchYaw(0, 0, 0));
-
-				self->m_scene.entityManager.addComponent(camera, componentCamera, componentTransform);
 
 				auto mesh = self->m_scene.entityManager.createEntity();
 				auto meshTransform = ECS::Component::ComponentTransform{};
 				meshTransform.position = { -6000 + i, 0, 2000, 1 };
-				meshTransform.scale = { 0.1, 0.1, 0.1, 0.1 };
+				meshTransform.scale = { 0.1f, 0.1f, 0.1f, 0.1f };
 				meshTransform.rotation = { 0, 0, 0, 1 };
 				auto meshMesh = ECS::Component::ComponentMesh{};
 				meshMesh.assetId = meshId;
 
-				self->m_scene.entityManager.addComponent(mesh, meshTransform, meshMesh);
-				std::this_thread::sleep_for(std::chrono::milliseconds(1));
+				self->m_scene.entityManager.addComponent(mesh, meshTransform, meshMesh, ECS::Component::ComponentTransformDirty{});
+				std::this_thread::sleep_for(std::chrono::milliseconds(10));
 			}
 		}
 		void update(float dt) {
+			m_scene.entityManager.processCommands();
 			m_inputSystem.update(dt);
-			m_renderSystem.update(dt);
 			m_streamSystem.update(dt);
+			m_renderSystem.update(dt);
 		}
 
 		void destroy() {

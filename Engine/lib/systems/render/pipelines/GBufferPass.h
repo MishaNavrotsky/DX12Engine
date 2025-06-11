@@ -104,13 +104,11 @@ namespace Engine::Render::Pipeline {
 			auto& renderableManager = m_scene->renderableManager;
 			auto& meshRenderables = renderableManager.getMeshRenderables();
 
-			const auto entities = entityManager.view<ECS::Component::ComponentMesh, ECS::Component::ComponentTransform>();
-			for (auto& entity : entities) {
-				ECS::Component::ComponentMesh component = *entityManager.getComponent<ECS::Component::ComponentMesh>(entity);
-
-
+			auto& registry = entityManager.getRegistry();
+			const auto& group = registry.group_if_exists<ECS::Component::ComponentMesh>(entt::get<ECS::Component::ComponentTransform>);
+			for (const auto& [entity, mesh, transform] : group.each()) {
 				auto transformPosition = m_transfromMatrixManager->getEntityTransformPosition(entity);
-				auto renderableId = renderableManager.getMeshRenderableId(component.assetId);
+				auto renderableId = renderableManager.getMeshRenderableId(mesh.assetId);
 				if (renderableId && transformPosition) {
 					auto& renderable = meshRenderables[renderableId.value()];
 					uint32_t data[2] = { static_cast<uint32_t>(transformPosition.value()), 0 };
@@ -123,16 +121,6 @@ namespace Engine::Render::Pipeline {
 					}
 				}
 			}
-
-			//m_commandList->SetGraphicsRootConstantBufferView(0, camera->getResource()->GetGPUVirtualAddress());
-			//auto lambda = std::function([&](CPUMesh& mesh, CPUMaterial& material, SceneNode* node) {
-			//	m_commandList->IASetPrimitiveTopology(mesh.topology);
-			//	m_commandList->SetPipelineState(getPso({ material.cullMode, mesh.topologyType }));
-			//	m_commandList->SetGraphicsRootConstantBufferView(1, node->getResource()->GetGPUVirtualAddress());
-			//	return false;
-			//	});
-
-			//scene->draw(m_commandList.Get(), camera, true, lambda);
 
 			ThrowIfFailed(m_commandList->Close());
 
@@ -164,7 +152,7 @@ namespace Engine::Render::Pipeline {
 
 			return resourcePtrs;
 		}
-
+		  
 		Memory::Resource* getDepthStencilResource() const {
 			return m_depthStencilBuffer.get();
 		}

@@ -18,24 +18,17 @@ namespace Engine::Render::Manager {
 		}
 
 		Render::Memory::Resource* update() {
-			auto cameras = m_scene->entityManager.viewDirty<ECS::Component::ComponentCamera, ECS::Component::ComponentTransform>();
-			uint64_t mainCameraEntity = 0;
-			for (auto& camera : cameras) {
-				auto com = m_scene->entityManager.getComponent<ECS::Component::ComponentCamera>(camera);
-				if (com && (*com).isMain) {
-					mainCameraEntity = camera;
+			auto& registry = m_scene->entityManager.getRegistry();
+			auto group = registry.group_if_exists<ECS::Component::ComponentCamera>(entt::get<ECS::Component::ComponentTransform>);
+			for (const auto& [entity, camera, transform] : group.each()) {
+				if (camera.isMain) {
+					ECS::Class::ClassCamera classCamera(camera, transform);
+					auto cameraData = classCamera.getCameraData();
+					m_resource->writeDataD(cameraData.get(), 0, sizeof(ECS::Class::ClassCamera::CameraData));
+					return m_resource.get();
 				}
 			}
 
-			if (!mainCameraEntity) return m_resource.get();
-
-			ECS::Component::ComponentTransform componentTransform = *m_scene->entityManager.getComponent<ECS::Component::ComponentTransform>(mainCameraEntity);
-			ECS::Component::ComponentCamera componentCamera = *m_scene->entityManager.getComponent<ECS::Component::ComponentCamera>(mainCameraEntity);
-
-			ECS::Class::ClassCamera camera(componentCamera, componentTransform);
-
-			auto cameraData = camera.getCameraData();
-			m_resource->writeDataD(cameraData.get(), 0, sizeof(ECS::Class::ClassCamera::CameraData));
 			return m_resource.get();
 		}
 	private:
